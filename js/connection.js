@@ -31,9 +31,27 @@ function waitForIceGathering(peerConnection) {
   });
 }
 
-// 3枚のQRコードを同時生成する
+// SDPからデータ通信に関係ない不要な行を削除しデータ量を半減させる関数
+function filterSdp(sdp) {
+  if (!sdp) return '';
+  return sdp
+    .split('\r\n')
+    .filter(line => {
+      return !line.startsWith('a=extmap:') &&
+             !line.startsWith('a=rtcp-fb:') &&
+             !line.startsWith('a=fmtp:') &&
+             !line.startsWith('a=rtcp:') &&
+             !line.startsWith('a=ssrc:') &&
+             !line.startsWith('a=msid:') &&
+             !line.startsWith('a=mid:');
+    })
+    .join('\r\n');
+}
+
+// 3枚のQRコードを同時生成する（軽量化適用）
 export function generateMultiPartQR(statusId, sdpObj, gameType = 'othello') {
-  const compactData = { t: sdpObj.type, s: sdpObj.sdp, g: gameType };
+  const cleanedSdp = filterSdp(sdpObj.sdp);
+  const compactData = { t: sdpObj.type, s: cleanedSdp, g: gameType };
   const jsonString = JSON.stringify(compactData);
   const fullStr = LZString.compressToBase64(jsonString);
   
@@ -46,7 +64,7 @@ export function generateMultiPartQR(statusId, sdpObj, gameType = 'othello') {
   
   const statusEl = document.getElementById(statusId);
   statusEl.className = 'loading-text';
-  statusEl.innerText = "相手に3つのQRコードを順番に読ませてください";
+  statusEl.innerText = "相手に3つのQRコードを順に読ませてください";
 
   for (let i = 1; i <= 3; i++) {
     const imgEl = document.getElementById(`conn-qr-${i}`);
@@ -73,10 +91,9 @@ function runScanner(onCameraStart, onScanDone) {
     html5QrCode = new Html5Qrcode("reader");
   }
 
-  // 止めずに連続でスキャンし続ける
   html5QrCode.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 260, height: 260 } },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
     (decodedText) => {
       if (!isScanComplete) {
         processScannedData(decodedText, onScanDone);
@@ -95,10 +112,15 @@ function processScannedData(text, onScanDone) {
       const partNum = text[0];
       const payload = text.slice(2);
       
-      // まだ読んでいない色なら登録してUIを更新
+      // まだ読んでいない色なら登録してUIとバイブレーションを更新
       if (!scannedParts[partNum]) {
         scannedParts[partNum] = payload;
         
+        // 1枚読み取り成功時のバイブレーション（短く1回）
+        if (navigator.vibrate) {
+          navigator.vibrate(100);
+        }
+
         const indicator = document.getElementById(`indicator-${partNum}`);
         if (partNum === '1') indicator.innerText = "✅ 🔴赤";
         if (partNum === '2') indicator.innerText = "✅ 🔵青";
@@ -107,6 +129,12 @@ function processScannedData(text, onScanDone) {
         // 3つ全て揃った場合の処理
         if (scannedParts['1'] && scannedParts['2'] && scannedParts['3']) {
           isScanComplete = true; // 多重発火を防止
+
+          // 全枚数読み取り完了時のバイブレーション（2回連続）
+          if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 150]);
+          }
+
           html5QrCode.stop().then(() => {
             html5QrCode.clear();
             html5QrCode = null;
@@ -122,7 +150,7 @@ function processScannedData(text, onScanDone) {
       }
     }
   } catch(e) {
-    // 誤作動防止のためエラーは無視してスキャンを継続
+    // 読み取りミス時は無視してスキャン継続
   }
 }
 

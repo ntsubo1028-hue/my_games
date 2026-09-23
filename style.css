@@ -310,3 +310,23 @@ button:active, .btn-action:active {
   opacity: 0.7;
   cursor: default;
 }
+
+/* カメラ画面・スキャン枠の表示スタイル調整 */
+#reader {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#reader video {
+  object-fit: cover !important;
+}
+
+/* スキャン枠を綺麗な正方形に強制指定 */
+#reader __scan_region {
+  border: 3px solid #4caf50 !important;
+  border-radius: 12px !important;
+}
