@@ -205,6 +205,11 @@ export function sendData(data) {
   }
 }
 
+// 接続がすでに確立しているかチェックする関数
+export function isConnectionEstablished() {
+  return window.dataChannel && window.dataChannel.readyState === 'open';
+}
+
 function setupDataChannelHandlers(channel, onOpen) {
   dataChannel = channel;
   dataChannel.onopen = () => { onOpen(); };
@@ -213,3 +218,4 @@ function setupDataChannelHandlers(channel, onOpen) {
     if (onMessageCallback) onMessageCallback(data);
   };
 }
+

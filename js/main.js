@@ -7,7 +7,9 @@ import {
   startMultiPartScan, 
   cancelScan, 
   initConnection, 
-  setOnMessage 
+  setOnMessage,
+  isConnectionEstablished,
+  sendData
 } from './connection.js';
 
 import { 
@@ -41,6 +43,7 @@ document.getElementById('btn-goto-host-select').onclick = () => {
 };
 
 document.getElementById('btn-back-main').onclick = () => {
+  initConnection(); // メインメニューに戻る時だけ完全に切断
   showScreen('menu-screen');
 };
 
@@ -52,15 +55,31 @@ document.getElementById('btn-guest').onclick = () => {
 
 // --- ホスト：ゲーム選択 ---
 document.getElementById('btn-select-othello').onclick = () => {
-  isHost = true;
   selectedGame = 'othello';
-  startHostConnectionFlow();
+  if (isConnectionEstablished()) {
+    // すでに接続がつながっている場合は、QRを通らず直接切り替えを通知
+    sendData({ type: "CHANGE_GAME", payload: { game: 'othello' } });
+    showScreen('game-screen');
+    initGame(true);
+    syncStateToGuest();
+  } else {
+    isHost = true;
+    startHostConnectionFlow();
+  }
 };
 
 document.getElementById('btn-select-dots').onclick = () => {
-  isHost = true;
   selectedGame = 'dots';
-  startHostConnectionFlow();
+  if (isConnectionEstablished()) {
+    // すでに接続がつながっている場合は、QRを通らず直接切り替えを通知
+    sendData({ type: "CHANGE_GAME", payload: { game: 'dots' } });
+    showScreen('dots-game-screen');
+    initDotsGame(true);
+    syncDotsStateToGuest();
+  } else {
+    isHost = true;
+    startHostConnectionFlow();
+  }
 };
 
 // --- ホスト：接続確立フロー（ゲーム共通） ---
@@ -84,7 +103,6 @@ async function startHostConnectionFlow() {
 
   try {
     const localDesc = await setupHostConnection(() => {
-      // 通信が開通したときの処理
       if (selectedGame === 'othello') {
         showScreen('game-screen');
         initGame(true);
@@ -156,16 +174,22 @@ document.getElementById('btn-back-select').onclick = () => {
   else showScreen('menu-screen');
 };
 
-// ゲーム終了ボタン
-document.getElementById('btn-quit-game').onclick = () => {
-  initConnection();
-  showScreen('menu-screen');
+// ゲーム終了ボタン（接続を切断せず、ホストは選択画面へ、ゲストは待機へ）
+const handleQuitGame = () => {
+  if (isHost) {
+    showScreen('host-game-select-screen');
+  } else {
+    showScreen('connection-screen');
+    document.getElementById('conn-title').innerText = "ホストの選択待ち";
+    document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
+    document.getElementById('conn-qr').style.display = 'none';
+    document.getElementById('btn-toggle-qr').style.display = 'none';
+    document.getElementById('btn-start-scan').style.display = 'none';
+  }
 };
 
-document.getElementById('btn-quit-dots').onclick = () => {
-  initConnection();
-  showScreen('menu-screen');
-};
+document.getElementById('btn-quit-game').onclick = handleQuitGame;
+document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 
 // 再戦ボタン（もう一度遊ぶ）
 document.getElementById('btn-rematch-othello').onclick = () => {
@@ -178,11 +202,24 @@ document.getElementById('btn-rematch-dots').onclick = () => {
 
 // --- 通信メッセージの受信処理（ルーティング） ---
 setOnMessage((data) => {
+  // ゲストがホストからのゲーム変更通知を受け取った場合
+  if (data.type === "CHANGE_GAME") {
+    selectedGame = data.payload.game;
+    if (selectedGame === 'othello') {
+      showScreen('game-screen');
+      initGame(false);
+    } else if (selectedGame === 'dots') {
+      showScreen('dots-game-screen');
+      initDotsGame(false);
+    }
+    return;
+  }
+
+  // 各ゲームのアクション・同期処理
   if (selectedGame === 'othello') {
     if (isHost && data.type === "ACTION_PUT_STONE") {
       processAction(data);
     } else if (isHost && data.type === "ACTION_REMATCH_OTHELLO") {
-      // ゲストからの再戦要求を受け取ったホスト側の処理
       initGame(true);
       syncStateToGuest();
     } else if (!isHost && data.type === "STATE_SYNC") {
@@ -192,7 +229,6 @@ setOnMessage((data) => {
     if (data.type === "ACTION_DRAW_LINE") {
       processDotsAction(data);
     } else if (isHost && data.type === "ACTION_REMATCH_DOTS") {
-      // ゲストからの再戦要求を受け取ったホスト側の処理
       initDotsGame(true);
       syncDotsStateToGuest();
     } else if (!isHost && data.type === "STATE_SYNC_DOTS") {
