@@ -43,7 +43,7 @@ import {
   updateGameState as updateConcentrationGameState, 
   syncStateToGuest as syncConcentrationStateToGuest, 
   requestRematch as requestConcentrationRematch,
-  handleScreenTap as handleConcentrationScreenTap // 👈 追加
+  handleScreenTap as handleConcentrationScreenTap
 } from './concentration.js';
 
 let isHost = false;
@@ -61,7 +61,7 @@ document.getElementById('btn-goto-host-select').onclick = () => {
 };
 
 document.getElementById('btn-back-main').onclick = () => {
-  initConnection(); // メインメニューに戻る時だけ完全に切断
+  initConnection(); 
   showScreen('menu-screen');
 };
 
@@ -75,7 +75,6 @@ document.getElementById('btn-guest').onclick = () => {
 document.getElementById('btn-select-othello').onclick = () => {
   selectedGame = 'othello';
   if (isConnectionEstablished()) {
-    // すでに接続がつながっている場合は、QRを通らず直接切り替えを通知
     sendData({ type: "CHANGE_GAME", payload: { game: 'othello' } });
     showScreen('game-screen');
     initGame(true);
@@ -89,7 +88,6 @@ document.getElementById('btn-select-othello').onclick = () => {
 document.getElementById('btn-select-dots').onclick = () => {
   selectedGame = 'dots';
   if (isConnectionEstablished()) {
-    // すでに接続がつながっている場合は、QRを通らず直接切り替えを通知
     sendData({ type: "CHANGE_GAME", payload: { game: 'dots' } });
     showScreen('dots-game-screen');
     initDotsGame(true);
@@ -113,7 +111,7 @@ document.getElementById('btn-select-concentration').onclick = () => {
   }
 };
 
-// --- ホスト：接続確立フロー（ゲーム共通） ---
+// --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
   showScreen('connection-screen');
   document.getElementById('conn-title').innerText = "ホスト接続情報 (全3枚)";
@@ -212,7 +210,6 @@ document.getElementById('btn-back-select').onclick = () => {
   else showScreen('menu-screen');
 };
 
-// ゲーム終了ボタン（接続を切断せず、ホストは選択画面へ、ゲストは待機へ）
 const handleQuitGame = () => {
   if (isHost) {
     showScreen('host-game-select-screen');
@@ -230,18 +227,9 @@ document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
 
-// 再戦ボタン（もう一度遊ぶ）
-document.getElementById('btn-rematch-othello').onclick = () => {
-  requestRematch();
-};
-
-document.getElementById('btn-rematch-dots').onclick = () => {
-  requestRematchDots();
-};
-
-document.getElementById('btn-rematch-concentration').onclick = () => {
-  requestConcentrationRematch();
-};
+document.getElementById('btn-rematch-othello').onclick = () => requestRematch();
+document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
+document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
 
 // --- 通信メッセージの受信処理（ルーティング） ---
 setOnMessage((data) => {
@@ -255,19 +243,13 @@ setOnMessage((data) => {
       showScreen('dots-game-screen');
       initDotsGame(false);
     } else if (selectedGame === 'concentration') {
-      if (data.type === "CONCENTRATION_FLIP" || data.type === "CONCENTRATION_CONFIRM") { // 👈 CONCENTRATION_CONFIRMを追加
-        processConcentrationAction(data);
-      } else if (isHost && data.type === "CONCENTRATION_REMATCH") {
-        initConcentrationGame(true);
-        syncStateToGuest();
-      } else if (!isHost && data.type === "CONCENTRATION_STATE_SYNC") {
-        updateConcentrationGameState(data.payload);
-      }
+      showScreen('concentration-game-screen');
+      initConcentrationGame(false);
     }
     return;
   }
 
-  // 各ゲームのアクション・同期処理
+  // ★ 各ゲームのアクション・同期処理（正しく分岐を独立させました）
   if (selectedGame === 'othello') {
     if (isHost && data.type === "ACTION_PUT_STONE") {
       processAction(data);
@@ -287,7 +269,7 @@ setOnMessage((data) => {
       updateDotsGameState(data.payload);
     }
   } else if (selectedGame === 'concentration') {
-    if (data.type === "CONCENTRATION_FLIP") {
+    if (data.type === "CONCENTRATION_FLIP" || data.type === "CONCENTRATION_CONFIRM") {
       processConcentrationAction(data);
     } else if (isHost && data.type === "CONCENTRATION_REMATCH") {
       initConcentrationGame(true);
@@ -313,7 +295,6 @@ document.getElementById('btn-rematch-tetris').onclick = () => {
   initTetris();
 };
 
-// テトリスの画面コントローラー
 document.getElementById('btn-tetris-left').onclick = () => moveTetris(-1);
 document.getElementById('btn-tetris-right').onclick = () => moveTetris(1);
 document.getElementById('btn-tetris-down').onclick = () => dropTetris();
