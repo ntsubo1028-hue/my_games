@@ -10,7 +10,6 @@ const ROWS = 20;
 const COLS = 10;
 const BLOCK_SIZE = 20;
 
-// テトリミノの色
 const COLORS = [
   null,
   '#00FFFF', // I (水色)
@@ -22,16 +21,15 @@ const COLORS = [
   '#FF0000'  // Z (赤)
 ];
 
-// テトリミノの形
 const SHAPES = [
   [],
-  [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]], // I
-  [[2,0,0], [2,2,2], [0,0,0]], // J
-  [[0,0,3], [3,3,3], [0,0,0]], // L
-  [[4,4], [4,4]], // O
-  [[0,5,5], [5,5,0], [0,0,0]], // S
-  [[0,6,0], [6,6,6], [0,0,0]], // T
-  [[7,7,0], [0,7,7], [0,0,0]]  // Z
+  [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]],
+  [[2,0,0], [2,2,2], [0,0,0]],
+  [[0,0,3], [3,3,3], [0,0,0]],
+  [[4,4], [4,4]],
+  [[0,5,5], [5,5,0], [0,0,0]],
+  [[0,6,0], [6,6,6], [0,0,0]],
+  [[7,7,0], [0,7,7], [0,0,0]]
 ];
 
 let board = [];
@@ -44,12 +42,16 @@ let lines = 0;
 let animationId = null;
 let isGameOver = false;
 
-// 盤面生成
+// --- 演出用変数 ---
+let particles = [];
+let floatingTexts = [];
+let shakeTime = 0;
+let shakeIntensity = 0;
+
 function createBoard() {
   return Array.from({length: ROWS}, () => Array(COLS).fill(0));
 }
 
-// 新しいピースの出現
 function spawnPiece() {
   const typeId = Math.floor(Math.random() * 7) + 1;
   piece = {
@@ -58,15 +60,13 @@ function spawnPiece() {
     typeId: typeId
   };
   
-  // 出現直後に衝突したらゲームオーバー
   if (collide(board, piece)) {
     isGameOver = true;
     btnRematch.style.display = 'inline-block';
-    playSound('win'); // ゲームオーバー音（ファンファーレ代用）
+    playSound('win');
   }
 }
 
-// 衝突判定
 function collide(board, piece) {
   const m = piece.matrix;
   for (let y = 0; y < m.length; y++) {
@@ -80,7 +80,6 @@ function collide(board, piece) {
   return false;
 }
 
-// 盤面への固定
 function merge(board, piece) {
   piece.matrix.forEach((row, y) => {
     row.forEach((value, x) => {
@@ -91,24 +90,95 @@ function merge(board, piece) {
   });
 }
 
+// 演出：画面を揺らす
+function triggerShake(intensity = 5, duration = 15) {
+  shakeIntensity = intensity;
+  shakeTime = duration;
+}
+
+// 演出：パーティクル（飛び散る破片）を生成
+function createParticles(yIndex, rowValues) {
+  for (let x = 0; x < COLS; x++) {
+    const colorVal = rowValues[x];
+    if (!colorVal) continue;
+    const px = x * BLOCK_SIZE + BLOCK_SIZE / 2;
+    const py = yIndex * BLOCK_SIZE + BLOCK_SIZE / 2;
+
+    // 1マスあたり6個の破片を発散
+    for (let i = 0; i < 6; i++) {
+      particles.push({
+        x: px,
+        y: py,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8 - 2, // やや上に吹き飛ぶ
+        size: Math.random() * 5 + 3,
+        color: COLORS[colorVal],
+        life: 1.0,  // 不透明度・寿命
+        decay: Math.random() * 0.03 + 0.02
+      });
+    }
+  }
+}
+
+// 演出：ポップアップテキストを生成
+function addFloatingText(text, color = '#FFF') {
+  floatingTexts.push({
+    text: text,
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    color: color,
+    scale: 0.5,
+    maxScale: 1.5,
+    life: 1.0,
+    decay: 0.02
+  });
+}
+
 // ライン消去
 function sweep() {
   let rowCount = 0;
-  outer: for (let y = board.length - 1; y >= 0; y--) {
+  
+  for (let y = board.length - 1; y >= 0; y--) {
+    let isFull = true;
     for (let x = 0; x < board[y].length; x++) {
-      if (board[y][x] === 0) continue outer;
+      if (board[y][x] === 0) {
+        isFull = false;
+        break;
+      }
     }
-    const row = board.splice(y, 1)[0].fill(0);
-    board.unshift(row);
-    y++;
-    rowCount++;
+
+    if (isFull) {
+      // 消去されるラインの情報を元にパーティクル生成
+      createParticles(y, [...board[y]]);
+      
+      const row = board.splice(y, 1)[0].fill(0);
+      board.unshift(row);
+      y++;
+      rowCount++;
+    }
   }
+
   if (rowCount > 0) {
-    playSound('flip'); // 消えた音
+    playSound('flip');
     lines += rowCount;
-    score += [0, 40, 100, 300, 1200][rowCount] * (Math.floor(lines / 10) + 1);
-    dropInterval = Math.max(100, 1000 - (Math.floor(lines / 10) * 100)); // スピードアップ
+    score += [0, 100, 300, 500, 1200][rowCount] * (Math.floor(lines / 10) + 1);
+    dropInterval = Math.max(100, 1000 - (Math.floor(lines / 10) * 100));
     updateScore();
+
+    // 消した数に応じた演出切り替え
+    if (rowCount === 1) {
+      triggerShake(3, 10);
+      addFloatingText('SINGLE!', '#00FFFF');
+    } else if (rowCount === 2) {
+      triggerShake(6, 12);
+      addFloatingText('DOUBLE!!', '#00FF00');
+    } else if (rowCount === 3) {
+      triggerShake(9, 15);
+      addFloatingText('TRIPLE!!!', '#FFA500');
+    } else if (rowCount >= 4) {
+      triggerShake(15, 25);
+      addFloatingText('TETRIS!!!!', '#FF0055');
+    }
   }
 }
 
@@ -127,7 +197,7 @@ export function dropTetris() {
   if (collide(board, piece)) {
     piece.pos.y--;
     merge(board, piece);
-    playSound('put'); // 固定音
+    playSound('put');
     spawnPiece();
     sweep();
   }
@@ -151,13 +221,14 @@ export function rotateTetris() {
 }
 
 export function hardDropTetris() {
-  if(isGameOver) return;
+  if (isGameOver) return;
   while (!collide(board, piece)) {
     piece.pos.y++;
   }
   piece.pos.y--;
   merge(board, piece);
   playSound('put');
+  triggerShake(2, 6); // ハードドロップ時も軽く揺らす
   spawnPiece();
   sweep();
   dropCounter = 0;
@@ -181,7 +252,7 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// 描画処理（立体感・光沢のあるブロックにアップデート）
+// 光沢ブロック描画
 function drawMatrix(matrix, offset) {
   matrix.forEach((row, y) => {
     row.forEach((value, x) => {
@@ -189,14 +260,12 @@ function drawMatrix(matrix, offset) {
         const px = (x + offset.x) * BLOCK_SIZE;
         const py = (y + offset.y) * BLOCK_SIZE;
         const size = BLOCK_SIZE;
-        const bw = 4; // ベベル（立体枠）の太さ
+        const bw = 3;
 
-        // 1. ベースカラーの描画
         ctx.fillStyle = COLORS[value];
         ctx.fillRect(px, py, size, size);
 
-        // 2. 左と上のハイライト（光の反射）
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // 白の半透明
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
         ctx.moveTo(px, py);
         ctx.lineTo(px + size, py);
@@ -206,8 +275,7 @@ function drawMatrix(matrix, offset) {
         ctx.lineTo(px, py + size);
         ctx.fill();
 
-        // 3. 右と下のシャドウ（影）
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // 黒の半透明
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
         ctx.beginPath();
         ctx.moveTo(px + size, py + size);
         ctx.lineTo(px, py + size);
@@ -217,11 +285,6 @@ function drawMatrix(matrix, offset) {
         ctx.lineTo(px + size, py);
         ctx.fill();
 
-        // 4. 中心部分のツヤ出し（さらに光沢感を強調）
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.fillRect(px + bw, py + bw, size - bw * 2, size - bw * 2);
-
-        // 5. 全体の細い枠線
         ctx.strokeStyle = '#111';
         ctx.strokeRect(px, py, size, size);
       }
@@ -229,17 +292,81 @@ function drawMatrix(matrix, offset) {
   });
 }
 
+// 演出の更新＆描画処理
+function updateAndDrawEffects() {
+  // 1. パーティクルの更新・描画
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.2; // 簡易的な重力
+    p.life -= p.decay;
+
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    ctx.restore();
+  }
+
+  // 2. ポップアップテキストの更新・描画
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y -= 0.8; // ゆっくり上昇
+    if (ft.scale < ft.maxScale) ft.scale += 0.1;
+    ft.life -= ft.decay;
+
+    if (ft.life <= 0) {
+      floatingTexts.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = ft.life;
+    ctx.fillStyle = ft.color;
+    ctx.font = `900 ${Math.floor(20 * ft.scale)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 6;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  }
+}
+
+// 全体描画
 function draw() {
+  ctx.save();
+
+  // 画面揺れ（スクリーンシェイク）の適用
+  if (shakeTime > 0) {
+    const dx = (Math.random() - 0.5) * shakeIntensity;
+    const dy = (Math.random() - 0.5) * shakeIntensity;
+    ctx.translate(dx, dy);
+    shakeTime--;
+  }
+
+  // 盤面描画
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawMatrix(board, {x: 0, y: 0});
   if (piece) drawMatrix(piece.matrix, piece.pos);
-  
+
+  // エフェクト描画（破片・テキスト）
+  updateAndDrawEffects();
+
+  ctx.restore(); // 画面揺れの座標リセット
+
+  // ゲームオーバー画面
   if (isGameOver) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#fff';
-    ctx.font = '24px sans-serif';
+    ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
   }
@@ -266,6 +393,9 @@ export function initTetris() {
   lines = 0;
   dropInterval = 1000;
   isGameOver = false;
+  particles = [];
+  floatingTexts = [];
+  shakeTime = 0;
   btnRematch.style.display = 'none';
   updateScore();
   spawnPiece();
@@ -282,15 +412,15 @@ export function stopTetris() {
   }
 }
 
-// キーボード操作対応（テトリス画面を開いている時だけ有効）
+// キーボード操作対応
 document.addEventListener('keydown', event => {
   if (document.getElementById('tetris-game-screen').classList.contains('active') && !isGameOver) {
     switch(event.keyCode) {
-      case 37: moveTetris(-1); break; // 左
-      case 39: moveTetris(1); break;  // 右
-      case 40: dropTetris(); break;   // 下
-      case 38: rotateTetris(); break; // 上
-      case 32: hardDropTetris(); break; // スペース
+      case 37: moveTetris(-1); break;
+      case 39: moveTetris(1); break;
+      case 40: dropTetris(); break;
+      case 38: rotateTetris(); break;
+      case 32: hardDropTetris(); break;
     }
   }
 });
