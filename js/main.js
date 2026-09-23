@@ -42,7 +42,8 @@ import {
   processAction as processConcentrationAction, 
   updateGameState as updateConcentrationGameState, 
   syncStateToGuest as syncConcentrationStateToGuest, 
-  requestRematch as requestConcentrationRematch 
+  requestRematch as requestConcentrationRematch,
+  handleScreenTap as handleConcentrationScreenTap // 👈 追加
 } from './concentration.js';
 
 let isHost = false;
@@ -254,8 +255,14 @@ setOnMessage((data) => {
       showScreen('dots-game-screen');
       initDotsGame(false);
     } else if (selectedGame === 'concentration') {
-      showScreen('concentration-game-screen');
-      initConcentrationGame(false);
+      if (data.type === "CONCENTRATION_FLIP" || data.type === "CONCENTRATION_CONFIRM") { // 👈 CONCENTRATION_CONFIRMを追加
+        processConcentrationAction(data);
+      } else if (isHost && data.type === "CONCENTRATION_REMATCH") {
+        initConcentrationGame(true);
+        syncStateToGuest();
+      } else if (!isHost && data.type === "CONCENTRATION_STATE_SYNC") {
+        updateConcentrationGameState(data.payload);
+      }
     }
     return;
   }
@@ -312,3 +319,10 @@ document.getElementById('btn-tetris-right').onclick = () => moveTetris(1);
 document.getElementById('btn-tetris-down').onclick = () => dropTetris();
 document.getElementById('btn-tetris-up').onclick = () => rotateTetris();
 document.getElementById('btn-tetris-drop').onclick = () => hardDropTetris();
+
+// 神経衰弱の画面がタップされたら確認待ちを解除する
+document.getElementById('concentration-game-screen').onclick = () => {
+  if (selectedGame === 'concentration') {
+    handleConcentrationScreenTap();
+  }
+};

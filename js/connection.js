@@ -1,221 +1,252 @@
-const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+import { sendData } from './connection.js';
+import { playSound } from './sounds.js';
 
-let pc = null;
-let dataChannel = null;
-let html5QrCode = null;
+let isHostPlayer = false;
+let isMyTurn = false;
+let myRole = 'host'; 
+let board = []; 
+let flippedIndices = []; 
+let scores = { host: 0, guest: 0 };
+let currentTurn = 'host'; 
+let gameOver = false;
+let isProcessing = false; 
 
-let activeQRParts = [];
-let currentQRIndex = 0;
-let scannedParts = {};
-let currentScanCallback = null;
+// 不一致時の確認待ち用変数
+let isWaitingForConfirmation = false;
+let confirmationTimer = null;
 
-export function initConnection() {
-  if (pc) { pc.close(); pc = null; }
-  if (dataChannel) { dataChannel.close(); dataChannel = null; }
-  scannedParts = {};
-  activeQRParts = [];
-}
+const boardEl = document.getElementById('concentration-board');
+const turnText = document.getElementById('concentration-turn-text');
+const scoreHostEl = document.getElementById('concentration-score-host');
+const scoreGuestEl = document.getElementById('concentration-score-guest');
+const btnRematch = document.getElementById('btn-rematch-concentration');
 
-function waitForIceGathering(peerConnection) {
-  return new Promise((resolve) => {
-    if (peerConnection.iceGatheringState === 'complete') {
-      resolve();
-    } else {
-      let isResolved = false;
-      const done = () => {
-        if (!isResolved) { isResolved = true; resolve(); }
-      };
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate === null) done();
-      };
-      setTimeout(done, 1000);
+const SYMBOLS = ['🍎', '🍊', '🍇', '🍓', '🍉', '🍒', '🍍', '🥝'];
+
+export function initGame(isHost) {
+  isHostPlayer = isHost;
+  myRole = isHost ? 'host' : 'guest';
+  gameOver = false;
+  scores = { host: 0, guest: 0 };
+  currentTurn = 'host';
+  isMyTurn = isHost;
+  flippedIndices = [];
+  isProcessing = false;
+  isWaitingForConfirmation = false;
+  if (confirmationTimer) clearTimeout(confirmationTimer);
+  btnRematch.style.display = 'none';
+
+  if (isHostPlayer) {
+    let cardSymbols = [...SYMBOLS, ...SYMBOLS]; 
+    for (let i = cardSymbols.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cardSymbols[i], cardSymbols[j]] = [cardSymbols[j], cardSymbols[i]];
     }
-  });
-}
-
-// gameType を含めてQRコードを生成する
-export function generateMultiPartQR(imgId, statusId, sdpObj, gameType = 'othello') {
-  const compactData = { t: sdpObj.type, s: sdpObj.sdp, g: gameType };
-  const jsonString = JSON.stringify(compactData);
-  const fullStr = LZString.compressToBase64(jsonString);
-  
-  const len = Math.ceil(fullStr.length / 3);
-  activeQRParts = [
-    "1:" + fullStr.slice(0, len),
-    "2:" + fullStr.slice(len, len * 2),
-    "3:" + fullStr.slice(len * 2)
-  ];
-  currentQRIndex = 0;
-  renderCurrentQR(imgId, statusId);
-}
-
-export function renderCurrentQR(imgId, statusId) {
-  const statusEl = document.getElementById(statusId);
-  const imgEl = document.getElementById(imgId);
-  if (!activeQRParts.length) return;
-  
-  const data = activeQRParts[currentQRIndex];
-  const partNum = currentQRIndex + 1;
-
-  statusEl.className = 'loading-text';
-  statusEl.innerText = `QRコード生成中 (${partNum}/3)...`;
-  
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=L&data=${encodeURIComponent(data)}`;
-  
-  imgEl.onload = () => {
-    statusEl.innerText = `相手に読ませてください 【 Part ${partNum} / 3 】\n※ボタンで切り替えて全3枚を見せてください`;
-    imgEl.style.display = 'block';
-  };
-  imgEl.onerror = () => {
-    statusEl.className = 'error-text';
-    statusEl.innerText = "QRコードの画像読み込みに失敗しました。";
-  };
-  imgEl.src = qrApiUrl;
-}
-
-export function toggleQR(imgId, statusId) {
-  if (activeQRParts.length === 3) {
-    currentQRIndex = (currentQRIndex + 1) % 3;
-    renderCurrentQR(imgId, statusId);
-  }
-}
-
-export function startMultiPartScan(callback, onCameraStart, onScanDone) {
-  scannedParts = {};
-  currentScanCallback = callback;
-  runScanner(onCameraStart, onScanDone);
-}
-
-function runScanner(onCameraStart, onScanDone) {
-  onCameraStart();
-  const missing = !scannedParts['1'] ? '1' : (!scannedParts['2'] ? '2' : '3');
-  document.getElementById('scan-guide-text').innerText = `【 Part ${missing} / 3 】のQRコードを枠内に入れてください`;
-
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("reader");
-  }
-
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 260, height: 260 } },
-    (decodedText) => {
-      html5QrCode.stop().then(() => {
-        html5QrCode.clear();
-        html5QrCode = null;
-        processScannedData(decodedText, onScanDone, () => runScanner(onCameraStart, onScanDone));
-      }).catch(() => {
-        onScanDone();
-      });
-    },
-    (errorMessage) => {}
-  ).catch(err => {
-    alert("カメラの起動に失敗しました。カメラの権限やブラウザ設定をご確認ください。");
-    onScanDone();
-  });
-}
-
-function processScannedData(text, onScanDone, retryScanner) {
-  try {
-    if (text.startsWith("1:") || text.startsWith("2:") || text.startsWith("3:")) {
-      const partNum = text[0];
-      const payload = text.slice(2);
-      
-      if (!scannedParts[partNum]) {
-        scannedParts[partNum] = payload;
-      }
-
-      if (scannedParts['1'] && scannedParts['2'] && scannedParts['3']) {
-        onScanDone();
-        const fullStr = scannedParts['1'] + scannedParts['2'] + scannedParts['3'];
-        const decompressed = LZString.decompressFromBase64(fullStr);
-        const parsed = JSON.parse(decompressed);
-        // gameType も一緒にコールバックへ返す
-        currentScanCallback({ type: parsed.t, sdp: parsed.s, gameType: parsed.g || 'othello' });
-      } else {
-        const nextMissing = !scannedParts['1'] ? '1' : (!scannedParts['2'] ? '2' : '3');
-        alert(`Part ${partNum}/3 の読み取り成功！\n続いて「Part ${nextMissing}/3」のQRコードを読み取ってください。`);
-        setTimeout(() => { retryScanner(); }, 300);
-      }
-    } else {
-      alert("このアプリのQRコードではありません。正しいQRコードを読み取ってください。");
-      setTimeout(() => { retryScanner(); }, 300);
-    }
-  } catch(e) {
-    alert("QRコードの解析に失敗しました。もう一度お試しください。");
-    setTimeout(() => { retryScanner(); }, 300);
-  }
-}
-
-export function cancelScan(onScanDone) {
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => {
-      html5QrCode.clear();
-      html5QrCode = null;
-      onScanDone();
-    }).catch(() => {
-      html5QrCode = null;
-      onScanDone();
-    });
+    board = cardSymbols.map((symbol, index) => ({
+      id: index,
+      symbol: symbol,
+      isFlipped: false,
+      isMatched: false
+    }));
+    syncStateToGuest();
   } else {
-    onScanDone();
+    board = Array(16).fill(null).map((_, i) => ({ id: i, symbol: '?', isFlipped: false, isMatched: false }));
+  }
+
+  updateBoard();
+  updateUI();
+}
+
+function updateBoard() {
+  boardEl.innerHTML = '';
+  board.forEach((card, index) => {
+    const cell = document.createElement('div');
+    cell.className = 'concentration-card';
+    
+    if (card.isMatched) {
+      cell.classList.add('matched');
+      cell.innerText = card.symbol;
+    } else if (card.isFlipped) {
+      cell.classList.add('flipped');
+      cell.innerText = card.symbol;
+    } else {
+      cell.classList.add('hidden');
+      cell.innerText = '❓';
+      // 自分のターンで、かつ処理中でなく、確認待ちでなければクリック可能
+      if (isMyTurn && !gameOver && !isProcessing && !isWaitingForConfirmation) {
+        cell.onclick = () => handleCardClick(index);
+      }
+    }
+    boardEl.appendChild(cell);
+  });
+}
+
+function updateUI() {
+  scoreHostEl.innerText = `ホスト: ${scores.host}`;
+  scoreGuestEl.innerText = `ゲスト: ${scores.guest}`;
+
+  if (gameOver) {
+    btnRematch.style.display = 'inline-block';
+    if (scores.host > scores.guest) {
+      turnText.innerText = "🏆 ホストの勝ち！";
+    } else if (scores.guest > scores.host) {
+      turnText.innerText = "🏆 ゲストの勝ち！";
+    } else {
+      turnText.innerText = "🤝 引き分け！";
+    }
+  } else {
+    const turnName = currentTurn === 'host' ? 'ホスト' : 'ゲスト';
+    if (isWaitingForConfirmation) {
+      turnText.innerText = "👀 覚えるタイム（タップで閉じる / 5秒で自動）";
+    } else {
+      turnText.innerText = isMyTurn ? `🟢 あなたのターン (${turnName})` : `🔴 相手のターン (${turnName})`;
+    }
   }
 }
 
-export async function setupHostConnection(onDataChannelOpen) {
-  initConnection();
-  pc = new RTCPeerConnection(config);
-  
-  const channel = pc.createDataChannel('gameChannel');
-  setupDataChannelHandlers(channel, onDataChannelOpen);
-  
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  await waitForIceGathering(pc);
-  return pc.localDescription;
-}
+function handleCardClick(index) {
+  if (!isMyTurn || gameOver || isProcessing || isWaitingForConfirmation) return;
+  if (board[index].isFlipped || board[index].isMatched) return;
 
-export async function setupGuestConnection(offerObj, onDataChannelOpen) {
-  initConnection();
-  pc = new RTCPeerConnection(config);
-  
-  pc.ondatachannel = (event) => {
-    setupDataChannelHandlers(event.channel, onDataChannelOpen);
+  const actionData = {
+    type: "CONCENTRATION_FLIP",
+    payload: { index, player: myRole }
   };
-  
-  await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  await waitForIceGathering(pc);
-  return pc.localDescription;
+
+  if (isHostPlayer) {
+    processAction(actionData);
+  } else {
+    sendData(actionData);
+  }
 }
 
-export async function handleGuestAnswer(answerObj) {
-  if (!pc || pc.signalingState !== "have-local-offer") {
-    alert("通信セッションの状態が正しくありません。最初からやり直してください。");
+// 画面がタップされたとき（確認待ちを強制終了してカードを裏返す）
+export function handleScreenTap() {
+  if (!isWaitingForConfirmation) return;
+
+  if (isHostPlayer) {
+    closeMismatchCards();
+  } else {
+    // ゲストの場合はホストに確認完了を伝える
+    sendData({ type: "CONCENTRATION_CONFIRM" });
+  }
+}
+
+// 不一致だったカードを裏返し、次のターンへ進む処理
+function closeMismatchCards() {
+  if (!isWaitingForConfirmation) return;
+  isWaitingForConfirmation = false;
+  if (confirmationTimer) {
+    clearTimeout(confirmationTimer);
+    confirmationTimer = null;
+  }
+
+  if (flippedIndices.length === 2) {
+    const [firstIdx, secondIdx] = flippedIndices;
+    board[firstIdx].isFlipped = false;
+    board[secondIdx].isFlipped = false;
+  }
+  flippedIndices = [];
+  currentTurn = currentTurn === 'host' ? 'guest' : 'host';
+  isMyTurn = (currentTurn === myRole);
+  isProcessing = false;
+
+  syncStateToGuest();
+  updateBoard();
+  updateUI();
+}
+
+export function processAction(data) {
+  if (!isHostPlayer) return;
+
+  // ゲストからの確認完了シグナルを受け取った場合
+  if (data.type === "CONCENTRATION_CONFIRM") {
+    if (isWaitingForConfirmation) {
+      closeMismatchCards();
+    }
     return;
   }
-  await pc.setRemoteDescription(new RTCSessionDescription(answerObj));
-}
 
-let onMessageCallback = null;
-export function setOnMessage(callback) { onMessageCallback = callback; }
-export function sendData(data) {
-  if (dataChannel && dataChannel.readyState === 'open') {
-    dataChannel.send(JSON.stringify(data));
+  if (data.type === "CONCENTRATION_FLIP") {
+    const { index, player } = data.payload;
+    if (player !== currentTurn || isWaitingForConfirmation) return;
+    if (board[index].isFlipped || board[index].isMatched) return;
+
+    board[index].isFlipped = true;
+    flippedIndices.push(index);
+    playSound('flip');
+
+    // ★ 2枚目がめくられた瞬間にも必ずゲストへ同期する（これでバグ解消）
+    syncStateToGuest();
+    updateBoard();
+    updateUI();
+
+    if (flippedIndices.length === 2) {
+      isProcessing = true;
+      const [firstIdx, secondIdx] = flippedIndices;
+
+      if (board[firstIdx].symbol === board[secondIdx].symbol) {
+        // 一致
+        board[firstIdx].isMatched = true;
+        board[secondIdx].isMatched = true;
+        scores[currentTurn]++;
+        playSound('put');
+        flippedIndices = [];
+        isProcessing = false;
+
+        if (scores.host + scores.guest === 8) {
+          gameOver = true;
+          playSound('win');
+        }
+        syncStateToGuest();
+        updateBoard();
+        updateUI();
+      } else {
+        // 不一致：確認待ち状態へ移行（最大5秒、または画面タップで閉じる）
+        isWaitingForConfirmation = true;
+        updateUI();
+
+        confirmationTimer = setTimeout(() => {
+          closeMismatchCards();
+        }, 5000); // 5秒後に自動で裏返す
+      }
+    }
   }
 }
 
-// 接続がすでに確立しているかチェックする関数
-export function isConnectionEstablished() {
-  return window.dataChannel && window.dataChannel.readyState === 'open';
+export function updateGameState(payload) {
+  if (!isHostPlayer) {
+    board = payload.board;
+    scores = payload.scores;
+    currentTurn = payload.currentTurn;
+    gameOver = payload.gameOver;
+    isWaitingForConfirmation = payload.isWaitingForConfirmation || false;
+    isMyTurn = (currentTurn === myRole);
+
+    if (gameOver) {
+      playSound('win');
+      btnRematch.style.display = 'inline-block';
+    }
+
+    updateBoard();
+    updateUI();
+  }
 }
 
-function setupDataChannelHandlers(channel, onOpen) {
-  dataChannel = channel;
-  dataChannel.onopen = () => { onOpen(); };
-  dataChannel.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (onMessageCallback) onMessageCallback(data);
-  };
+export function syncStateToGuest() {
+  if (isHostPlayer) {
+    sendData({
+      type: "CONCENTRATION_STATE_SYNC",
+      payload: { board, scores, currentTurn, gameOver, isWaitingForConfirmation }
+    });
+  }
 }
 
+export function requestRematch() {
+  if (isHostPlayer) {
+    initGame(true);
+    syncStateToGuest();
+  } else {
+    sendData({ type: "CONCENTRATION_REMATCH" });
+  }
+}
