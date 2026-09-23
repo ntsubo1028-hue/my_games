@@ -11,11 +11,9 @@ let currentTurn = 'host';
 let gameOver = false;
 let isProcessing = false; 
 
-const boardEl = document.getElementById('concentration-board');
-const turnText = document.getElementById('concentration-turn-text');
-const scoreHostEl = document.getElementById('concentration-score-host');
-const scoreGuestEl = document.getElementById('concentration-score-guest');
-const btnRematch = document.getElementById('btn-rematch-concentration');
+// 不一致時の確認待ち用変数
+let isWaitingForConfirmation = false;
+let confirmationTimer = null;
 
 const SYMBOLS = ['🍎', '🍊', '🍇', '🍓', '🍉', '🍒', '🍍', '🥝'];
 
@@ -28,7 +26,11 @@ export function initGame(isHost) {
   isMyTurn = isHost;
   flippedIndices = [];
   isProcessing = false;
-  btnRematch.style.display = 'none';
+  isWaitingForConfirmation = false;
+  if (confirmationTimer) clearTimeout(confirmationTimer);
+
+  const btnRematch = document.getElementById('btn-rematch-concentration');
+  if (btnRematch) btnRematch.style.display = 'none';
 
   if (isHostPlayer) {
     let cardSymbols = [...SYMBOLS, ...SYMBOLS]; 
@@ -52,6 +54,9 @@ export function initGame(isHost) {
 }
 
 function updateBoard() {
+  const boardEl = document.getElementById('concentration-board');
+  if (!boardEl) return;
+
   boardEl.innerHTML = '';
   board.forEach((card, index) => {
     const cell = document.createElement('div');
@@ -66,7 +71,7 @@ function updateBoard() {
     } else {
       cell.classList.add('hidden');
       cell.innerText = '❓';
-      if (isMyTurn && !gameOver && !isProcessing) {
+      if (isMyTurn && !gameOver && !isProcessing && !isWaitingForConfirmation) {
         cell.onclick = () => handleCardClick(index);
       }
     }
@@ -75,26 +80,39 @@ function updateBoard() {
 }
 
 function updateUI() {
-  scoreHostEl.innerText = `ホスト: ${scores.host}`;
-  scoreGuestEl.innerText = `ゲスト: ${scores.guest}`;
+  const scoreHostEl = document.getElementById('concentration-score-host');
+  const scoreGuestEl = document.getElementById('concentration-score-guest');
+  const turnText = document.getElementById('concentration-turn-text');
+  const btnRematch = document.getElementById('btn-rematch-concentration');
+
+  if (scoreHostEl) scoreHostEl.innerText = `ホスト: ${scores.host}`;
+  if (scoreGuestEl) scoreGuestEl.innerText = `ゲスト: ${scores.guest}`;
 
   if (gameOver) {
-    btnRematch.style.display = 'inline-block';
-    if (scores.host > scores.guest) {
-      turnText.innerText = "🏆 ホストの勝ち！";
-    } else if (scores.guest > scores.host) {
-      turnText.innerText = "🏆 ゲストの勝ち！";
-    } else {
-      turnText.innerText = "🤝 引き分け！";
+    if (btnRematch) btnRematch.style.display = 'inline-block';
+    if (turnText) {
+      if (scores.host > scores.guest) {
+        turnText.innerText = "🏆 ホストの勝ち！";
+      } else if (scores.guest > scores.host) {
+        turnText.innerText = "🏆 ゲストの勝ち！";
+      } else {
+        turnText.innerText = "🤝 引き分け！";
+      }
     }
   } else {
     const turnName = currentTurn === 'host' ? 'ホスト' : 'ゲスト';
-    turnText.innerText = isMyTurn ? `🟢 あなたのターン (${turnName})` : `🔴 相手のターン (${turnName})`;
+    if (turnText) {
+      if (isWaitingForConfirmation) {
+        turnText.innerText = "👀 覚えるタイム（タップで閉じる / 5秒で自動）";
+      } else {
+        turnText.innerText = isMyTurn ? `🟢 あなたのターン (${turnName})` : `🔴 相手のターン (${turnName})`;
+      }
+    }
   }
 }
 
 function handleCardClick(index) {
-  if (!isMyTurn || gameOver || isProcessing) return;
+  if (!isMyTurn || gameOver || isProcessing || isWaitingForConfirmation) return;
   if (board[index].isFlipped || board[index].isMatched) return;
 
   const actionData = {
@@ -109,19 +127,61 @@ function handleCardClick(index) {
   }
 }
 
+export function handleScreenTap() {
+  if (!isWaitingForConfirmation) return;
+
+  if (isHostPlayer) {
+    closeMismatchCards();
+  } else {
+    sendData({ type: "CONCENTRATION_CONFIRM" });
+  }
+}
+
+function closeMismatchCards() {
+  if (!isWaitingForConfirmation) return;
+  isWaitingForConfirmation = false;
+  if (confirmationTimer) {
+    clearTimeout(confirmationTimer);
+    confirmationTimer = null;
+  }
+
+  if (flippedIndices.length === 2) {
+    const [firstIdx, secondIdx] = flippedIndices;
+    board[firstIdx].isFlipped = false;
+    board[secondIdx].isFlipped = false;
+  }
+  flippedIndices = [];
+  currentTurn = currentTurn === 'host' ? 'guest' : 'host';
+  isMyTurn = (currentTurn === myRole);
+  isProcessing = false;
+
+  syncStateToGuest();
+  updateBoard();
+  updateUI();
+}
+
 export function processAction(data) {
   if (!isHostPlayer) return;
 
+  if (data.type === "CONCENTRATION_CONFIRM") {
+    if (isWaitingForConfirmation) {
+      closeMismatchCards();
+    }
+    return;
+  }
+
   if (data.type === "CONCENTRATION_FLIP") {
     const { index, player } = data.payload;
-    if (player !== currentTurn) return;
+    if (player !== currentTurn || isWaitingForConfirmation) return;
     if (board[index].isFlipped || board[index].isMatched) return;
 
     board[index].isFlipped = true;
     flippedIndices.push(index);
     playSound('flip');
 
+    syncStateToGuest();
     updateBoard();
+    updateUI();
 
     if (flippedIndices.length === 2) {
       isProcessing = true;
@@ -143,21 +203,13 @@ export function processAction(data) {
         updateBoard();
         updateUI();
       } else {
-        setTimeout(() => {
-          board[firstIdx].isFlipped = false;
-          board[secondIdx].isFlipped = false;
-          flippedIndices = [];
-          currentTurn = currentTurn === 'host' ? 'guest' : 'host';
-          isMyTurn = (currentTurn === myRole);
-          isProcessing = false;
+        isWaitingForConfirmation = true;
+        updateUI();
 
-          syncStateToGuest();
-          updateBoard();
-          updateUI();
-        }, 1000);
+        confirmationTimer = setTimeout(() => {
+          closeMismatchCards();
+        }, 5000);
       }
-    } else {
-      syncStateToGuest();
     }
   }
 }
@@ -168,11 +220,13 @@ export function updateGameState(payload) {
     scores = payload.scores;
     currentTurn = payload.currentTurn;
     gameOver = payload.gameOver;
+    isWaitingForConfirmation = payload.isWaitingForConfirmation || false;
     isMyTurn = (currentTurn === myRole);
 
     if (gameOver) {
       playSound('win');
-      btnRematch.style.display = 'inline-block';
+      const btnRematch = document.getElementById('btn-rematch-concentration');
+      if (btnRematch) btnRematch.style.display = 'inline-block';
     }
 
     updateBoard();
@@ -184,7 +238,7 @@ export function syncStateToGuest() {
   if (isHostPlayer) {
     sendData({
       type: "CONCENTRATION_STATE_SYNC",
-      payload: { board, scores, currentTurn, gameOver }
+      payload: { board, scores, currentTurn, gameOver, isWaitingForConfirmation }
     });
   }
 }
