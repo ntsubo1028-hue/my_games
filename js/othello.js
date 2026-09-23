@@ -151,6 +151,7 @@ function checkGameOverAndNextTurn(lastPlayer) {
   }
 
   isMyTurn = (currentTurnColor === myColor);
+  updateBoard(); // ✨ここで盤面とクリックイベントを再構築する！
   updateUI();
   
   // ホストなら最新状態をゲストに送る
