@@ -1,3 +1,5 @@
+import { playSound } from './sounds.js'; // ★ 効果音モジュールを追加インポート
+
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 let pc = null;
@@ -112,14 +114,13 @@ function processScannedData(text, onScanDone) {
       const partNum = text[0];
       const payload = text.slice(2);
       
-      // まだ読んでいない色なら登録してUIとバイブレーションを更新
+      // まだ読んでいない色なら登録してUI・音・バイブを更新
       if (!scannedParts[partNum]) {
         scannedParts[partNum] = payload;
         
-        // 1枚読み取り成功時のバイブレーション（短く1回）
-        if (navigator.vibrate) {
-          navigator.vibrate(100);
-        }
+        // ★ 1枚成功時のアクション（音＋バイブ）
+        playSound('put'); // オセロ等で使っている石を置く音などを流用
+        if (navigator.vibrate) navigator.vibrate(100);
 
         const indicator = document.getElementById(`indicator-${partNum}`);
         if (partNum === '1') indicator.innerText = "✅ 🔴赤";
@@ -130,10 +131,9 @@ function processScannedData(text, onScanDone) {
         if (scannedParts['1'] && scannedParts['2'] && scannedParts['3']) {
           isScanComplete = true; // 多重発火を防止
 
-          // 全枚数読み取り完了時のバイブレーション（2回連続）
-          if (navigator.vibrate) {
-            navigator.vibrate([100, 50, 150]);
-          }
+          // ★ 全枚数成功時のアクション（音＋バイブ）
+          setTimeout(() => playSound('win'), 200); // 少し遅らせて勝利音(完了音)を鳴らす
+          if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
 
           html5QrCode.stop().then(() => {
             html5QrCode.clear();
