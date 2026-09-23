@@ -1,4 +1,5 @@
 import { sendData } from './connection.js';
+import { playSound } from './sound.js'; // 音声モジュールをインポート
 
 let isHostPlayer = false;
 let isMyTurn = false;
@@ -13,6 +14,7 @@ const turnText = document.getElementById('dots-turn-text');
 const scoreHost = document.getElementById('dots-score-host');
 const scoreGuest = document.getElementById('dots-score-guest');
 const board = document.getElementById('dots-board-container');
+const btnRematch = document.getElementById('btn-rematch-dots'); // 再戦ボタン
 
 export function initDotsGame(isHost) {
   isHostPlayer = isHost;
@@ -22,6 +24,8 @@ export function initDotsGame(isHost) {
   hostScore = 0;
   guestScore = 0;
   gameOver = false;
+  
+  btnRematch.style.display = 'none'; // 開始時は再戦ボタンを隠す
   
   renderBoard();
   updateUI();
@@ -71,6 +75,7 @@ function updateUI() {
   scoreGuest.innerText = `ゲスト(青): ${guestScore}`;
   
   if (gameOver) {
+    btnRematch.style.display = 'inline-block'; // ゲーム終了で再戦ボタン表示
     if (hostScore > guestScore) turnText.innerText = "🏆 ホストの勝ち！";
     else if (guestScore > hostScore) turnText.innerText = "🏆 ゲストの勝ち！";
     else turnText.innerText = "🤝 引き分け！";
@@ -108,15 +113,18 @@ function handleLineClick(index) {
   };
   
   applyMove(moveData.payload);
-  sendData(moveData);
+  sendData(moveData); // 相手に自分の操作を送信
 }
 
+// 相手から操作データを受け取った時に実行される
 export function processDotsAction(data) {
   if(data.type === "ACTION_DRAW_LINE") applyMove(data.payload);
 }
 
+// 線を引くコア処理（音もここで鳴らします）
 function applyMove({index, player}) {
   lines[index] = player;
+  playSound('line'); // 線を引いた音
   
   let scored = false;
   // 9つのボックスすべてについて「4辺が囲まれたか」をチェック
@@ -139,8 +147,17 @@ function applyMove({index, player}) {
     }
   }
 
+  // ボックスを獲得した場合の音
+  if (scored) {
+    playSound('box'); 
+  }
+
+  // 終了判定
   if (boxes.every(b => b !== null)) {
-    gameOver = true;
+    if (!gameOver) {
+      gameOver = true;
+      playSound('win'); // 勝敗決定のファンファーレ
+    }
   } else {
     // 陣地が取れなかった場合のみ、相手にターンを譲る (取れたら連続ターン)
     if (!scored) {
@@ -151,6 +168,8 @@ function applyMove({index, player}) {
   }
   
   updateUI();
+  
+  // ホストなら念のため最新状態全体をゲストに同期
   if (isHostPlayer) syncDotsStateToGuest();
 }
 
@@ -175,6 +194,24 @@ export function updateDotsGameState(payload) {
     guestScore = payload.guestScore;
     gameOver = payload.gameOver;
     isMyTurn = payload.turn === 'guest';
+    
+    // 再戦でリセットされた時用
+    if (!gameOver) {
+      btnRematch.style.display = 'none';
+    }
+
     updateUI();
+  }
+}
+
+// --- 再戦リクエストの処理 ---
+export function requestRematchDots() {
+  if (isHostPlayer) {
+    // ホストが押した場合は即初期化して同期
+    initDotsGame(true);
+    syncDotsStateToGuest();
+  } else {
+    // ゲストが押した場合はホストに依頼を送る
+    sendData({ type: "ACTION_REMATCH_DOTS" });
   }
 }

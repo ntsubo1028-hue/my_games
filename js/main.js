@@ -14,18 +14,20 @@ import {
   initGame, 
   processAction, 
   updateGameState, 
-  syncStateToGuest 
+  syncStateToGuest, 
+  requestRematch 
 } from './othello.js';
 
 import { 
   initDotsGame, 
   processDotsAction, 
   updateDotsGameState, 
-  syncDotsStateToGuest 
+  syncDotsStateToGuest, 
+  requestRematchDots 
 } from './dots_and_boxes.js';
 
 let isHost = false;
-let selectedGame = 'othello'; // 初期値（ホスト選択時やゲストQR読み取り時に上書きされます）
+let selectedGame = 'othello'; // 初期値
 
 // --- 画面切り替え ---
 function showScreen(screenId) {
@@ -82,7 +84,7 @@ async function startHostConnectionFlow() {
 
   try {
     const localDesc = await setupHostConnection(() => {
-      // 通信が開通したときの処理（選んだゲームによって起動先を分岐）
+      // 通信が開通したときの処理
       if (selectedGame === 'othello') {
         showScreen('game-screen');
         initGame(true);
@@ -93,7 +95,6 @@ async function startHostConnectionFlow() {
         syncDotsStateToGuest();
       }
     });
-    // QRコードに選んだゲームのID(selectedGame)を混ぜて生成する
     generateMultiPartQR('conn-qr', 'conn-status', localDesc, selectedGame);
   } catch (e) {
     document.getElementById('conn-status').className = 'error-text';
@@ -114,12 +115,10 @@ function startGuestScanFlow() {
   btnScan.innerText = "ホストのQRを読む (全3枚)";
   btnScan.onclick = () => startMultiPartScan(
     async (scanResult) => {
-      // scanResult に含まれるゲームIDを上書き設定
       const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
       selectedGame = scanResult.gameType;
 
       const localDesc = await setupGuestConnection(offerObj, () => {
-        // 通信が開通したときの処理（ホストのQR情報から自動判別して起動）
         if (selectedGame === 'othello') {
           showScreen('game-screen');
           initGame(false);
@@ -129,7 +128,6 @@ function startGuestScanFlow() {
         }
       });
 
-      // ゲストのAnswerQRを表示
       document.getElementById('conn-title').innerText = "ホストに読ませるQR (全3枚)";
       btnScan.style.display = 'none';
       document.getElementById('btn-toggle-qr').style.display = 'inline-block';
@@ -140,7 +138,7 @@ function startGuestScanFlow() {
   );
 }
 
-// --- その他のUIボタン処理 ---
+// --- 各種ボタン処理 ---
 document.getElementById('btn-toggle-qr').onclick = () => {
   toggleQR('conn-qr', 'conn-status');
 };
@@ -158,16 +156,24 @@ document.getElementById('btn-back-select').onclick = () => {
   else showScreen('menu-screen');
 };
 
-// ゲーム終了ボタン（オセロ用）
+// ゲーム終了ボタン
 document.getElementById('btn-quit-game').onclick = () => {
   initConnection();
   showScreen('menu-screen');
 };
 
-// ゲーム終了ボタン（ドット＆ボックス用）
 document.getElementById('btn-quit-dots').onclick = () => {
   initConnection();
   showScreen('menu-screen');
+};
+
+// 再戦ボタン（もう一度遊ぶ）
+document.getElementById('btn-rematch-othello').onclick = () => {
+  requestRematch();
+};
+
+document.getElementById('btn-rematch-dots').onclick = () => {
+  requestRematchDots();
 };
 
 // --- 通信メッセージの受信処理（ルーティング） ---
@@ -175,12 +181,20 @@ setOnMessage((data) => {
   if (selectedGame === 'othello') {
     if (isHost && data.type === "ACTION_PUT_STONE") {
       processAction(data);
+    } else if (isHost && data.type === "ACTION_REMATCH_OTHELLO") {
+      // ゲストからの再戦要求を受け取ったホスト側の処理
+      initGame(true);
+      syncStateToGuest();
     } else if (!isHost && data.type === "STATE_SYNC") {
       updateGameState(data.payload);
     }
   } else if (selectedGame === 'dots') {
     if (data.type === "ACTION_DRAW_LINE") {
       processDotsAction(data);
+    } else if (isHost && data.type === "ACTION_REMATCH_DOTS") {
+      // ゲストからの再戦要求を受け取ったホスト側の処理
+      initDotsGame(true);
+      syncDotsStateToGuest();
     } else if (!isHost && data.type === "STATE_SYNC_DOTS") {
       updateDotsGameState(data.payload);
     }
