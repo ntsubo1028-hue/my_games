@@ -2,6 +2,9 @@ import { playSound } from './sounds.js';
 
 const canvas = document.getElementById('tetris-board');
 const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('tetris-next');
+const nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
+
 const scoreEl = document.getElementById('tetris-score');
 const linesEl = document.getElementById('tetris-lines');
 const btnRematch = document.getElementById('btn-rematch-tetris');
@@ -34,6 +37,7 @@ const SHAPES = [
 
 let board = [];
 let piece = null;
+let nextPiece = null; // 次のピース
 let dropCounter = 0;
 let dropInterval = 1000;
 let lastTime = 0;
@@ -52,14 +56,27 @@ function createBoard() {
   return Array.from({length: ROWS}, () => Array(COLS).fill(0));
 }
 
-function spawnPiece() {
+function getRandomPiece() {
   const typeId = Math.floor(Math.random() * 7) + 1;
-  piece = {
-    pos: { x: Math.floor(COLS / 2) - Math.floor(SHAPES[typeId][0].length / 2), y: 0 },
+  return {
     matrix: SHAPES[typeId],
     typeId: typeId
   };
+}
+
+function spawnPiece() {
+  if (!nextPiece) {
+    nextPiece = getRandomPiece();
+  }
+  piece = {
+    pos: { x: Math.floor(COLS / 2) - Math.floor(nextPiece.matrix[0].length / 2), y: 0 },
+    matrix: nextPiece.matrix,
+    typeId: nextPiece.typeId
+  };
   
+  nextPiece = getRandomPiece();
+  drawNext();
+
   if (collide(board, piece)) {
     isGameOver = true;
     btnRematch.style.display = 'inline-block';
@@ -90,13 +107,11 @@ function merge(board, piece) {
   });
 }
 
-// 演出：画面を揺らす
 function triggerShake(intensity = 5, duration = 15) {
   shakeIntensity = intensity;
   shakeTime = duration;
 }
 
-// 演出：パーティクル（飛び散る破片）を生成
 function createParticles(yIndex, rowValues) {
   for (let x = 0; x < COLS; x++) {
     const colorVal = rowValues[x];
@@ -104,23 +119,21 @@ function createParticles(yIndex, rowValues) {
     const px = x * BLOCK_SIZE + BLOCK_SIZE / 2;
     const py = yIndex * BLOCK_SIZE + BLOCK_SIZE / 2;
 
-    // 1マスあたり6個の破片を発散
     for (let i = 0; i < 6; i++) {
       particles.push({
         x: px,
         y: py,
         vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8 - 2, // やや上に吹き飛ぶ
+        vy: (Math.random() - 0.5) * 8 - 2,
         size: Math.random() * 5 + 3,
         color: COLORS[colorVal],
-        life: 1.0,  // 不透明度・寿命
+        life: 1.0,
         decay: Math.random() * 0.03 + 0.02
       });
     }
   }
 }
 
-// 演出：ポップアップテキストを生成
 function addFloatingText(text, color = '#FFF') {
   floatingTexts.push({
     text: text,
@@ -134,7 +147,6 @@ function addFloatingText(text, color = '#FFF') {
   });
 }
 
-// ライン消去
 function sweep() {
   let rowCount = 0;
   
@@ -148,9 +160,7 @@ function sweep() {
     }
 
     if (isFull) {
-      // 消去されるラインの情報を元にパーティクル生成
       createParticles(y, [...board[y]]);
-      
       const row = board.splice(y, 1)[0].fill(0);
       board.unshift(row);
       y++;
@@ -165,7 +175,6 @@ function sweep() {
     dropInterval = Math.max(100, 1000 - (Math.floor(lines / 10) * 100));
     updateScore();
 
-    // 消した数に応じた演出切り替え
     if (rowCount === 1) {
       triggerShake(3, 10);
       addFloatingText('SINGLE!', '#00FFFF');
@@ -182,7 +191,6 @@ function sweep() {
   }
 }
 
-// 操作処理群
 export function moveTetris(dir) {
   if (isGameOver) return;
   piece.pos.x += dir;
@@ -228,7 +236,7 @@ export function hardDropTetris() {
   piece.pos.y--;
   merge(board, piece);
   playSound('put');
-  triggerShake(2, 6); // ハードドロップ時も軽く揺らす
+  triggerShake(2, 6);
   spawnPiece();
   sweep();
   dropCounter = 0;
@@ -252,54 +260,81 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// 光沢ブロック描画
+// ブロック描画ヘルパー
+function drawBlock(targetCtx, x, y, value, size) {
+  if (!value) return;
+  const px = x * size;
+  const py = y * size;
+  const bw = 2;
+
+  targetCtx.fillStyle = COLORS[value];
+  targetCtx.fillRect(px, py, size, size);
+
+  targetCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  targetCtx.beginPath();
+  targetCtx.moveTo(px, py);
+  targetCtx.lineTo(px + size, py);
+  targetCtx.lineTo(px + size - bw, py + bw);
+  targetCtx.lineTo(px + bw, py + bw);
+  targetCtx.lineTo(px + bw, py + size - bw);
+  targetCtx.lineTo(px, py + size);
+  targetCtx.fill();
+
+  targetCtx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  targetCtx.beginPath();
+  targetCtx.moveTo(px + size, py + size);
+  targetCtx.lineTo(px, py + size);
+  targetCtx.lineTo(px + bw, py + size - bw);
+  targetCtx.lineTo(px + size - bw, py + size - bw);
+  targetCtx.lineTo(px + size - bw, py + bw);
+  targetCtx.lineTo(px + size, py);
+  targetCtx.fill();
+
+  targetCtx.strokeStyle = '#111';
+  targetCtx.strokeRect(px, py, size, size);
+}
+
 function drawMatrix(matrix, offset) {
   matrix.forEach((row, y) => {
     row.forEach((value, x) => {
       if (value !== 0) {
-        const px = (x + offset.x) * BLOCK_SIZE;
-        const py = (y + offset.y) * BLOCK_SIZE;
-        const size = BLOCK_SIZE;
-        const bw = 3;
-
-        ctx.fillStyle = COLORS[value];
-        ctx.fillRect(px, py, size, size);
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(px + size, py);
-        ctx.lineTo(px + size - bw, py + bw);
-        ctx.lineTo(px + bw, py + bw);
-        ctx.lineTo(px + bw, py + size - bw);
-        ctx.lineTo(px, py + size);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-        ctx.beginPath();
-        ctx.moveTo(px + size, py + size);
-        ctx.lineTo(px, py + size);
-        ctx.lineTo(px + bw, py + size - bw);
-        ctx.lineTo(px + size - bw, py + size - bw);
-        ctx.lineTo(px + size - bw, py + bw);
-        ctx.lineTo(px + size, py);
-        ctx.fill();
-
-        ctx.strokeStyle = '#111';
-        ctx.strokeRect(px, py, size, size);
+        drawBlock(ctx, x + offset.x, y + offset.y, value, BLOCK_SIZE);
       }
     });
   });
 }
 
-// 演出の更新＆描画処理
+// NEXTピースの描画
+function drawNext() {
+  if (!nextCtx) return;
+  nextCtx.fillStyle = '#111';
+  nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+
+  if (!nextPiece) return;
+  const matrix = nextPiece.matrix;
+  const size = 16; // NEXT枠用の少し小さなブロックサイズ
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+
+  // 中央に配置するためのオフセット計算
+  const offsetX = (nextCanvas.width - cols * size) / 2 / size;
+  const offsetY = (nextCanvas.height - rows * size) / 2 / size;
+
+  matrix.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value !== 0) {
+        drawBlock(nextCtx, x + offsetX, y + offsetY, value, size);
+      }
+    });
+  });
+}
+
 function updateAndDrawEffects() {
-  // 1. パーティクルの更新・描画
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
     p.y += p.vy;
-    p.vy += 0.2; // 簡易的な重力
+    p.vy += 0.2;
     p.life -= p.decay;
 
     if (p.life <= 0) {
@@ -314,10 +349,9 @@ function updateAndDrawEffects() {
     ctx.restore();
   }
 
-  // 2. ポップアップテキストの更新・描画
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const ft = floatingTexts[i];
-    ft.y -= 0.8; // ゆっくり上昇
+    ft.y -= 0.8;
     if (ft.scale < ft.maxScale) ft.scale += 0.1;
     ft.life -= ft.decay;
 
@@ -338,11 +372,9 @@ function updateAndDrawEffects() {
   }
 }
 
-// 全体描画
 function draw() {
   ctx.save();
 
-  // 画面揺れ（スクリーンシェイク）の適用
   if (shakeTime > 0) {
     const dx = (Math.random() - 0.5) * shakeIntensity;
     const dy = (Math.random() - 0.5) * shakeIntensity;
@@ -350,18 +382,14 @@ function draw() {
     shakeTime--;
   }
 
-  // 盤面描画
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawMatrix(board, {x: 0, y: 0});
   if (piece) drawMatrix(piece.matrix, piece.pos);
 
-  // エフェクト描画（破片・テキスト）
   updateAndDrawEffects();
+  ctx.restore();
 
-  ctx.restore(); // 画面揺れの座標リセット
-
-  // ゲームオーバー画面
   if (isGameOver) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -372,7 +400,6 @@ function draw() {
   }
 }
 
-// メインループ
 function update(time = 0) {
   if (!isGameOver) {
     const deltaTime = time - lastTime;
@@ -386,7 +413,6 @@ function update(time = 0) {
   animationId = requestAnimationFrame(update);
 }
 
-// 外部インターフェース
 export function initTetris() {
   board = createBoard();
   score = 0;
@@ -396,6 +422,7 @@ export function initTetris() {
   particles = [];
   floatingTexts = [];
   shakeTime = 0;
+  nextPiece = null;
   btnRematch.style.display = 'none';
   updateScore();
   spawnPiece();
@@ -412,7 +439,6 @@ export function stopTetris() {
   }
 }
 
-// キーボード操作対応
 document.addEventListener('keydown', event => {
   if (document.getElementById('tetris-game-screen').classList.contains('active') && !isGameOver) {
     switch(event.keyCode) {

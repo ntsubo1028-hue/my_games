@@ -260,3 +260,10 @@ button:active, .btn-action:active {
 #btn-tetris-drop {
   font-size: 1rem;
 }
+
+#tetris-next {
+  background: #111;
+  display: block;
+  border: 2px solid #333;
+  border-radius: 4px;
+}

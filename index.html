@@ -81,6 +81,7 @@
   </div>
 
   <!-- 画面: テトリス (一人用) -->
+<!-- 画面: テトリス (一人用) -->
   <div id="tetris-game-screen" class="screen">
     <h2>テトリス</h2>
     <div class="tetris-info">
@@ -88,8 +89,14 @@
       <span id="tetris-lines">ライン: 0</span>
     </div>
     
-    <!-- テトリス盤面 -->
-    <canvas id="tetris-board" width="200" height="400"></canvas>
+    <!-- テトリス盤面 ＆ NEXT表示エリア -->
+    <div style="display: flex; gap: 15px; align-items: flex-start; justify-content: center; margin-bottom: 10px;">
+      <canvas id="tetris-board" width="200" height="400" style="margin: 0;"></canvas>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <span style="font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #555;">NEXT</span>
+        <canvas id="tetris-next" width="80" height="80"></canvas>
+      </div>
+    </div>
     
     <!-- スマホ用コントローラー -->
     <div class="tetris-controls">
@@ -106,9 +113,9 @@
       </div>
     </div>
     
-    <div class="btn-area">
-      <button id="btn-rematch-tetris" style="display:none;">もう一度遊ぶ</button>
-      <button id="btn-quit-tetris" class="secondary-btn">メニューに戻る</button>
+    <div class="btn-area" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+      <button id="btn-rematch-tetris" class="btn-action" style="display:none; background-color: #fbc02d; color: #000;">もう一度遊ぶ</button>
+      <button id="btn-quit-tetris" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
 
