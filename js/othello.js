@@ -1,5 +1,5 @@
 import { sendData } from './connection.js';
-import { playSound } from './sounds.js'; // 音声モジュールをインポート
+import { playSound } from './sounds.js'; // ※ご自身のファイル名に合わせています
 
 let isHostPlayer = false;
 let isMyTurn = false;
@@ -44,9 +44,18 @@ function updateBoard() {
     cell.className = 'cell';
     
     if (board[i]) {
-      const stone = document.createElement('div');
-      stone.className = `stone ${board[i]}`;
-      cell.appendChild(stone);
+      // 3Dフリップアニメーション用の構造を作成
+      const disc = document.createElement('div');
+      disc.className = `disc ${board[i]}`;
+      
+      const faceBlack = document.createElement('div');
+      faceBlack.className = 'face face-black';
+      const faceWhite = document.createElement('div');
+      faceWhite.className = 'face face-white';
+      
+      disc.appendChild(faceBlack);
+      disc.appendChild(faceWhite);
+      cell.appendChild(disc);
     } else if (isMyTurn && !gameOver && !isAnimating && validMoves.includes(i)) {
       // 自分のターンで、かつアニメーション中でなければ置ける場所をハイライト
       cell.classList.add('valid-move');
@@ -228,11 +237,9 @@ function getValidMoves(player) {
 // --- 再戦リクエストの処理 ---
 export function requestRematch() {
   if (isHostPlayer) {
-    // ホストが押した場合は即初期化して同期
     initGame(true);
     syncStateToGuest();
   } else {
-    // ゲストが押した場合はホストに依頼を送る
     sendData({ type: "ACTION_REMATCH_OTHELLO" });
   }
 }
