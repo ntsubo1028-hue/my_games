@@ -37,6 +37,14 @@ import {
   hardDropTetris 
 } from './tetris.js';
 
+import { 
+  initGame as initConcentrationGame, 
+  processAction as processConcentrationAction, 
+  updateGameState as updateConcentrationGameState, 
+  syncStateToGuest as syncConcentrationStateToGuest, 
+  requestRematch as requestConcentrationRematch 
+} from './concentration.js';
+
 let isHost = false;
 let selectedGame = 'othello'; // 初期値
 
@@ -91,6 +99,19 @@ document.getElementById('btn-select-dots').onclick = () => {
   }
 };
 
+document.getElementById('btn-select-concentration').onclick = () => {
+  selectedGame = 'concentration';
+  if (isConnectionEstablished()) {
+    sendData({ type: "CHANGE_GAME", payload: { game: 'concentration' } });
+    showScreen('concentration-game-screen');
+    initConcentrationGame(true);
+    syncConcentrationStateToGuest();
+  } else {
+    isHost = true;
+    startHostConnectionFlow();
+  }
+};
+
 // --- ホスト：接続確立フロー（ゲーム共通） ---
 async function startHostConnectionFlow() {
   showScreen('connection-screen');
@@ -120,6 +141,10 @@ async function startHostConnectionFlow() {
         showScreen('dots-game-screen');
         initDotsGame(true);
         syncDotsStateToGuest();
+      } else if (selectedGame === 'concentration') {
+        showScreen('concentration-game-screen');
+        initConcentrationGame(true);
+        syncConcentrationStateToGuest();
       }
     });
     generateMultiPartQR('conn-qr', 'conn-status', localDesc, selectedGame);
@@ -152,6 +177,9 @@ function startGuestScanFlow() {
         } else if (selectedGame === 'dots') {
           showScreen('dots-game-screen');
           initDotsGame(false);
+        } else if (selectedGame === 'concentration') {
+          showScreen('concentration-game-screen');
+          initConcentrationGame(false);
         }
       });
 
@@ -199,6 +227,7 @@ const handleQuitGame = () => {
 
 document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
+document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
 
 // 再戦ボタン（もう一度遊ぶ）
 document.getElementById('btn-rematch-othello').onclick = () => {
@@ -207,6 +236,10 @@ document.getElementById('btn-rematch-othello').onclick = () => {
 
 document.getElementById('btn-rematch-dots').onclick = () => {
   requestRematchDots();
+};
+
+document.getElementById('btn-rematch-concentration').onclick = () => {
+  requestConcentrationRematch();
 };
 
 // --- 通信メッセージの受信処理（ルーティング） ---
@@ -220,6 +253,9 @@ setOnMessage((data) => {
     } else if (selectedGame === 'dots') {
       showScreen('dots-game-screen');
       initDotsGame(false);
+    } else if (selectedGame === 'concentration') {
+      showScreen('concentration-game-screen');
+      initConcentrationGame(false);
     }
     return;
   }
@@ -242,6 +278,15 @@ setOnMessage((data) => {
       syncDotsStateToGuest();
     } else if (!isHost && data.type === "STATE_SYNC_DOTS") {
       updateDotsGameState(data.payload);
+    }
+  } else if (selectedGame === 'concentration') {
+    if (data.type === "CONCENTRATION_FLIP") {
+      processConcentrationAction(data);
+    } else if (isHost && data.type === "CONCENTRATION_REMATCH") {
+      initConcentrationGame(true);
+      syncConcentrationStateToGuest();
+    } else if (!isHost && data.type === "CONCENTRATION_STATE_SYNC") {
+      updateConcentrationGameState(data.payload);
     }
   }
 });

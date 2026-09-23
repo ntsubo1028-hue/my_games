@@ -30,11 +30,12 @@
   </div>
 
   <!-- ② ホスト用：ゲーム選択画面 -->
-  <div id="host-game-select-screen" class="screen">
+<div id="host-game-select-screen" class="screen">
     <h2>遊ぶゲームを選択</h2>
     <div class="menu-container">
       <button id="btn-select-othello" class="btn-action" style="background-color: #2e7d32;">🟢 オセロ (1対1)</button>
       <button id="btn-select-dots" class="btn-action" style="background-color: #e65100;">🟠 ドット＆ボックス (1対1)</button>
+      <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> <!-- 👈 追加 -->
     </div>
     <button id="btn-back-main" class="btn-action secondary-btn" style="margin-top: 20px;">◀ メニューに戻る</button>
   </div>
@@ -80,8 +81,22 @@
     <button id="btn-quit-dots" class="btn-action secondary-btn" style="margin-top: 20px; font-size: 14px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
   </div>
 
+  <!-- ④ ゲーム本体画面（神経衰弱） -->
+  <div id="concentration-game-screen" class="screen">
+    <h2 id="concentration-turn-text">通信待機中...</h2>
+    <div id="concentration-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 10px 20px; font-weight: bold; font-size: 16px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 15px;">
+      <span id="concentration-score-host" style="color: #d32f2f;">ホスト: 0</span>
+      <span id="concentration-score-guest" style="color: #1976d2;">ゲスト: 0</span>
+    </div>
+    
+    <!-- カードを並べるボード（4×4グリッド） -->
+    <div id="concentration-board"></div>
+
+    <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 20px; font-size: 16px;">🔄 もう一度遊ぶ（再戦）</button>
+    <button id="btn-quit-concentration" class="btn-action secondary-btn" style="margin-top: 20px; font-size: 14px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+  </div>
+
   <!-- 画面: テトリス (一人用) -->
-<!-- 画面: テトリス (一人用) -->
   <div id="tetris-game-screen" class="screen">
     <h2>テトリス</h2>
     <div class="tetris-info">
