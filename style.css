@@ -208,3 +208,55 @@ button:active, .btn-action:active {
 }
 .box.host { background-color: rgba(211, 47, 47, 0.2); }
 .box.guest { background-color: rgba(25, 118, 210, 0.2); }
+
+/* ==================================
+   テトリス用スタイル
+================================== */
+#tetris-board {
+  background: #111;
+  display: block;
+  margin: 10px auto;
+  border: 2px solid #333;
+  border-radius: 4px;
+}
+
+.tetris-info {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 10px;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.tetris-controls {
+  margin-top: 15px;
+}
+
+.control-row {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.tetris-controls button {
+  width: 50px;
+  height: 50px;
+  font-size: 1.5rem;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f1f1f1;
+  border: 2px solid #ddd;
+  color: #333;
+}
+
+.tetris-controls button:active {
+  background-color: #ddd;
+}
+
+#btn-tetris-drop {
+  font-size: 1rem;
+}

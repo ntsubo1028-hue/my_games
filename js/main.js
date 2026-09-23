@@ -28,6 +28,15 @@ import {
   requestRematchDots 
 } from './dots_and_boxes.js';
 
+import { 
+  initTetris, 
+  stopTetris, 
+  moveTetris, 
+  dropTetris, 
+  rotateTetris, 
+  hardDropTetris 
+} from './tetris.js';
+
 let isHost = false;
 let selectedGame = 'othello'; // 初期値
 
@@ -236,3 +245,25 @@ setOnMessage((data) => {
     }
   }
 });
+
+// --- テトリス（一人用）のボタン処理 ---
+document.getElementById('btn-play-tetris').onclick = () => {
+  showScreen('tetris-game-screen');
+  initTetris();
+};
+
+document.getElementById('btn-quit-tetris').onclick = () => {
+  stopTetris();
+  showScreen('menu-screen');
+};
+
+document.getElementById('btn-rematch-tetris').onclick = () => {
+  initTetris();
+};
+
+// テトリスの画面コントローラー
+document.getElementById('btn-tetris-left').onclick = () => moveTetris(-1);
+document.getElementById('btn-tetris-right').onclick = () => moveTetris(1);
+document.getElementById('btn-tetris-down').onclick = () => dropTetris();
+document.getElementById('btn-tetris-up').onclick = () => rotateTetris();
+document.getElementById('btn-tetris-drop').onclick = () => hardDropTetris();

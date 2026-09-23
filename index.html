@@ -23,6 +23,9 @@
     <div class="menu-container">
       <button id="btn-goto-host-select" class="btn-action host-btn">ホストとして部屋を作る</button>
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
+
+      <h2 style="margin-top: 2rem; font-size: 1.2rem; color: #555;">一人で遊ぶ</h2>
+      <button id="btn-play-tetris" class="secondary-btn">テトリス</button>
     </div>
   </div>
 
@@ -75,6 +78,38 @@
     <div id="dots-board-container"></div>
     <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 20px; font-size: 16px;">🔄 もう一度遊ぶ（再戦）</button>
     <button id="btn-quit-dots" class="btn-action secondary-btn" style="margin-top: 20px; font-size: 14px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+  </div>
+
+  <!-- 画面: テトリス (一人用) -->
+  <div id="tetris-game-screen" class="screen">
+    <h2>テトリス</h2>
+    <div class="tetris-info">
+      <span id="tetris-score">スコア: 0</span>
+      <span id="tetris-lines">ライン: 0</span>
+    </div>
+    
+    <!-- テトリス盤面 -->
+    <canvas id="tetris-board" width="200" height="400"></canvas>
+    
+    <!-- スマホ用コントローラー -->
+    <div class="tetris-controls">
+      <div class="control-row">
+        <button id="btn-tetris-up">↻</button>
+      </div>
+      <div class="control-row">
+        <button id="btn-tetris-left">←</button>
+        <button id="btn-tetris-down">↓</button>
+        <button id="btn-tetris-right">→</button>
+      </div>
+      <div class="control-row">
+        <button id="btn-tetris-drop" style="width:120px; border-radius:25px;">⏬ 一気に落とす</button>
+      </div>
+    </div>
+    
+    <div class="btn-area">
+      <button id="btn-rematch-tetris" style="display:none;">もう一度遊ぶ</button>
+      <button id="btn-quit-tetris" class="secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
   <!-- メインJSモジュールの読み込み -->
