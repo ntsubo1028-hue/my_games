@@ -1,5 +1,5 @@
 import { sendData } from './connection.js';
-import { playSound } from './sound.js'; // 音声モジュールをインポート
+import { playSound } from './sounds.js'; // 音声モジュールをインポート
 
 let isHostPlayer = false;
 let isMyTurn = false;
