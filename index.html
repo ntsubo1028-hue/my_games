@@ -44,15 +44,38 @@
   <div id="connection-screen" class="screen">
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text"></p>
-    <img id="conn-qr" class="qr-img" alt="QRコード">
-    <button id="btn-toggle-qr" class="btn-action" style="background-color: #607d8b; display: none; padding: 8px 16px; font-size: 14px;">QRコードを切り替える (1 ⇄ 2 ⇄ 3)</button>
-    <button id="btn-start-scan" class="btn-action" style="display: none;">相手のQRを読む (全3枚)</button>
+    
+    <!-- 3枚同時表示用のコンテナ -->
+    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 15px; margin-top: 15px;">
+      <div style="border: 4px solid #f44336; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">🔴 Part 1 (赤)</div>
+        <img id="conn-qr-1" class="qr-img" alt="QR 1" style="display: block; width: 200px; height: 200px;">
+      </div>
+      <div style="border: 4px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #2196f3; font-weight: bold; margin-bottom: 5px;">🔵 Part 2 (青)</div>
+        <img id="conn-qr-2" class="qr-img" alt="QR 2" style="display: block; width: 200px; height: 200px;">
+      </div>
+      <div style="border: 4px solid #ffeb3b; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #fbc02d; font-weight: bold; margin-bottom: 5px;">🟡 Part 3 (黄)</div>
+        <img id="conn-qr-3" class="qr-img" alt="QR 3" style="display: block; width: 200px; height: 200px;">
+      </div>
+    </div>
+
+    <button id="btn-start-scan" class="btn-action" style="display: none; margin-top: 20px;">相手のQRを読む</button>
     <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 15px;">◀ 戻る</button>
   </div>
 
   <!-- カメラ読み取り画面 -->
   <div id="camera-screen" class="screen">
     <h3 id="scan-guide-text">枠内にQRコードを合わせてください</h3>
+    
+    <!-- 読み取り状況インジケーター -->
+    <div id="scan-indicators" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 15px; font-size: 18px; font-weight: bold;">
+      <span id="indicator-1">⬜ 🔴赤</span>
+      <span id="indicator-2">⬜ 🔵青</span>
+      <span id="indicator-3">⬜ 🟡黄</span>
+    </div>
+
     <div id="reader"></div>
     <button id="btn-cancel-scan" class="btn-action secondary-btn">キャンセル</button>
   </div>

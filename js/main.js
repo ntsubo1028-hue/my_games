@@ -3,7 +3,6 @@ import {
   setupGuestConnection, 
   handleGuestAnswer, 
   generateMultiPartQR, 
-  toggleQR, 
   startMultiPartScan, 
   cancelScan, 
   initConnection, 
@@ -47,7 +46,7 @@ import {
 } from './concentration.js';
 
 let isHost = false;
-let selectedGame = 'othello'; // 初期値
+let selectedGame = 'othello'; 
 
 // --- 画面切り替え ---
 function showScreen(screenId) {
@@ -65,7 +64,6 @@ document.getElementById('btn-back-main').onclick = () => {
   showScreen('menu-screen');
 };
 
-// ゲストはゲームを選ばず直接QRスキャンへ
 document.getElementById('btn-guest').onclick = () => {
   isHost = false;
   startGuestScanFlow();
@@ -114,14 +112,13 @@ document.getElementById('btn-select-concentration').onclick = () => {
 // --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
   showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ホスト接続情報 (全3枚)";
+  document.getElementById('conn-title').innerText = "ホスト接続情報";
   document.getElementById('conn-status').innerText = "接続情報を収集中...";
-  document.getElementById('conn-qr').style.display = 'none';
-  document.getElementById('btn-toggle-qr').style.display = 'inline-block';
+  document.getElementById('qr-container').style.display = 'none';
   
   const btnScan = document.getElementById('btn-start-scan');
   btnScan.style.display = 'inline-block';
-  btnScan.innerText = "ゲストのQRを読む (全3枚)";
+  btnScan.innerText = "ゲストのQRを読む";
   btnScan.onclick = () => startMultiPartScan(
     async (answerObj) => {
       await handleGuestAnswer(answerObj);
@@ -146,7 +143,8 @@ async function startHostConnectionFlow() {
         syncConcentrationStateToGuest();
       }
     });
-    generateMultiPartQR('conn-qr', 'conn-status', localDesc, selectedGame);
+    document.getElementById('qr-container').style.display = 'flex';
+    generateMultiPartQR('conn-status', localDesc, selectedGame);
   } catch (e) {
     document.getElementById('conn-status').className = 'error-text';
     document.getElementById('conn-status').innerText = "エラー:\n" + e.message;
@@ -158,12 +156,11 @@ function startGuestScanFlow() {
   showScreen('connection-screen');
   document.getElementById('conn-title').innerText = "ゲスト接続準備";
   document.getElementById('conn-status').innerText = "ホストのQRを読み取ってください";
-  document.getElementById('conn-qr').style.display = 'none';
-  document.getElementById('btn-toggle-qr').style.display = 'none';
+  document.getElementById('qr-container').style.display = 'none';
   
   const btnScan = document.getElementById('btn-start-scan');
   btnScan.style.display = 'inline-block';
-  btnScan.innerText = "ホストのQRを読む (全3枚)";
+  btnScan.innerText = "ホストのQRを読む";
   btnScan.onclick = () => startMultiPartScan(
     async (scanResult) => {
       const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
@@ -182,10 +179,10 @@ function startGuestScanFlow() {
         }
       });
 
-      document.getElementById('conn-title').innerText = "ホストに読ませるQR (全3枚)";
+      document.getElementById('conn-title').innerText = "ホストに読ませるQR";
       btnScan.style.display = 'none';
-      document.getElementById('btn-toggle-qr').style.display = 'inline-block';
-      generateMultiPartQR('conn-qr', 'conn-status', localDesc, selectedGame);
+      document.getElementById('qr-container').style.display = 'flex';
+      generateMultiPartQR('conn-status', localDesc, selectedGame);
     },
     () => showScreen('camera-screen'),
     () => showScreen('connection-screen')
@@ -193,10 +190,6 @@ function startGuestScanFlow() {
 }
 
 // --- 各種ボタン処理 ---
-document.getElementById('btn-toggle-qr').onclick = () => {
-  toggleQR('conn-qr', 'conn-status');
-};
-
 document.getElementById('btn-cancel-scan').onclick = () => {
   cancelScan(() => {
     if (isHost) showScreen('connection-screen');
@@ -217,8 +210,7 @@ const handleQuitGame = () => {
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    document.getElementById('conn-qr').style.display = 'none';
-    document.getElementById('btn-toggle-qr').style.display = 'none';
+    document.getElementById('qr-container').style.display = 'none';
     document.getElementById('btn-start-scan').style.display = 'none';
   }
 };
@@ -231,9 +223,8 @@ document.getElementById('btn-rematch-othello').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
 document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
 
-// --- 通信メッセージの受信処理（ルーティング） ---
+// --- 通信メッセージの受信処理 ---
 setOnMessage((data) => {
-  // ゲストがホストからのゲーム変更通知を受け取った場合
   if (data.type === "CHANGE_GAME") {
     selectedGame = data.payload.game;
     if (selectedGame === 'othello') {
@@ -249,7 +240,6 @@ setOnMessage((data) => {
     return;
   }
 
-  // ★ 各ゲームのアクション・同期処理（正しく分岐を独立させました）
   if (selectedGame === 'othello') {
     if (isHost && data.type === "ACTION_PUT_STONE") {
       processAction(data);
@@ -301,7 +291,6 @@ document.getElementById('btn-tetris-down').onclick = () => dropTetris();
 document.getElementById('btn-tetris-up').onclick = () => rotateTetris();
 document.getElementById('btn-tetris-drop').onclick = () => hardDropTetris();
 
-// 神経衰弱の画面がタップされたら確認待ちを解除する
 document.getElementById('concentration-game-screen').onclick = () => {
   if (selectedGame === 'concentration') {
     handleConcentrationScreenTap();
