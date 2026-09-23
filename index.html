@@ -32,7 +32,6 @@
     <div class="menu-container">
       <button id="btn-select-othello" class="btn-action" style="background-color: #2e7d32;">🟢 オセロ (1対1)</button>
       <button id="btn-select-dots" class="btn-action" style="background-color: #e65100;">🟠 ドット＆ボックス (1対1)</button>
-      <button disabled class="btn-action" style="background-color: #757575; opacity: 0.6;">🔵 将来のゲーム (準備中)</button>
     </div>
     <button id="btn-back-main" class="btn-action secondary-btn" style="margin-top: 20px;">◀ メニューに戻る</button>
   </div>
@@ -42,8 +41,8 @@
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text"></p>
     <img id="conn-qr" class="qr-img" alt="QRコード">
-    <button id="btn-toggle-qr" style="background-color: #607d8b; display: none; padding: 8px 16px; font-size: 14px;">QRコードを切り替える (1 ⇄ 2 ⇄ 3)</button>
-    <button id="btn-start-scan" style="display: none;" class="btn-action">相手のQRを読む (全3枚)</button>
+    <button id="btn-toggle-qr" class="btn-action" style="background-color: #607d8b; display: none; padding: 8px 16px; font-size: 14px;">QRコードを切り替える (1 ⇄ 2 ⇄ 3)</button>
+    <button id="btn-start-scan" class="btn-action" style="display: none;">相手のQRを読む (全3枚)</button>
     <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 15px;">◀ 戻る</button>
   </div>
 
@@ -54,7 +53,7 @@
     <button id="btn-cancel-scan" class="btn-action secondary-btn">キャンセル</button>
   </div>
 
-  <!-- ④ ゲーム本体画面 -->
+  <!-- ④ ゲーム本体画面 (オセロ) -->
   <div id="game-screen" class="screen">
     <h2 id="turn-text">通信待機中...</h2>
     <div id="score-board">
@@ -68,7 +67,7 @@
   <!-- ⑤ ゲーム本体画面 (ドット＆ボックス) -->
   <div id="dots-game-screen" class="screen">
     <h2 id="dots-turn-text">通信待機中...</h2>
-    <div id="dots-score-board" style="display: flex; justify-content: space-between; width: 100%; padding: 10px 20px; font-weight: bold; font-size: 16px; box-sizing: border-box;background: #f0f0f0; border-radius: 8px; margin-bottom: 15px;">
+    <div id="dots-score-board" style="display: flex; justify-content: space-between; width: 100%; padding: 10px 20px; font-weight: bold; font-size: 16px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 15px;">
       <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
     </div>
