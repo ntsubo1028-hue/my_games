@@ -169,3 +169,42 @@ button:active, .btn-action:active {
   border-radius: 8px;
   image-rendering: pixelated;
 }
+
+/* --- ドット・アンド・ボックス 用スタイル --- */
+#dots-board-container {
+  display: grid;
+  /* 7x7 のマス目: ドット(12px)と線・ボックス(最大60px)を交互に配置 */
+  grid-template-columns: 12px min(18vw, 60px) 12px min(18vw, 60px) 12px min(18vw, 60px) 12px;
+  grid-template-rows: 12px min(18vw, 60px) 12px min(18vw, 60px) 12px min(18vw, 60px) 12px;
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin: 10px auto;
+}
+
+.dot {
+  background-color: #455a64;
+  border-radius: 50%;
+  width: 100%; height: 100%;
+}
+
+.line-h, .line-v {
+  background-color: #eceff1;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: 4px;
+}
+.line-h:hover, .line-v:hover { background-color: #cfd8dc; }
+
+.line-h.active-host, .line-v.active-host { background-color: #d32f2f; }
+.line-h.active-guest, .line-v.active-guest { background-color: #1976d2; }
+
+.box {
+  width: 100%; height: 100%;
+  background-color: transparent;
+  transition: background-color 0.3s;
+  border-radius: 4px;
+}
+.box.host { background-color: rgba(211, 47, 47, 0.2); }
+.box.guest { background-color: rgba(25, 118, 210, 0.2); }
