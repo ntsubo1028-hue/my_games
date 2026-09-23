@@ -11,7 +11,7 @@ let currentTurn = 'host';
 let gameOver = false;
 let isProcessing = false; 
 
-// 不一致時の確認待ち用変数
+// 不一致時の確認待ち（覚えるタイム）用変数
 let isWaitingForConfirmation = false;
 let confirmationTimer = null;
 
@@ -72,7 +72,6 @@ function updateBoard() {
       cell.classList.add('hidden');
       cell.innerText = '❓';
       if (isMyTurn && !gameOver && !isProcessing && !isWaitingForConfirmation) {
-        // ★ e（イベント）を受け取って渡す
         cell.onclick = (e) => handleCardClick(index, e);
       }
     }
@@ -104,7 +103,6 @@ function updateUI() {
     const turnName = currentTurn === 'host' ? 'ホスト' : 'ゲスト';
     if (turnText) {
       if (isWaitingForConfirmation) {
-        // ★ 自分のターンか相手のターンかで表示を分ける
         if (currentTurn === myRole) {
           turnText.innerText = "👀 覚えるタイム（タップで閉じる / 5秒で自動）";
         } else {
@@ -118,7 +116,7 @@ function updateUI() {
 }
 
 function handleCardClick(index, e) {
-  if (e) e.stopPropagation(); // ★ イベントの貫通（バブリング）を防ぎ、即時終了を回避する
+  if (e) e.stopPropagation(); // 画面タップイベントへの貫通（バブリング）を防止
   
   if (!isMyTurn || gameOver || isProcessing || isWaitingForConfirmation) return;
   if (board[index].isFlipped || board[index].isMatched) return;
@@ -135,16 +133,12 @@ function handleCardClick(index, e) {
   }
 }
 
-// ★ タイマー管理関数
+// 覚えるタイム用のタイマー開始処理
 function startConfirmationTimer() {
   clearConfirmationTimer();
   confirmationTimer = setTimeout(() => {
-    if (isHostPlayer) {
-      closeMismatchCards();
-    } else {
-      sendData({ type: "CONCENTRATION_CONFIRM" });
-    }
-  }, 5000);
+    triggerCloseMismatch();
+  }, 5000); // 5秒後に自動で伏せる
 }
 
 function clearConfirmationTimer() {
@@ -154,14 +148,9 @@ function clearConfirmationTimer() {
   }
 }
 
-export function handleScreenTap() {
-  if (!isWaitingForConfirmation) return;
-  
-  // ★ 自分のターンでない時は画面をタップしても無視する
-  if (currentTurn !== myRole) return;
-
+// 5秒経過または画面タップ時の「伏せる要求」の発行
+function triggerCloseMismatch() {
   clearConfirmationTimer();
-
   if (isHostPlayer) {
     closeMismatchCards();
   } else {
@@ -169,8 +158,18 @@ export function handleScreenTap() {
   }
 }
 
+// 画面がタップされた時の処理（main_2.jsから呼び出される）
+export function handleScreenTap() {
+  // 不一致確認待ちでない、または「自分のターン」でない場合はタップしても何もしない
+  if (!isWaitingForConfirmation || currentTurn !== myRole) return;
+
+  triggerCloseMismatch();
+}
+
+// カードを裏返し、次のターンへ進める（ホストのみが実行して全体に同期する）
 function closeMismatchCards() {
   if (!isWaitingForConfirmation) return;
+  
   isWaitingForConfirmation = false;
   clearConfirmationTimer();
 
@@ -192,8 +191,8 @@ function closeMismatchCards() {
 export function processAction(data) {
   if (!isHostPlayer) return;
 
+  // ゲストからの不一致確認完了シグナルを受け取った場合
   if (data.type === "CONCENTRATION_CONFIRM") {
-    // ゲストからの確認完了シグナル
     if (isWaitingForConfirmation && currentTurn === 'guest') {
       closeMismatchCards();
     }
@@ -218,6 +217,7 @@ export function processAction(data) {
       const [firstIdx, secondIdx] = flippedIndices;
 
       if (board[firstIdx].symbol === board[secondIdx].symbol) {
+        // 一致した場合
         board[firstIdx].isMatched = true;
         board[secondIdx].isMatched = true;
         scores[currentTurn]++;
@@ -233,11 +233,14 @@ export function processAction(data) {
         updateBoard();
         updateUI();
       } else {
+        // 不一致の場合（覚えるタイム開始）
         isWaitingForConfirmation = true;
+        syncStateToGuest();
+        updateBoard();
         updateUI();
 
-        // ★ 自分のターン（ホストのターン）の時だけホスト側でタイマーを開始
-        if (currentTurn === myRole) {
+        // ホストのターンならホスト側でタイマー起動
+        if (currentTurn === 'host') {
           startConfirmationTimer();
         }
       }
@@ -247,11 +250,10 @@ export function processAction(data) {
 
 export function updateGameState(payload) {
   if (!isHostPlayer) {
+    const wasWaiting = isWaitingForConfirmation;
+
     board = payload.board;
     scores = payload.scores;
-    
-    const previousWaiting = isWaitingForConfirmation;
-    
     currentTurn = payload.currentTurn;
     gameOver = payload.gameOver;
     isWaitingForConfirmation = payload.isWaitingForConfirmation || false;
@@ -266,8 +268,8 @@ export function updateGameState(payload) {
     updateBoard();
     updateUI();
 
-    // ★ ゲストのターンの時に新しく「確認待ち」状態になったら、ゲスト側でタイマーを開始
-    if (!previousWaiting && isWaitingForConfirmation && currentTurn === myRole) {
+    // ゲストのターンで新たに不一致状態（覚えるタイム）になったらタイマー起動
+    if (!wasWaiting && isWaitingForConfirmation && currentTurn === 'guest') {
       startConfirmationTimer();
     }
   }
