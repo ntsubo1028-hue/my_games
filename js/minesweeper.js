@@ -1,4 +1,4 @@
-import { sendData } from './connection_2.js';
+import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
 
 const ROWS = 8;
