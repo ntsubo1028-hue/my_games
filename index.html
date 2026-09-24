@@ -163,6 +163,13 @@
   <div id="minesweeper-game-screen" class="screen">
     <h2 id="mine-turn-text">マインスイーパー</h2>
     
+    <!-- ★ 残り爆弾数 ＆ スコア表示 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 320px; margin-bottom: 8px;">
+      <div id="mine-count-board" style="font-weight: bold; font-size: 15px; background: #e0e0e0; padding: 6px 12px; border-radius: 6px; width: 100%; text-align: center;">
+        💣 残り爆弾: <span id="mine-remaining-count">10</span>
+      </div>
+    </div>
+
     <!-- スコア＆ターン情報（対戦時） -->
     <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 10px 15px; font-weight: bold; font-size: 15px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
       <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>

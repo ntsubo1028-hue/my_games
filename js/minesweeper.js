@@ -1,4 +1,4 @@
-import { sendData } from './connection.js';
+import { sendData } from './connection_2.js';
 import { playSound } from './sounds.js';
 
 const ROWS = 8;
@@ -130,27 +130,28 @@ function updateModeButton() {
   }
 }
 
-// マスクリック処理
+// マスクリック処理（右クリック対応）
 function handleCellClick(index, isRightClick = false) {
   if (gameOver) return;
 
-  // ★右クリック、または「旗モード」の場合は旗を立てる
+  // 1. 右クリック、または「旗モード」の場合（自分専用のメモ。通信は起こさない）
   if (isRightClick || currentInputMode === 'flag') {
     if (!board[index].isOpened) {
       myFlags[index] = !myFlags[index];
       playSound('flip');
       updateBoard();
+      updateUI();
     }
     return;
   }
 
-  // 以降は「開く」処理
-  if (myFlags[index]) return; // 自分の旗が立っているマスは誤タップ防止
+  // 2. 開くモード
+  if (myFlags[index]) return; // 自分のメモ用の旗が立っているマスは誤タップ防止
 
   if (isSoloMode) {
     handleSoloOpen(index);
   } else {
-    if (currentTurn !== myRole) return; 
+    if (currentTurn !== myRole) return; // 自分のターンでなければ不可
     if (board[index].isOpened) return;
 
     const actionData = {
@@ -213,8 +214,8 @@ export function processAction(data) {
     myFlags[index] = false;
 
     if (board[index].isBomb) {
-      // 爆弾を踏んだ：ペナルティ -5点 ＆ ターン強制交替
-      scores[player] = Math.max(0, scores[player] - 5);
+      // ★ 爆弾を踏んだ：ペナルティで0点 ＆ ターン強制交替
+      scores[player] = 0;
       playSound('flip');
       openedInCurrentTurn = 0;
       
@@ -282,10 +283,12 @@ function switchTurn() {
   updateUI();
 }
 
+// ★ 対戦終了判定：すべての「爆弾以外のマス」が開いた場合
 function checkPvPGameEnd() {
-  const unopenedTotal = board.filter(cell => !cell.isOpened).length;
-  if (unopenedTotal === 0) {
+  const unopenedNonBombs = board.filter(cell => !cell.isOpened && !cell.isBomb).length;
+  if (unopenedNonBombs === 0) {
     gameOver = true;
+    revealAllBombs(); // 終了時に全爆弾を表示
     playSound('win');
   }
 }
@@ -324,14 +327,15 @@ function updateBoard() {
       } else {
         cellEl.innerText = '';
       }
-      // ★左クリック（通常タップ）
+      
+      // 通常クリック（左クリック / タップ）
       cellEl.onclick = () => handleCellClick(index, false);
       
-      // ★右クリック（PC用）
+      // 右クリック（PC向け）
       cellEl.oncontextmenu = (e) => {
-        e.preventDefault(); // ブラウザ標準の右クリックメニューを禁止
+        e.preventDefault();
         handleCellClick(index, true);
-      }
+      };
     }
     boardEl.appendChild(cellEl);
   });
@@ -343,6 +347,13 @@ function updateUI() {
   const scoreHostEl = document.getElementById('mine-score-host');
   const scoreGuestEl = document.getElementById('mine-score-guest');
   const btnRematch = document.getElementById('btn-rematch-mine');
+  const remainingCountEl = document.getElementById('mine-remaining-count');
+
+  // ★ 残り爆弾数の表示更新（10 - 自分の立てている旗の数）
+  if (remainingCountEl) {
+    const flagCount = myFlags.filter(f => f).length;
+    remainingCountEl.innerText = Math.max(0, BOMBS - flagCount);
+  }
 
   if (!isSoloMode) {
     if (scoreHostEl) scoreHostEl.innerText = `ホスト: ${scores.host}点`;
