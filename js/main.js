@@ -84,9 +84,15 @@ async function startHostConnectionFlow() {
   resetConnectionUI();
 
   try {
-    const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
-    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
+    // 接続が完全に確立した（DataChannelが開いた）時に自動でゲーム画面に遷移するコールバックを登録
+    const localDesc = await setupHostConnection(() => {
+      document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+      setTimeout(() => {
+        showGameScreenForHost(selectedGame);
+      }, 300);
+    });
 
+    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
     document.getElementById('conn-status').innerText = "接続情報が整いました。";
 
     // 1. ホスト側はまず「Q. 自分の情報をどうやって相手に伝えますか？」を表示
@@ -120,7 +126,6 @@ async function startHostConnectionFlow() {
 
     // 2. 「接続情報を相手に伝えた」ボタンが押されたあとの処理
     document.getElementById('btn-host-done-output').onclick = () => {
-      // 自分の情報の表示部分を消去
       document.getElementById('qr-container').style.display = 'none';
       document.getElementById('text-copy-container').style.display = 'none';
       document.getElementById('step-host-done-container').style.display = 'none';
@@ -135,10 +140,8 @@ async function startHostConnectionFlow() {
         startMultiPartScan(
           async (answerObj) => { 
             await handleGuestAnswer(answerObj); 
-            document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
-            setTimeout(() => {
-              showGameScreenForHost(selectedGame);
-            }, 500);
+            document.getElementById('conn-status').innerText = "接続を確立しています...";
+            // 画面遷移は setupHostConnection のコールバック（接続完了時）に自動任せする
           },
           () => showScreen('camera-screen'),
           () => showScreen('connection-screen')
@@ -159,11 +162,9 @@ async function startHostConnectionFlow() {
         if (!pasted) return;
         const answerObj = decodeSdp(pasted);
         await handleGuestAnswer(answerObj);
-        document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+        document.getElementById('conn-status').innerText = "接続を確立しています...";
         document.getElementById('step-text-input-area').style.display = 'none';
-        setTimeout(() => {
-          showGameScreenForHost(selectedGame);
-        }, 500);
+        // 画面遷移は setupHostConnection のコールバック（接続完了時）に自動任せする
       } catch (e) {
         alert("無効なテキストです。正しくコピーできているか確認してください。");
       }
@@ -203,7 +204,6 @@ function startGuestScanFlow() {
       document.getElementById('conn-title').innerText = "ホストに情報を返す";
       document.getElementById('conn-status').innerText = "返信の準備ができました。どうやってホストに伝えますか？";
 
-      // ゲストは接続情報を入力し終えた後は、ホストと同様にQRか文字列か選択できる
       const guestChooseOutput = document.getElementById('step-guest-choose-output');
       guestChooseOutput.style.display = 'block';
 
