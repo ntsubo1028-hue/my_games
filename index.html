@@ -63,6 +63,21 @@
       </div>
     </div>
 
+    <!-- ★ 新規追加：テキストコピペエリア（遠隔用） -->
+    <div id="text-signaling-section" style="width: 100%; max-width: 320px; padding-top: 15px; margin-top: 15px; border-top: 1px solid #ccc; display: none;">
+      <p style="font-size: 14px; margin-bottom: 8px;">遠隔で遊ぶ場合（LINE等でテキストを共有）</p>
+      
+      <!-- 自分の情報をコピーするボタン -->
+      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 8px; margin-bottom: 10px; display: none;">
+        📋 自分の接続情報をコピー
+      </button>
+      
+      <!-- 相手の情報を受け取るテキストエリア -->
+      <div id="text-input-area">
+        <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 8px; font-size: 12px; border-radius: 4px; box-sizing: border-box; resize: none;" placeholder="相手のテキストをペースト"></textarea>
+        <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 8px; margin-top: 5px;">ペーストした情報で接続</button>
+      </div>
+    </div>
     <button id="btn-start-scan" class="btn-action" style="display: none; margin-top: 20px;">相手のQRを読む</button>
     <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 15px;">◀ 戻る</button>
   </div>
