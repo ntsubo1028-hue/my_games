@@ -68,9 +68,12 @@ function showGameScreenForHost(game) {
 function resetConnectionUI() {
   document.getElementById('qr-container').style.display = 'none';
   document.getElementById('text-copy-container').style.display = 'none';
-  document.getElementById('step-choose-input').style.display = 'none';
+  document.getElementById('step-guest-choose-input').style.display = 'none';
+  document.getElementById('step-host-choose-output').style.display = 'none';
+  document.getElementById('step-host-done-container').style.display = 'none';
+  document.getElementById('step-host-choose-input').style.display = 'none';
+  document.getElementById('step-guest-choose-output').style.display = 'none';
   document.getElementById('step-text-input-area').style.display = 'none';
-  document.getElementById('step-choose-output').style.display = 'none';
 }
 
 // --- ホスト：接続確立フロー ---
@@ -81,55 +84,68 @@ async function startHostConnectionFlow() {
   resetConnectionUI();
 
   try {
-    // 1. 自分の接続情報（Offer）を生成
     const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
 
-    document.getElementById('conn-status').innerText = "接続情報の準備ができました。以下の選択肢から進めてください。";
+    document.getElementById('conn-status').innerText = "接続情報が整いました。";
 
-    // 要件①：ホストは接続情報をQRで表示するか文字列情報をコピーするか選択できる
-    const chooseOutput = document.getElementById('step-choose-output');
-    chooseOutput.style.display = 'block';
+    // 1. ホスト側はまず「Q. 自分の情報をどうやって相手に伝えますか？」を表示
+    const hostChooseOutput = document.getElementById('step-host-choose-output');
+    hostChooseOutput.style.display = 'block';
 
-    document.getElementById('btn-output-qr').onclick = () => {
-      chooseOutput.style.display = 'none';
-      document.getElementById('qr-container').style.display = 'flex';
-      generateMultiPartQR('conn-status', localDesc, selectedGame);
-      document.getElementById('conn-status').innerText = "下のQRコードをゲストに読み取ってもらってください";
+    const showDoneButton = () => {
+      document.getElementById('step-host-done-container').style.display = 'block';
     };
 
-    document.getElementById('btn-output-text').onclick = () => {
-      chooseOutput.style.display = 'none';
+    document.getElementById('btn-host-output-qr').onclick = () => {
+      hostChooseOutput.style.display = 'none';
+      document.getElementById('qr-container').style.display = 'flex';
+      generateMultiPartQR('conn-status', localDesc, selectedGame);
+      document.getElementById('conn-status').innerText = "下のQRコードを相手に読み取ってもらってください";
+      showDoneButton();
+    };
+
+    document.getElementById('btn-host-output-text').onclick = () => {
+      hostChooseOutput.style.display = 'none';
       document.getElementById('text-copy-container').style.display = 'block';
-      document.getElementById('conn-status').innerText = "接続情報をコピーしてゲストに送ってください";
+      document.getElementById('conn-status').innerText = "接続情報をコピーして相手に送ってください";
+      showDoneButton();
     };
 
     document.getElementById('btn-copy-sdp').onclick = () => {
       navigator.clipboard.writeText(localConnectionDataStr).then(() => {
-        alert("接続情報をコピーしました！\nLINE等でゲストに送ってください。");
+        alert("接続情報をコピーしました！\nLINE等で相手に送ってください。");
       });
     };
 
-    // 要件④：ホスト側は、どの方法でゲストの接続情報を入力するか選択する
-    const chooseInput = document.getElementById('step-choose-input');
-    chooseInput.style.display = 'block';
-    chooseInput.style.marginTop = '15px';
+    // 2. 「接続情報を相手に伝えた」ボタンが押されたあとの処理
+    document.getElementById('btn-host-done-output').onclick = () => {
+      // 自分の情報の表示部分を消去
+      document.getElementById('qr-container').style.display = 'none';
+      document.getElementById('text-copy-container').style.display = 'none';
+      document.getElementById('step-host-done-container').style.display = 'none';
 
-    document.getElementById('btn-input-qr').onclick = () => {
-      chooseInput.style.display = 'none';
-      startMultiPartScan(
-        async (answerObj) => { 
-          await handleGuestAnswer(answerObj); 
-          document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
-        },
-        () => showScreen('camera-screen'),
-        () => showScreen('connection-screen')
-      );
-    };
+      // 3. 次に「Q. 相手の情報をどうやって入力しますか？」を表示
+      document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
+      const hostChooseInput = document.getElementById('step-host-choose-input');
+      hostChooseInput.style.display = 'block';
 
-    document.getElementById('btn-input-text').onclick = () => {
-      chooseInput.style.display = 'none';
-      document.getElementById('step-text-input-area').style.display = 'block';
+      document.getElementById('btn-host-input-qr').onclick = () => {
+        hostChooseInput.style.display = 'none';
+        startMultiPartScan(
+          async (answerObj) => { 
+            await handleGuestAnswer(answerObj); 
+            document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+          },
+          () => showScreen('camera-screen'),
+          () => showScreen('connection-screen')
+        );
+      };
+
+      document.getElementById('btn-host-input-text').onclick = () => {
+        hostChooseInput.style.display = 'none';
+        document.getElementById('step-text-input-area').style.display = 'block';
+      };
     };
 
     const textInput = document.getElementById('text-sdp-input');
@@ -160,9 +176,9 @@ function startGuestScanFlow() {
   document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
   resetConnectionUI();
 
-  // 要件②：ゲスト側も同様に、QRか文字列か、どちらの情報の入力をするか選択できる
-  const chooseInput = document.getElementById('step-choose-input');
-  chooseInput.style.display = 'block';
+  // ゲスト側：最初にホスト情報の入力を求められる
+  const guestChooseInput = document.getElementById('step-guest-choose-input');
+  guestChooseInput.style.display = 'block';
 
   const processHostOffer = async (scanResult) => {
     try {
@@ -181,19 +197,19 @@ function startGuestScanFlow() {
       document.getElementById('conn-title').innerText = "ホストに情報を返す";
       document.getElementById('conn-status').innerText = "返信の準備ができました。どうやってホストに伝えますか？";
 
-      // 要件③：ゲストは接続情報を入力し終えた後は、ホストと同様にQRか文字列か選択できる
-      const chooseOutput = document.getElementById('step-choose-output');
-      chooseOutput.style.display = 'block';
+      // ゲストは接続情報を入力し終えた後は、ホストと同様にQRか文字列か選択できる
+      const guestChooseOutput = document.getElementById('step-guest-choose-output');
+      guestChooseOutput.style.display = 'block';
 
-      document.getElementById('btn-output-qr').onclick = () => {
-        chooseOutput.style.display = 'none';
+      document.getElementById('btn-guest-output-qr').onclick = () => {
+        guestChooseOutput.style.display = 'none';
         document.getElementById('qr-container').style.display = 'flex';
         generateMultiPartQR('conn-status', localDesc, selectedGame);
         document.getElementById('conn-status').innerText = "このQRコードをホストに読み取ってもらってください";
       };
 
-      document.getElementById('btn-output-text').onclick = () => {
-        chooseOutput.style.display = 'none';
+      document.getElementById('btn-guest-output-text').onclick = () => {
+        guestChooseOutput.style.display = 'none';
         document.getElementById('text-copy-container').style.display = 'block';
       };
 
@@ -208,8 +224,8 @@ function startGuestScanFlow() {
     }
   };
 
-  document.getElementById('btn-input-qr').onclick = () => {
-    chooseInput.style.display = 'none';
+  document.getElementById('btn-guest-input-qr').onclick = () => {
+    guestChooseInput.style.display = 'none';
     startMultiPartScan(
       async (scanResult) => { await processHostOffer(scanResult); },
       () => showScreen('camera-screen'),
@@ -217,8 +233,8 @@ function startGuestScanFlow() {
     );
   };
 
-  document.getElementById('btn-input-text').onclick = () => {
-    chooseInput.style.display = 'none';
+  document.getElementById('btn-guest-input-text').onclick = () => {
+    guestChooseInput.style.display = 'none';
     document.getElementById('step-text-input-area').style.display = 'block';
   };
 

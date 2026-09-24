@@ -42,36 +42,61 @@
     <button id="btn-back-main" class="btn-action secondary-btn" style="margin-top: 20px;">◀ メニューに戻る</button>
   </div>
 
-  <!-- ③ 通信確立画面（ホスト・ゲスト共通・選択式フロー） -->
+  <!-- ③ 通信確立画面（ホスト・ゲスト共通・段階的選択フロー） -->
   <div id="connection-screen" class="screen">
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text">準備中...</p>
     
-    <!-- 1. 相手の情報の入力方法を選ぶ選択肢 -->
-    <div id="step-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. 相手の情報をどうやって入力しますか？</p>
+    <!-- ゲスト用：ホストの情報の入力方法を選ぶ選択肢 -->
+    <div id="step-guest-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. ホストの情報をどうやって入力しますか？</p>
       <div style="display: flex; gap: 8px; flex-direction: column;">
-        <button id="btn-input-qr" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📷 QRコードを読み取る</button>
-        <button id="btn-input-text" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 10px;">📝 テキストをペーストする</button>
+        <button id="btn-guest-input-qr" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📷 QRコードを読み取る</button>
+        <button id="btn-guest-input-text" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 10px;">📝 テキストをペーストする</button>
       </div>
     </div>
 
-    <!-- テキストペースト用入力エリア（選択後に表示） -->
+    <!-- ホスト用ステップ1：自分の情報の伝え方を選ぶ選択肢 -->
+    <div id="step-host-choose-output" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. 自分の情報をどうやって相手に伝えますか？</p>
+      <div style="display: flex; gap: 8px; flex-direction: column;">
+        <button id="btn-host-output-qr" class="btn-action" style="background-color: #ff9800; font-size: 14px; padding: 10px;">🔴 QRコードを表示する</button>
+        <button id="btn-host-output-text" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📋 テキストをコピーする</button>
+      </div>
+    </div>
+
+    <!-- ホスト用：情報を伝えた後の「完了」ボタン -->
+    <div id="step-host-done-container" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; text-align: center;">
+      <button id="btn-host-done-output" class="btn-action" style="background-color: #4caf50; font-size: 15px; padding: 12px;">
+        ✅ 接続情報を相手に伝えた
+      </button>
+    </div>
+
+    <!-- ホスト用ステップ2：「伝えた」ボタン押下後に表示される、相手の情報の入力方法を選ぶ選択肢 -->
+    <div id="step-host-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. 相手の情報をどうやって入力しますか？</p>
+      <div style="display: flex; gap: 8px; flex-direction: column;">
+        <button id="btn-host-input-qr" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📷 QRコードを読み取る</button>
+        <button id="btn-host-input-text" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 10px;">📝 テキストをペーストする</button>
+      </div>
+    </div>
+
+    <!-- ゲスト用：ホストへの返信情報の伝え方を選ぶ選択肢 -->
+    <div id="step-guest-choose-output" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. ホストに返信情報をどうやって伝えますか？</p>
+      <div style="display: flex; gap: 8px; flex-direction: column;">
+        <button id="btn-guest-output-qr" class="btn-action" style="background-color: #ff9800; font-size: 14px; padding: 10px;">🔴 QRコードを表示する</button>
+        <button id="btn-guest-output-text" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📋 テキストをコピーする</button>
+      </div>
+    </div>
+
+    <!-- テキストペースト用入力エリア -->
     <div id="step-text-input-area" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px;">
       <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 8px; font-size: 12px; border-radius: 4px; box-sizing: border-box; resize: none;" placeholder="相手から送られたテキストをここにペースト"></textarea>
       <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 8px; margin-top: 5px;">このテキストで接続する</button>
     </div>
 
-    <!-- 2. 自分の情報の伝え方を選ぶ選択肢 -->
-    <div id="step-choose-output" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. 自分の情報をどうやって相手に伝えますか？</p>
-      <div style="display: flex; gap: 8px; flex-direction: column;">
-        <button id="btn-output-qr" class="btn-action" style="background-color: #ff9800; font-size: 14px; padding: 10px;">🔴 QRコードを表示する</button>
-        <button id="btn-output-text" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📋 テキストをコピーする</button>
-      </div>
-    </div>
-
-    <!-- QRコード表示コンテナ（選択後に表示） -->
+    <!-- QRコード表示コンテナ -->
     <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 12px; margin-top: 10px;">
       <div style="border: 4px solid #f44336; padding: 8px; border-radius: 8px; text-align: center; background: #fff;">
         <div style="color: #f44336; font-weight: bold; margin-bottom: 4px; font-size: 13px;">🔴 Part 1 (赤)</div>
@@ -87,7 +112,7 @@
       </div>
     </div>
 
-    <!-- テキストコピー用コンテナ（選択後に表示） -->
+    <!-- テキストコピー用コンテナ -->
     <div id="text-copy-container" style="display: none; width: 100%; max-width: 320px; text-align: center; margin-top: 10px;">
       <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; font-size: 15px; padding: 12px;">
         📋 接続情報をコピーする
