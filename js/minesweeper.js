@@ -131,11 +131,11 @@ function updateModeButton() {
 }
 
 // マスクリック処理
-function handleCellClick(index) {
+function handleCellClick(index, isRightClick = false) {
   if (gameOver) return;
 
-  // 1. 旗モードの場合（自分専用のメモ。通信は一切起こさない）
-  if (currentInputMode === 'flag') {
+  // ★右クリック、または「旗モード」の場合は旗を立てる
+  if (isRightClick || currentInputMode === 'flag') {
     if (!board[index].isOpened) {
       myFlags[index] = !myFlags[index];
       playSound('flip');
@@ -144,13 +144,13 @@ function handleCellClick(index) {
     return;
   }
 
-  // 2. 開くモード
-  if (myFlags[index]) return; // 自分のメモ用の旗が立っているマスは誤タップ防止
+  // 以降は「開く」処理
+  if (myFlags[index]) return; // 自分の旗が立っているマスは誤タップ防止
 
   if (isSoloMode) {
     handleSoloOpen(index);
   } else {
-    if (currentTurn !== myRole) return; // 自分のターンでなければ不可
+    if (currentTurn !== myRole) return; 
     if (board[index].isOpened) return;
 
     const actionData = {
@@ -324,7 +324,14 @@ function updateBoard() {
       } else {
         cellEl.innerText = '';
       }
-      cellEl.onclick = () => handleCellClick(index);
+      // ★左クリック（通常タップ）
+      cellEl.onclick = () => handleCellClick(index, false);
+      
+      // ★右クリック（PC用）
+      cellEl.oncontextmenu = (e) => {
+        e.preventDefault(); // ブラウザ標準の右クリックメニューを禁止
+        handleCellClick(index, true);
+      }
     }
     boardEl.appendChild(cellEl);
   });

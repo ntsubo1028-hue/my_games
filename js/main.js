@@ -209,6 +209,9 @@ function startGuestScanFlow() {
         } else if (selectedGame === 'concentration') {
           showScreen('concentration-game-screen');
           initConcentrationGame(false);
+        } else if (selectedGame === 'minesweeper') { // ★ここを追加しました
+          showScreen('minesweeper-game-screen');
+          initPvPGame(false);
         }
       });
 
@@ -345,5 +348,13 @@ document.getElementById('concentration-game-screen').onclick = () => {
 //マインスイーパー専用ボタンのイベント追加
 document.getElementById('btn-mine-mode').onclick = () => toggleInputMode();
 document.getElementById('btn-mine-end-turn').onclick = () => endTurn();
-document.getElementById('btn-quit-mine').onclick = handleQuitGame;
+document.getElementById('btn-quit-mine').onclick = () => {
+  if (isConnectionEstablished()) {
+    // 対戦中の場合は既存の通信切断＆退出処理
+    handleQuitGame(); 
+  } else {
+    // 一人用の場合は強制的にメインメニューへ戻る
+    showScreen('menu-screen');
+  }
+};
 document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
