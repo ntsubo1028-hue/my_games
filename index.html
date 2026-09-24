@@ -26,6 +26,7 @@
 
       <h2 style="margin-top: 2rem; font-size: 1.2rem; color: #555;">一人で遊ぶ</h2>
       <button id="btn-play-tetris" class="secondary-btn">テトリス</button>
+      <button id="btn-play-solo-mine" class="secondary-btn">マインスイーパー (一人用)</button>
     </div>
   </div>
 
@@ -35,7 +36,8 @@
     <div class="menu-container">
       <button id="btn-select-othello" class="btn-action" style="background-color: #2e7d32;">🟢 オセロ (1対1)</button>
       <button id="btn-select-dots" class="btn-action" style="background-color: #e65100;">🟠 ドット＆ボックス (1対1)</button>
-      <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> <!-- 👈 追加 -->
+      <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> 
+      <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (1対1)</button>
     </div>
     <button id="btn-back-main" class="btn-action secondary-btn" style="margin-top: 20px;">◀ メニューに戻る</button>
   </div>
@@ -155,6 +157,29 @@
       <button id="btn-rematch-tetris" class="btn-action" style="display:none; background-color: #fbc02d; color: #000;">もう一度遊ぶ</button>
       <button id="btn-quit-tetris" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
+  </div>
+
+  <!-- ⑥ ゲーム本体画面（マインスイーパー） -->
+  <div id="minesweeper-game-screen" class="screen">
+    <h2 id="mine-turn-text">マインスイーパー</h2>
+    
+    <!-- スコア＆ターン情報（対戦時） -->
+    <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 10px 15px; font-weight: bold; font-size: 15px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+      <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
+      <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
+    </div>
+
+    <!-- モード切り替え ＆ アクションボタン -->
+    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+      <button id="btn-mine-mode" class="btn-action" style="padding: 6px 16px; font-size: 14px; background-color: #4caf50;">モード: ⛏️ 開く</button>
+      <button id="btn-mine-end-turn" class="btn-action" style="padding: 6px 16px; font-size: 14px; background-color: #ff9800; display: none;">ターン終了 ➔</button>
+    </div>
+
+    <!-- マインスイーパー盤面 (8x8) -->
+    <div id="mine-board" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 100%; max-width: 320px; background: #bbb; padding: 6px; border-radius: 8px; box-sizing: border-box;"></div>
+
+    <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 15px; font-size: 16px;">🔄 もう一度遊ぶ（再戦）</button>
+    <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 15px; font-size: 14px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
   <!-- メインJSモジュールの読み込み -->

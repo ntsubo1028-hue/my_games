@@ -45,6 +45,17 @@ import {
   handleScreenTap as handleConcentrationScreenTap
 } from './concentration.js';
 
+import { 
+  initSoloGame, 
+  initPvPGame, 
+  toggleInputMode, 
+  endTurn, 
+  processAction as processMineAction, 
+  updateGameState as updateMineGameState, 
+  syncStateToGuest as syncMineStateToGuest, 
+  requestRematch as requestMineRematch 
+} from './minesweeper.js';
+
 let isHost = false;
 let selectedGame = 'othello'; 
 
@@ -67,6 +78,11 @@ document.getElementById('btn-back-main').onclick = () => {
 document.getElementById('btn-guest').onclick = () => {
   isHost = false;
   startGuestScanFlow();
+};
+
+document.getElementById('btn-play-solo-mine').onclick = () => {
+  showScreen('minesweeper-game-screen');
+  initSoloGame();
 };
 
 // --- ホスト：ゲーム選択 ---
@@ -109,6 +125,19 @@ document.getElementById('btn-select-concentration').onclick = () => {
   }
 };
 
+document.getElementById('btn-select-minesweeper').onclick = () => {
+  selectedGame = 'minesweeper';
+  if (isConnectionEstablished()) {
+    sendData({ type: "CHANGE_GAME", payload: { game: 'minesweeper' } });
+    showScreen('minesweeper-game-screen');
+    initPvPGame(true);
+    syncMineStateToGuest();
+  } else {
+    isHost = true;
+    startHostConnectionFlow();
+  }
+};
+
 // --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
   showScreen('connection-screen');
@@ -141,6 +170,10 @@ async function startHostConnectionFlow() {
         showScreen('concentration-game-screen');
         initConcentrationGame(true);
         syncConcentrationStateToGuest();
+      } else if (selectedGame === 'minesweeper') {
+        showScreen('minesweeper-game-screen');
+        initPvPGame(isHost);
+        if (isHost) syncMineStateToGuest();
       }
     });
     document.getElementById('qr-container').style.display = 'flex';
@@ -236,6 +269,9 @@ setOnMessage((data) => {
     } else if (selectedGame === 'concentration') {
       showScreen('concentration-game-screen');
       initConcentrationGame(false);
+    } else if (selectedGame === 'minesweeper') {
+      showScreen('minesweeper-game-screen');
+      initPvPGame(false);
     }
     return;
   }
@@ -267,7 +303,16 @@ setOnMessage((data) => {
     } else if (!isHost && data.type === "CONCENTRATION_STATE_SYNC") {
       updateConcentrationGameState(data.payload);
     }
-  }
+    } else if (selectedGame === 'minesweeper') {
+      if (data.type === "MINE_OPEN" || data.type === "MINE_END_TURN") {
+        processMineAction(data);
+      } else if (isHost && data.type === "MINE_REMATCH") {
+        initPvPGame(true);
+        syncMineStateToGuest();
+      } else if (!isHost && data.type === "MINE_STATE_SYNC") {
+        updateMineGameState(data.payload);
+      }
+    }
 });
 
 // --- テトリス（一人用）のボタン処理 ---
@@ -296,3 +341,9 @@ document.getElementById('concentration-game-screen').onclick = () => {
     handleConcentrationScreenTap();
   }
 };
+
+//マインスイーパー専用ボタンのイベント追加
+document.getElementById('btn-mine-mode').onclick = () => toggleInputMode();
+document.getElementById('btn-mine-end-turn').onclick = () => endTurn();
+document.getElementById('btn-quit-mine').onclick = handleQuitGame;
+document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
