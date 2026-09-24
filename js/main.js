@@ -65,30 +65,55 @@ function showGameScreenForHost(game) {
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
 }
 
+
+// ====== タブ切り替えの制御 ======
+document.getElementById('btn-tab-qr').onclick = () => {
+  document.getElementById('btn-tab-qr').classList.remove('secondary-btn');
+  document.getElementById('btn-tab-qr').style.backgroundColor = '#009688';
+  document.getElementById('btn-tab-text').classList.add('secondary-btn');
+  document.getElementById('btn-tab-text').style.backgroundColor = '';
+  document.getElementById('qr-signaling-section').style.display = 'flex';
+  document.getElementById('text-signaling-section').style.display = 'none';
+};
+
+document.getElementById('btn-tab-text').onclick = () => {
+  document.getElementById('btn-tab-text').classList.remove('secondary-btn');
+  document.getElementById('btn-tab-text').style.backgroundColor = '#3f51b5';
+  document.getElementById('btn-tab-qr').classList.add('secondary-btn');
+  document.getElementById('btn-tab-qr').style.backgroundColor = '';
+  document.getElementById('text-signaling-section').style.display = 'flex';
+  document.getElementById('qr-signaling-section').style.display = 'none';
+};
+
+// --- 接続画面のUIを初期状態（QRタブをデフォルト）にリセットする関数 ---
+function resetConnectionUI(roleTitle) {
+  showScreen('connection-screen');
+  document.getElementById('conn-title').innerText = roleTitle;
+  document.getElementById('conn-tabs').style.display = 'flex';
+  
+  // デフォルトはQRタブを開く
+  document.getElementById('btn-tab-qr').click();
+
+  // 各種ボタン・エリアの中身を初期化
+  document.getElementById('btn-start-scan').style.display = 'inline-block';
+  document.getElementById('qr-container').style.display = 'none';
+  document.getElementById('btn-copy-sdp').style.display = 'none';
+  document.getElementById('text-input-area').style.display = 'block';
+  document.getElementById('text-sdp-input').value = '';
+}
+
+
 // --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
-  showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ホスト接続情報";
-  document.getElementById('conn-status').innerText = "接続情報を収集中...";
-  document.getElementById('qr-container').style.display = 'none';
+  resetConnectionUI("ホスト接続準備");
   
   const btnScan = document.getElementById('btn-start-scan');
-  btnScan.style.display = 'inline-block';
   btnScan.innerText = "ゲストのQRを読む";
 
-  // テキストUIの初期化
-  const textSection = document.getElementById('text-signaling-section');
-  const btnCopy = document.getElementById('btn-copy-sdp');
-  const inputArea = document.getElementById('text-input-area');
   const textInput = document.getElementById('text-sdp-input');
+  document.getElementById('text-input-label').innerText = "ゲストからの返信テキストを貼り付け:";
   const btnSubmit = document.getElementById('btn-submit-sdp');
   
-  if (textSection) textSection.style.display = 'block';
-  btnCopy.style.display = 'none';
-  inputArea.style.display = 'block';
-  textInput.value = '';
-  textInput.placeholder = "ゲストからの返信テキストをペースト";
-
   // ペースト処理（ホスト側）
   btnSubmit.onclick = async () => {
     try {
@@ -97,7 +122,7 @@ async function startHostConnectionFlow() {
       const answerObj = decodeSdp(pasted);
       await handleGuestAnswer(answerObj);
       document.getElementById('conn-status').innerText = "接続完了！";
-      inputArea.style.display = 'none';
+      document.getElementById('text-input-area').style.display = 'none';
     } catch (e) {
       alert("無効なテキストです。正しくコピーできているか確認してください。");
     }
@@ -109,15 +134,17 @@ async function startHostConnectionFlow() {
     () => showScreen('connection-screen')
   );
 
+  document.getElementById('conn-status').innerText = "接続情報を準備中...";
   try {
     const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
+    document.getElementById('conn-status').innerText = "準備完了！相手に情報を渡してください";
     
-    document.getElementById('conn-status').innerText = "接続情報を生成しました";
+    // QRとテキスト情報、両方を同時に生成・準備しておく
     document.getElementById('qr-container').style.display = 'flex';
     generateMultiPartQR('conn-status', localDesc, selectedGame);
 
-    // テキストコピー機能の有効化
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
+    const btnCopy = document.getElementById('btn-copy-sdp');
     btnCopy.style.display = 'inline-block';
     btnCopy.innerText = "📋 自分の接続情報をコピー";
     btnCopy.onclick = () => {
@@ -125,7 +152,6 @@ async function startHostConnectionFlow() {
         alert("接続情報をコピーしました！\nLINE等でゲストに送ってください。");
       });
     };
-
   } catch (e) {
     document.getElementById('conn-status').className = 'error-text';
     document.getElementById('conn-status').innerText = "エラー:\n" + e.message;
@@ -134,29 +160,19 @@ async function startHostConnectionFlow() {
 
 // --- ゲスト：スキャンフロー ---
 function startGuestScanFlow() {
-  showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ゲスト接続準備";
-  document.getElementById('conn-status').innerText = "ホストの情報を入力するか、QRを読んでください";
-  document.getElementById('qr-container').style.display = 'none';
+  resetConnectionUI("ゲスト接続準備");
+  document.getElementById('conn-status').innerText = "ホストの情報を読み取ってください";
   
   const btnScan = document.getElementById('btn-start-scan');
-  btnScan.style.display = 'inline-block';
   btnScan.innerText = "ホストのQRを読む";
 
-  // テキストUIの初期化
-  const textSection = document.getElementById('text-signaling-section');
+  const textInput = document.getElementById('text-sdp-input');
+  document.getElementById('text-input-label').innerText = "ホストからのテキストを貼り付け:";
+  const btnSubmit = document.getElementById('btn-submit-sdp');
   const btnCopy = document.getElementById('btn-copy-sdp');
   const inputArea = document.getElementById('text-input-area');
-  const textInput = document.getElementById('text-sdp-input');
-  const btnSubmit = document.getElementById('btn-submit-sdp');
 
-  if (textSection) textSection.style.display = 'block';
-  btnCopy.style.display = 'none';
-  inputArea.style.display = 'block';
-  textInput.value = '';
-  textInput.placeholder = "ホストから送られたテキストをペースト";
-
-  // ゲスト側の処理本体（QR/テキスト共通）
+  // ゲスト側の処理本体（QRスキャン成功時、テキストペースト成功時の共通処理）
   const processHostOffer = async (scanResult) => {
     const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
     selectedGame = scanResult.gameType;
@@ -170,12 +186,14 @@ function startGuestScanFlow() {
     });
 
     document.getElementById('conn-title').innerText = "ホストに情報を送る";
+    document.getElementById('conn-status').innerText = "返信情報をホストに渡してください";
+    
+    // スキャン/ペースト用の入力UIを隠し、生成した自分用の情報（QRとコピー）を表示する
     btnScan.style.display = 'none';
-    inputArea.style.display = 'none'; // ペースト欄を消す
+    inputArea.style.display = 'none'; 
     document.getElementById('qr-container').style.display = 'flex';
     generateMultiPartQR('conn-status', localDesc, selectedGame);
 
-    // 返信用のテキストコピー機能の有効化
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
     btnCopy.style.display = 'inline-block';
     btnCopy.innerText = "📋 ホストへの返信情報をコピー";
@@ -225,10 +243,11 @@ const handleQuitGame = () => {
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    document.getElementById('qr-container').style.display = 'none';
-    document.getElementById('btn-start-scan').style.display = 'none';
-    const textSection = document.getElementById('text-signaling-section');
-    if (textSection) textSection.style.display = 'none'; // 待機中はテキストUIを隠す
+    
+    // 待機中はすべての通信系UIを隠す
+    document.getElementById('conn-tabs').style.display = 'none'; 
+    document.getElementById('qr-signaling-section').style.display = 'none';
+    document.getElementById('text-signaling-section').style.display = 'none';
   }
 };
 
