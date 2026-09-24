@@ -136,6 +136,9 @@ async function startHostConnectionFlow() {
           async (answerObj) => { 
             await handleGuestAnswer(answerObj); 
             document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+            setTimeout(() => {
+              showGameScreenForHost(selectedGame);
+            }, 500);
           },
           () => showScreen('camera-screen'),
           () => showScreen('connection-screen')
@@ -156,8 +159,11 @@ async function startHostConnectionFlow() {
         if (!pasted) return;
         const answerObj = decodeSdp(pasted);
         await handleGuestAnswer(answerObj);
-        document.getElementById('conn-status').innerText = "接続完了！";
+        document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
         document.getElementById('step-text-input-area').style.display = 'none';
+        setTimeout(() => {
+          showGameScreenForHost(selectedGame);
+        }, 500);
       } catch (e) {
         alert("無効なテキストです。正しくコピーできているか確認してください。");
       }
