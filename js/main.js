@@ -64,62 +64,87 @@ function showGameScreenForHost(game) {
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
 }
 
+// --- 共通：接続画面のUIリセット ---
+function resetConnectionUI() {
+  document.getElementById('qr-container').style.display = 'none';
+  document.getElementById('text-copy-container').style.display = 'none';
+  document.getElementById('step-choose-input').style.display = 'none';
+  document.getElementById('step-text-input-area').style.display = 'none';
+  document.getElementById('step-choose-output').style.display = 'none';
+}
+
 // --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
   showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ホスト接続情報";
-  document.getElementById('conn-status').innerText = "接続情報を収集中...";
-  document.getElementById('qr-container').style.display = 'none';
-  
-  const btnScan = document.getElementById('btn-start-scan');
-  btnScan.style.display = 'inline-block';
-  btnScan.innerText = "ゲストのQRを読む";
-
-  const textSection = document.getElementById('text-signaling-section');
-  const btnCopy = document.getElementById('btn-copy-sdp');
-  const inputArea = document.getElementById('text-input-area');
-  const textInput = document.getElementById('text-sdp-input');
-  const btnSubmit = document.getElementById('btn-submit-sdp');
-  
-  if (textSection) textSection.style.display = 'block';
-  btnCopy.style.display = 'none';
-  inputArea.style.display = 'block';
-  textInput.value = '';
-  textInput.placeholder = "ゲストからの返信テキストをペースト";
-
-  btnSubmit.onclick = async () => {
-    try {
-      const pasted = textInput.value.trim();
-      if (!pasted) return;
-      const answerObj = decodeSdp(pasted);
-      await handleGuestAnswer(answerObj);
-      document.getElementById('conn-status').innerText = "接続完了！";
-      inputArea.style.display = 'none';
-    } catch (e) {
-      alert("無効なテキストです。正しくコピーできているか確認してください。");
-    }
-  };
-
-  btnScan.onclick = () => startMultiPartScan(
-    async (answerObj) => { await handleGuestAnswer(answerObj); },
-    () => showScreen('camera-screen'),
-    () => showScreen('connection-screen')
-  );
+  document.getElementById('conn-title').innerText = "ホスト接続の準備";
+  document.getElementById('conn-status').innerText = "接続情報を準備しています...";
+  resetConnectionUI();
 
   try {
+    // 1. 自分の接続情報（Offer）を生成
     const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
-    
-    document.getElementById('conn-status').innerText = "接続情報を生成しました";
-    document.getElementById('qr-container').style.display = 'flex';
-    generateMultiPartQR('conn-status', localDesc, selectedGame);
-
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
-    btnCopy.style.display = 'inline-block';
-    btnCopy.innerText = "📋 自分の接続情報をコピー";
-    btnCopy.onclick = () => {
+
+    document.getElementById('conn-status').innerText = "接続情報の準備ができました。以下の選択肢から進めてください。";
+
+    // 要件①：ホストは接続情報をQRで表示するか文字列情報をコピーするか選択できる
+    const chooseOutput = document.getElementById('step-choose-output');
+    chooseOutput.style.display = 'block';
+
+    document.getElementById('btn-output-qr').onclick = () => {
+      chooseOutput.style.display = 'none';
+      document.getElementById('qr-container').style.display = 'flex';
+      generateMultiPartQR('conn-status', localDesc, selectedGame);
+      document.getElementById('conn-status').innerText = "下のQRコードをゲストに読み取ってもらってください";
+    };
+
+    document.getElementById('btn-output-text').onclick = () => {
+      chooseOutput.style.display = 'none';
+      document.getElementById('text-copy-container').style.display = 'block';
+      document.getElementById('conn-status').innerText = "接続情報をコピーしてゲストに送ってください";
+    };
+
+    document.getElementById('btn-copy-sdp').onclick = () => {
       navigator.clipboard.writeText(localConnectionDataStr).then(() => {
         alert("接続情報をコピーしました！\nLINE等でゲストに送ってください。");
       });
+    };
+
+    // 要件④：ホスト側は、どの方法でゲストの接続情報を入力するか選択する
+    const chooseInput = document.getElementById('step-choose-input');
+    chooseInput.style.display = 'block';
+    chooseInput.style.marginTop = '15px';
+
+    document.getElementById('btn-input-qr').onclick = () => {
+      chooseInput.style.display = 'none';
+      startMultiPartScan(
+        async (answerObj) => { 
+          await handleGuestAnswer(answerObj); 
+          document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+        },
+        () => showScreen('camera-screen'),
+        () => showScreen('connection-screen')
+      );
+    };
+
+    document.getElementById('btn-input-text').onclick = () => {
+      chooseInput.style.display = 'none';
+      document.getElementById('step-text-input-area').style.display = 'block';
+    };
+
+    const textInput = document.getElementById('text-sdp-input');
+    textInput.value = '';
+    document.getElementById('btn-submit-sdp').onclick = async () => {
+      try {
+        const pasted = textInput.value.trim();
+        if (!pasted) return;
+        const answerObj = decodeSdp(pasted);
+        await handleGuestAnswer(answerObj);
+        document.getElementById('conn-status').innerText = "接続完了！";
+        document.getElementById('step-text-input-area').style.display = 'none';
+      } catch (e) {
+        alert("無効なテキストです。正しくコピーできているか確認してください。");
+      }
     };
 
   } catch (e) {
@@ -128,73 +153,88 @@ async function startHostConnectionFlow() {
   }
 }
 
-// --- ゲスト：スキャンフロー ---
+// --- ゲスト：スキャン・接続フロー ---
 function startGuestScanFlow() {
   showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ゲスト接続準備";
-  document.getElementById('conn-status').innerText = "ホストの情報を入力するか、QRを読んでください";
-  document.getElementById('qr-container').style.display = 'none';
-  
-  const btnScan = document.getElementById('btn-start-scan');
-  btnScan.style.display = 'inline-block';
-  btnScan.innerText = "ホストのQRを読む";
+  document.getElementById('conn-title').innerText = "ゲスト参加の準備";
+  document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
+  resetConnectionUI();
 
-  const textSection = document.getElementById('text-signaling-section');
-  const btnCopy = document.getElementById('btn-copy-sdp');
-  const inputArea = document.getElementById('text-input-area');
-  const textInput = document.getElementById('text-sdp-input');
-  const btnSubmit = document.getElementById('btn-submit-sdp');
-
-  if (textSection) textSection.style.display = 'block';
-  btnCopy.style.display = 'none';
-  inputArea.style.display = 'block';
-  textInput.value = '';
-  textInput.placeholder = "ホストから送られたテキストをペースト";
+  // 要件②：ゲスト側も同様に、QRか文字列か、どちらの情報の入力をするか選択できる
+  const chooseInput = document.getElementById('step-choose-input');
+  chooseInput.style.display = 'block';
 
   const processHostOffer = async (scanResult) => {
-    const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
-    selectedGame = scanResult.gameType;
-    document.getElementById('conn-status').innerText = "ホストへの返信を生成中...";
+    try {
+      const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
+      selectedGame = scanResult.gameType;
+      document.getElementById('conn-status').innerText = "ホストへの返信を生成中...";
 
-    const localDesc = await setupGuestConnection(offerObj, () => {
-      if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
-      else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
-      else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
-      else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
-    });
-
-    document.getElementById('conn-title').innerText = "ホストに情報を送る";
-    btnScan.style.display = 'none';
-    inputArea.style.display = 'none'; 
-    document.getElementById('qr-container').style.display = 'flex';
-    generateMultiPartQR('conn-status', localDesc, selectedGame);
-
-    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
-    btnCopy.style.display = 'inline-block';
-    btnCopy.innerText = "📋 ホストへの返信情報をコピー";
-    btnCopy.onclick = () => {
-      navigator.clipboard.writeText(localConnectionDataStr).then(() => {
-        alert("返信情報をコピーしました！\nホストに送って接続を完了させてください。");
+      const localDesc = await setupGuestConnection(offerObj, () => {
+        if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
+        else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
+        else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
+        else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
       });
-    };
+
+      localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
+      document.getElementById('conn-title').innerText = "ホストに情報を返す";
+      document.getElementById('conn-status').innerText = "返信の準備ができました。どうやってホストに伝えますか？";
+
+      // 要件③：ゲストは接続情報を入力し終えた後は、ホストと同様にQRか文字列か選択できる
+      const chooseOutput = document.getElementById('step-choose-output');
+      chooseOutput.style.display = 'block';
+
+      document.getElementById('btn-output-qr').onclick = () => {
+        chooseOutput.style.display = 'none';
+        document.getElementById('qr-container').style.display = 'flex';
+        generateMultiPartQR('conn-status', localDesc, selectedGame);
+        document.getElementById('conn-status').innerText = "このQRコードをホストに読み取ってもらってください";
+      };
+
+      document.getElementById('btn-output-text').onclick = () => {
+        chooseOutput.style.display = 'none';
+        document.getElementById('text-copy-container').style.display = 'block';
+      };
+
+      document.getElementById('btn-copy-sdp').onclick = () => {
+        navigator.clipboard.writeText(localConnectionDataStr).then(() => {
+          alert("返信情報をコピーしました！\nホストに送って接続を完了させてください。");
+        });
+      };
+
+    } catch (e) {
+      alert("処理に失敗しました。正しい情報か確認してください。");
+    }
   };
 
-  btnSubmit.onclick = async () => {
+  document.getElementById('btn-input-qr').onclick = () => {
+    chooseInput.style.display = 'none';
+    startMultiPartScan(
+      async (scanResult) => { await processHostOffer(scanResult); },
+      () => showScreen('camera-screen'),
+      () => showScreen('connection-screen')
+    );
+  };
+
+  document.getElementById('btn-input-text').onclick = () => {
+    chooseInput.style.display = 'none';
+    document.getElementById('step-text-input-area').style.display = 'block';
+  };
+
+  const textInput = document.getElementById('text-sdp-input');
+  textInput.value = '';
+  document.getElementById('btn-submit-sdp').onclick = async () => {
     try {
       const pasted = textInput.value.trim();
       if (!pasted) return;
       const scanResult = decodeSdp(pasted);
+      document.getElementById('step-text-input-area').style.display = 'none';
       await processHostOffer(scanResult);
     } catch (e) {
       alert("無効なテキストです。正しくコピーできているか確認してください。");
     }
   };
-
-  btnScan.onclick = () => startMultiPartScan(
-    async (scanResult) => { await processHostOffer(scanResult); },
-    () => showScreen('camera-screen'),
-    () => showScreen('connection-screen')
-  );
 }
 
 // --- 各種ボタン処理 ---
@@ -218,10 +258,7 @@ const handleQuitGame = () => {
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    document.getElementById('qr-container').style.display = 'none';
-    document.getElementById('btn-start-scan').style.display = 'none';
-    const textSection = document.getElementById('text-signaling-section');
-    if (textSection) textSection.style.display = 'none'; 
+    resetConnectionUI();
   }
 };
 
