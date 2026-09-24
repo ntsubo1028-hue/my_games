@@ -31,7 +31,7 @@
   </div>
 
   <!-- ② ホスト用：ゲーム選択画面 -->
-<div id="host-game-select-screen" class="screen">
+  <div id="host-game-select-screen" class="screen">
     <h2>遊ぶゲームを選択</h2>
     <div class="menu-container">
       <button id="btn-select-othello" class="btn-action" style="background-color: #2e7d32;">🟢 オセロ (1対1)</button>
@@ -45,49 +45,57 @@
   <!-- ③ 通信確立画面（ホスト・ゲスト共通） -->
   <div id="connection-screen" class="screen">
     <h3 id="conn-title">接続の準備</h3>
-    <p id="conn-status" class="loading-text" style="margin-bottom: 15px; font-weight: bold;"></p>
+    <p id="conn-status" class="loading-text"></p>
     
-    <!-- ★ 追加：タブ切り替えボタン -->
-    <div id="conn-tabs" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; width: 100%; max-width: 320px;">
-      <button id="btn-tab-qr" class="btn-action" style="flex: 1; padding: 10px; font-size: 14px; background-color: #009688;">📷 QRコード</button>
-      <button id="btn-tab-text" class="btn-action secondary-btn" style="flex: 1; padding: 10px; font-size: 14px;">📝 文字入力</button>
-    </div>
-
-    <!-- ★ QRコードセクション -->
-    <div id="qr-signaling-section" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-      <button id="btn-start-scan" class="btn-action" style="margin-bottom: 20px; display: none;">相手のQRを読む</button>
-      <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 15px;">
-        <div style="border: 4px solid #f44336; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
-          <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">🔴 Part 1 (赤)</div>
-          <img id="conn-qr-1" class="qr-img" alt="QR 1" style="display: block; width: 200px; height: 200px;">
-        </div>
-        <div style="border: 4px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
-          <div style="color: #2196f3; font-weight: bold; margin-bottom: 5px;">🔵 Part 2 (青)</div>
-          <img id="conn-qr-2" class="qr-img" alt="QR 2" style="display: block; width: 200px; height: 200px;">
-        </div>
-        <div style="border: 4px solid #ffeb3b; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
-          <div style="color: #fbc02d; font-weight: bold; margin-bottom: 5px;">🟡 Part 3 (黄)</div>
-          <img id="conn-qr-3" class="qr-img" alt="QR 3" style="display: block; width: 200px; height: 200px;">
-        </div>
+    <!-- 3枚同時表示用のコンテナ -->
+    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 15px; margin-top: 15px;">
+      <div style="border: 4px solid #f44336; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">🔴 Part 1 (赤)</div>
+        <img id="conn-qr-1" class="qr-img" alt="QR 1" style="display: block; width: 200px; height: 200px;">
+      </div>
+      <div style="border: 4px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #2196f3; font-weight: bold; margin-bottom: 5px;">🔵 Part 2 (青)</div>
+        <img id="conn-qr-2" class="qr-img" alt="QR 2" style="display: block; width: 200px; height: 200px;">
+      </div>
+      <div style="border: 4px solid #ffeb3b; padding: 10px; border-radius: 8px; text-align: center; background: #fff;">
+        <div style="color: #fbc02d; font-weight: bold; margin-bottom: 5px;">🟡 Part 3 (黄)</div>
+        <img id="conn-qr-3" class="qr-img" alt="QR 3" style="display: block; width: 200px; height: 200px;">
       </div>
     </div>
 
-    <!-- ★ 文字入力（テキスト）セクション -->
-    <div id="text-signaling-section" style="display: none; flex-direction: column; align-items: center; width: 100%; max-width: 320px;">
-      <p style="font-size: 13px; color: #555; margin-bottom: 15px; text-align: center;">
-        カメラが読めない場合や、離れた人と遊ぶ場合はテキストをコピーして共有します。
-      </p>
-      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; padding: 10px; margin-bottom: 15px; display: none;">
+    <!-- テキストコピペエリア（遠隔用） -->
+    <div id="text-signaling-section" style="width: 100%; max-width: 320px; padding-top: 15px; margin-top: 15px; border-top: 1px solid #ccc; display: none;">
+      <p style="font-size: 14px; margin-bottom: 8px;">遠隔で遊ぶ場合（LINE等でテキストを共有）</p>
+      
+      <!-- 自分の情報をコピーするボタン -->
+      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 8px; margin-bottom: 10px; display: none;">
         📋 自分の接続情報をコピー
       </button>
-      <div id="text-input-area" style="width: 100%; display: none;">
-        <p style="font-size: 13px; margin-bottom: 5px; text-align: left; color: #333;" id="text-input-label">相手のテキストを貼り付け:</p>
-        <textarea id="text-sdp-input" rows="4" style="width: 100%; padding: 8px; font-size: 12px; border-radius: 4px; box-sizing: border-box; resize: none; margin-bottom: 10px;"></textarea>
-        <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; padding: 10px;">接続する</button>
+      
+      <!-- 相手の情報を受け取るテキストエリア -->
+      <div id="text-input-area">
+        <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 8px; font-size: 12px; border-radius: 4px; box-sizing: border-box; resize: none;" placeholder="相手のテキストをペースト"></textarea>
+        <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 8px; margin-top: 5px;">ペーストした情報で接続</button>
       </div>
     </div>
+    
+    <button id="btn-start-scan" class="btn-action" style="display: none; margin-top: 20px;">相手のQRを読む</button>
+    <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 15px;">◀ 戻る</button>
+  </div>
 
-    <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 30px;">◀ 戻る</button>
+  <!-- カメラ読み取り画面 -->
+  <div id="camera-screen" class="screen">
+    <h3 id="scan-guide-text">枠内にQRコードを合わせてください</h3>
+    
+    <!-- 読み取り状況インジケーター -->
+    <div id="scan-indicators" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 15px; font-size: 18px; font-weight: bold;">
+      <span id="indicator-1">⬜ 🔴赤</span>
+      <span id="indicator-2">⬜ 🔵青</span>
+      <span id="indicator-3">⬜ 🟡黄</span>
+    </div>
+
+    <div id="reader"></div>
+    <button id="btn-cancel-scan" class="btn-action secondary-btn">キャンセル</button>
   </div>
 
   <!-- ④ ゲーム本体画面 (オセロ) -->
@@ -122,7 +130,6 @@
       <span id="concentration-score-guest" style="color: #1976d2;">ゲスト: 0</span>
     </div>
     
-    <!-- カードを並べるボード（4×4グリッド） -->
     <div id="concentration-board"></div>
 
     <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 20px; font-size: 16px;">🔄 もう一度遊ぶ（再戦）</button>
@@ -137,7 +144,6 @@
       <span id="tetris-lines">ライン: 0</span>
     </div>
     
-    <!-- テトリス盤面 ＆ NEXT表示エリア -->
     <div style="display: flex; gap: 15px; align-items: flex-start; justify-content: center; margin-bottom: 10px;">
       <canvas id="tetris-board" width="200" height="400" style="margin: 0;"></canvas>
       <div style="display: flex; flex-direction: column; align-items: center;">
@@ -146,7 +152,6 @@
       </div>
     </div>
     
-    <!-- スマホ用コントローラー -->
     <div class="tetris-controls">
       <div class="control-row">
         <button id="btn-tetris-up">↻</button>
@@ -171,35 +176,29 @@
   <div id="minesweeper-game-screen" class="screen">
     <h2 id="mine-turn-text">マインスイーパー</h2>
     
-    <!-- 残り爆弾数 ＆ 10秒タイマー表示 -->
     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 320px; margin-bottom: 8px;">
       <div id="mine-count-board" style="font-weight: bold; font-size: 15px; background: #e0e0e0; padding: 6px 12px; border-radius: 6px; width: 100%; text-align: center; display: flex; justify-content: space-around; align-items: center;">
         <span>💣 残り爆弾: <span id="mine-remaining-count">10</span></span>
-        <!-- ★ 10秒タイマー表示エリアを追加 -->
         <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ あと <span id="mine-timer-sec">10</span>秒</span>
       </div>
     </div>
 
-    <!-- スコア＆ターン情報（対戦時） -->
     <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 10px 15px; font-weight: bold; font-size: 15px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
       <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
       <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
     </div>
 
-    <!-- モード切り替え ＆ アクションボタン -->
     <div style="display: flex; gap: 10px; margin-bottom: 12px;">
       <button id="btn-mine-mode" class="btn-action" style="padding: 6px 16px; font-size: 14px; background-color: #4caf50;">モード: ⛏️ 開く</button>
       <button id="btn-mine-end-turn" class="btn-action" style="padding: 6px 16px; font-size: 14px; background-color: #ff9800; display: none;">ターン終了 ➔</button>
     </div>
 
-    <!-- マインスイーパー盤面 (8x8) -->
     <div id="mine-board" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 100%; max-width: 320px; background: #bbb; padding: 6px; border-radius: 8px; box-sizing: border-box;"></div>
 
     <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 15px; font-size: 16px;">🔄 もう一度遊ぶ（再戦）</button>
     <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 15px; font-size: 14px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
-  <!-- メインJSモジュールの読み込み -->
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

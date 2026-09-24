@@ -17,7 +17,6 @@ import { initTetris, stopTetris, moveTetris, dropTetris, rotateTetris, hardDropT
 import { initGame as initConcentrationGame, processAction as processConcentrationAction, updateGameState as updateConcentrationGameState, syncStateToGuest as syncConcentrationStateToGuest, requestRematch as requestConcentrationRematch, handleScreenTap as handleConcentrationScreenTap } from './concentration.js';
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
 
-// ★追加：SDPデータをlz-stringで圧縮してBase64化する関数
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
 }
@@ -27,7 +26,7 @@ function decodeSdp(str) {
 
 let isHost = false;
 let selectedGame = 'othello'; 
-let localConnectionDataStr = ""; // コピー用の文字列を保持
+let localConnectionDataStr = ""; 
 
 // --- 画面切り替え ---
 function showScreen(screenId) {
@@ -65,56 +64,29 @@ function showGameScreenForHost(game) {
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
 }
 
-
-// ====== タブ切り替えの制御 ======
-document.getElementById('btn-tab-qr').onclick = () => {
-  document.getElementById('btn-tab-qr').classList.remove('secondary-btn');
-  document.getElementById('btn-tab-qr').style.backgroundColor = '#009688';
-  document.getElementById('btn-tab-text').classList.add('secondary-btn');
-  document.getElementById('btn-tab-text').style.backgroundColor = '';
-  document.getElementById('qr-signaling-section').style.display = 'flex';
-  document.getElementById('text-signaling-section').style.display = 'none';
-};
-
-document.getElementById('btn-tab-text').onclick = () => {
-  document.getElementById('btn-tab-text').classList.remove('secondary-btn');
-  document.getElementById('btn-tab-text').style.backgroundColor = '#3f51b5';
-  document.getElementById('btn-tab-qr').classList.add('secondary-btn');
-  document.getElementById('btn-tab-qr').style.backgroundColor = '';
-  document.getElementById('text-signaling-section').style.display = 'flex';
-  document.getElementById('qr-signaling-section').style.display = 'none';
-};
-
-// --- 接続画面のUIを初期状態（QRタブをデフォルト）にリセットする関数 ---
-function resetConnectionUI(roleTitle) {
-  showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = roleTitle;
-  document.getElementById('conn-tabs').style.display = 'flex';
-  
-  // デフォルトはQRタブを開く
-  document.getElementById('btn-tab-qr').click();
-
-  // 各種ボタン・エリアの中身を初期化
-  document.getElementById('btn-start-scan').style.display = 'inline-block';
-  document.getElementById('qr-container').style.display = 'none';
-  document.getElementById('btn-copy-sdp').style.display = 'none';
-  document.getElementById('text-input-area').style.display = 'block';
-  document.getElementById('text-sdp-input').value = '';
-}
-
-
 // --- ホスト：接続確立フロー ---
 async function startHostConnectionFlow() {
-  resetConnectionUI("ホスト接続準備");
+  showScreen('connection-screen');
+  document.getElementById('conn-title').innerText = "ホスト接続情報";
+  document.getElementById('conn-status').innerText = "接続情報を収集中...";
+  document.getElementById('qr-container').style.display = 'none';
   
   const btnScan = document.getElementById('btn-start-scan');
+  btnScan.style.display = 'inline-block';
   btnScan.innerText = "ゲストのQRを読む";
 
+  const textSection = document.getElementById('text-signaling-section');
+  const btnCopy = document.getElementById('btn-copy-sdp');
+  const inputArea = document.getElementById('text-input-area');
   const textInput = document.getElementById('text-sdp-input');
-  document.getElementById('text-input-label').innerText = "ゲストからの返信テキストを貼り付け:";
   const btnSubmit = document.getElementById('btn-submit-sdp');
   
-  // ペースト処理（ホスト側）
+  if (textSection) textSection.style.display = 'block';
+  btnCopy.style.display = 'none';
+  inputArea.style.display = 'block';
+  textInput.value = '';
+  textInput.placeholder = "ゲストからの返信テキストをペースト";
+
   btnSubmit.onclick = async () => {
     try {
       const pasted = textInput.value.trim();
@@ -122,7 +94,7 @@ async function startHostConnectionFlow() {
       const answerObj = decodeSdp(pasted);
       await handleGuestAnswer(answerObj);
       document.getElementById('conn-status').innerText = "接続完了！";
-      document.getElementById('text-input-area').style.display = 'none';
+      inputArea.style.display = 'none';
     } catch (e) {
       alert("無効なテキストです。正しくコピーできているか確認してください。");
     }
@@ -134,17 +106,14 @@ async function startHostConnectionFlow() {
     () => showScreen('connection-screen')
   );
 
-  document.getElementById('conn-status').innerText = "接続情報を準備中...";
   try {
     const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
-    document.getElementById('conn-status').innerText = "準備完了！相手に情報を渡してください";
     
-    // QRとテキスト情報、両方を同時に生成・準備しておく
+    document.getElementById('conn-status').innerText = "接続情報を生成しました";
     document.getElementById('qr-container').style.display = 'flex';
     generateMultiPartQR('conn-status', localDesc, selectedGame);
 
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
-    const btnCopy = document.getElementById('btn-copy-sdp');
     btnCopy.style.display = 'inline-block';
     btnCopy.innerText = "📋 自分の接続情報をコピー";
     btnCopy.onclick = () => {
@@ -152,6 +121,7 @@ async function startHostConnectionFlow() {
         alert("接続情報をコピーしました！\nLINE等でゲストに送ってください。");
       });
     };
+
   } catch (e) {
     document.getElementById('conn-status').className = 'error-text';
     document.getElementById('conn-status').innerText = "エラー:\n" + e.message;
@@ -160,19 +130,27 @@ async function startHostConnectionFlow() {
 
 // --- ゲスト：スキャンフロー ---
 function startGuestScanFlow() {
-  resetConnectionUI("ゲスト接続準備");
-  document.getElementById('conn-status').innerText = "ホストの情報を読み取ってください";
+  showScreen('connection-screen');
+  document.getElementById('conn-title').innerText = "ゲスト接続準備";
+  document.getElementById('conn-status').innerText = "ホストの情報を入力するか、QRを読んでください";
+  document.getElementById('qr-container').style.display = 'none';
   
   const btnScan = document.getElementById('btn-start-scan');
+  btnScan.style.display = 'inline-block';
   btnScan.innerText = "ホストのQRを読む";
 
-  const textInput = document.getElementById('text-sdp-input');
-  document.getElementById('text-input-label').innerText = "ホストからのテキストを貼り付け:";
-  const btnSubmit = document.getElementById('btn-submit-sdp');
+  const textSection = document.getElementById('text-signaling-section');
   const btnCopy = document.getElementById('btn-copy-sdp');
   const inputArea = document.getElementById('text-input-area');
+  const textInput = document.getElementById('text-sdp-input');
+  const btnSubmit = document.getElementById('btn-submit-sdp');
 
-  // ゲスト側の処理本体（QRスキャン成功時、テキストペースト成功時の共通処理）
+  if (textSection) textSection.style.display = 'block';
+  btnCopy.style.display = 'none';
+  inputArea.style.display = 'block';
+  textInput.value = '';
+  textInput.placeholder = "ホストから送られたテキストをペースト";
+
   const processHostOffer = async (scanResult) => {
     const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
     selectedGame = scanResult.gameType;
@@ -186,9 +164,6 @@ function startGuestScanFlow() {
     });
 
     document.getElementById('conn-title').innerText = "ホストに情報を送る";
-    document.getElementById('conn-status').innerText = "返信情報をホストに渡してください";
-    
-    // スキャン/ペースト用の入力UIを隠し、生成した自分用の情報（QRとコピー）を表示する
     btnScan.style.display = 'none';
     inputArea.style.display = 'none'; 
     document.getElementById('qr-container').style.display = 'flex';
@@ -243,11 +218,10 @@ const handleQuitGame = () => {
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    
-    // 待機中はすべての通信系UIを隠す
-    document.getElementById('conn-tabs').style.display = 'none'; 
-    document.getElementById('qr-signaling-section').style.display = 'none';
-    document.getElementById('text-signaling-section').style.display = 'none';
+    document.getElementById('qr-container').style.display = 'none';
+    document.getElementById('btn-start-scan').style.display = 'none';
+    const textSection = document.getElementById('text-signaling-section');
+    if (textSection) textSection.style.display = 'none'; 
   }
 };
 
