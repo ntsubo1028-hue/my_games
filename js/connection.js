@@ -1,227 +1,247 @@
-import { playSound } from './sounds.js'; // ★ 効果音モジュールを追加インポート
-
-const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
 let pc = null;
 let dataChannel = null;
-let html5QrCode = null;
+let onMessageCallback = null;
+let html5QrCodeScanner = null;
 
-let scannedParts = {};
-let currentScanCallback = null;
-let isScanComplete = false;
-
-export function initConnection() {
-  if (pc) { pc.close(); pc = null; }
-  if (dataChannel) { dataChannel.close(); dataChannel = null; }
-  scannedParts = {};
-}
-
+/**
+ * ICE Candidate（通信経路候補）の収集が完了するまで待つヘルパー関数
+ */
 function waitForIceGathering(peerConnection) {
   return new Promise((resolve) => {
     if (peerConnection.iceGatheringState === 'complete') {
       resolve();
     } else {
-      let isResolved = false;
-      const done = () => {
-        if (!isResolved) { isResolved = true; resolve(); }
-      };
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate === null) done();
-      };
-      setTimeout(done, 1000);
-    }
-  });
-}
-
-// SDPからデータ通信に関係ない不要な行を削除しデータ量を半減させる関数
-function filterSdp(sdp) {
-  if (!sdp) return '';
-  return sdp
-    .split('\r\n')
-    .filter(line => {
-      return !line.startsWith('a=extmap:') &&
-             !line.startsWith('a=rtcp-fb:') &&
-             !line.startsWith('a=fmtp:') &&
-             !line.startsWith('a=rtcp:') &&
-             !line.startsWith('a=ssrc:') &&
-             !line.startsWith('a=msid:') &&
-             !line.startsWith('a=mid:');
-    })
-    .join('\r\n');
-}
-
-// 3枚のQRコードを同時生成する（軽量化適用）
-export function generateMultiPartQR(statusId, sdpObj, gameType = 'othello') {
-  const cleanedSdp = filterSdp(sdpObj.sdp);
-  const compactData = { t: sdpObj.type, s: cleanedSdp, g: gameType };
-  const jsonString = JSON.stringify(compactData);
-  const fullStr = LZString.compressToBase64(jsonString);
-  
-  const len = Math.ceil(fullStr.length / 3);
-  const parts = [
-    "1:" + fullStr.slice(0, len),
-    "2:" + fullStr.slice(len, len * 2),
-    "3:" + fullStr.slice(len * 2)
-  ];
-  
-  const statusEl = document.getElementById(statusId);
-  statusEl.className = 'loading-text';
-  statusEl.innerText = "相手に3つのQRコードを順に読ませてください";
-
-  for (let i = 1; i <= 3; i++) {
-    const imgEl = document.getElementById(`conn-qr-${i}`);
-    const data = parts[i - 1];
-    imgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=L&data=${encodeURIComponent(data)}`;
-  }
-}
-
-export function startMultiPartScan(callback, onCameraStart, onScanDone) {
-  scannedParts = {};
-  currentScanCallback = callback;
-  runScanner(onCameraStart, onScanDone);
-}
-
-function runScanner(onCameraStart, onScanDone) {
-  onCameraStart();
-  isScanComplete = false;
-  
-  document.getElementById('indicator-1').innerText = "⬜ 🔴赤";
-  document.getElementById('indicator-2').innerText = "⬜ 🔵青";
-  document.getElementById('indicator-3').innerText = "⬜ 🟡黄";
-
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("reader");
-  }
-
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 250 } },
-    (decodedText) => {
-      if (!isScanComplete) {
-        processScannedData(decodedText, onScanDone);
-      }
-    },
-    (errorMessage) => {}
-  ).catch(err => {
-    alert("カメラの起動に失敗しました。カメラの権限やブラウザ設定をご確認ください。");
-    onScanDone();
-  });
-}
-
-function processScannedData(text, onScanDone) {
-  try {
-    if (text.startsWith("1:") || text.startsWith("2:") || text.startsWith("3:")) {
-      const partNum = text[0];
-      const payload = text.slice(2);
-      
-      // まだ読んでいない色なら登録してUI・音・バイブを更新
-      if (!scannedParts[partNum]) {
-        scannedParts[partNum] = payload;
-        
-        // ★ 1枚成功時のアクション（音＋バイブ）
-        playSound('put'); // オセロ等で使っている石を置く音などを流用
-        if (navigator.vibrate) navigator.vibrate(100);
-
-        const indicator = document.getElementById(`indicator-${partNum}`);
-        if (partNum === '1') indicator.innerText = "✅ 🔴赤";
-        if (partNum === '2') indicator.innerText = "✅ 🔵青";
-        if (partNum === '3') indicator.innerText = "✅ 🟡黄";
-
-        // 3つ全て揃った場合の処理
-        if (scannedParts['1'] && scannedParts['2'] && scannedParts['3']) {
-          isScanComplete = true; // 多重発火を防止
-
-          // ★ 全枚数成功時のアクション（音＋バイブ）
-          setTimeout(() => playSound('win'), 200); // 少し遅らせて勝利音(完了音)を鳴らす
-          if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
-
-          html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-            html5QrCode = null;
-            
-            const fullStr = scannedParts['1'] + scannedParts['2'] + scannedParts['3'];
-            const decompressed = LZString.decompressFromBase64(fullStr);
-            const parsed = JSON.parse(decompressed);
-            
-            currentScanCallback({ type: parsed.t, sdp: parsed.s, gameType: parsed.g || 'othello' });
-            onScanDone();
-          });
+      const checkState = () => {
+        if (peerConnection.iceGatheringState === 'complete') {
+          peerConnection.removeEventListener('icegatheringstatechange', checkState);
+          resolve();
         }
+      };
+      peerConnection.addEventListener('icegatheringstatechange', checkState);
+    }
+  });
+}
+
+/**
+ * 接続状態のリセット
+ */
+export function initConnection() {
+  if (dataChannel) {
+    dataChannel.close();
+    dataChannel = null;
+  }
+  if (pc) {
+    pc.close();
+    pc = null;
+  }
+}
+
+/**
+ * ホスト側の接続セットアップ
+ */
+export async function setupHostConnection(onOpenCallback) {
+  initConnection();
+
+  // STUNサーバーの設定（localhostおよび外部通信用）
+  pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+
+  // 1. ホスト側からDataChannelを作成
+  dataChannel = pc.createDataChannel('gameChannel');
+
+  dataChannel.onopen = () => {
+    console.log("DataChannel Opened (Host)");
+    if (onOpenCallback) onOpenCallback();
+  };
+
+  dataChannel.onmessage = (event) => {
+    if (onMessageCallback) {
+      try {
+        const parsed = JSON.parse(event.data);
+        onMessageCallback(parsed);
+      } catch (e) {
+        console.error("メッセージ解析エラー:", e);
       }
     }
-  } catch(e) {
-    // 読み取りミス時は無視してスキャン継続
-  }
-}
+  };
 
-export function cancelScan(onScanDone) {
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => {
-      html5QrCode.clear();
-      html5QrCode = null;
-      onScanDone();
-    }).catch(() => {
-      html5QrCode = null;
-      onScanDone();
-    });
-  } else {
-    onScanDone();
-  }
-}
+  pc.oniceconnectionstatechange = () => {
+    console.log("Host ICE State:", pc.iceConnectionState);
+  };
 
-export async function setupHostConnection(onDataChannelOpen) {
-  initConnection();
-  pc = new RTCPeerConnection(config);
-  
-  const channel = pc.createDataChannel('gameChannel');
-  setupDataChannelHandlers(channel, onDataChannelOpen);
-  
+  // Offer作成と設定
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
+
+  // 【重要】全ICE Candidateの収集完了を待機
   await waitForIceGathering(pc);
+
+  // Candidateが含まれた状態のlocalDescriptionを返す
   return pc.localDescription;
 }
 
-export async function setupGuestConnection(offerObj, onDataChannelOpen) {
+/**
+ * ゲスト側の接続セットアップ
+ */
+export async function setupGuestConnection(offerObj, onOpenCallback) {
   initConnection();
-  pc = new RTCPeerConnection(config);
-  
+
+  pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+
+  // ゲスト側はホスト側から渡される DataChannel を受信用イベントで取得
   pc.ondatachannel = (event) => {
-    setupDataChannelHandlers(event.channel, onDataChannelOpen);
+    dataChannel = event.channel;
+
+    dataChannel.onopen = () => {
+      console.log("DataChannel Opened (Guest)");
+      if (onOpenCallback) onOpenCallback();
+    };
+
+    dataChannel.onmessage = (e) => {
+      if (onMessageCallback) {
+        try {
+          const parsed = JSON.parse(e.data);
+          onMessageCallback(parsed);
+        } catch (err) {
+          console.error("メッセージ解析エラー:", err);
+        }
+      }
+    };
   };
-  
+
+  pc.oniceconnectionstatechange = () => {
+    console.log("Guest ICE State:", pc.iceConnectionState);
+  };
+
+  // ホストのOfferを設定し、Answerを生成
   await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
+
+  // 【重要】全ICE Candidateの収集完了を待機
   await waitForIceGathering(pc);
+
   return pc.localDescription;
 }
 
+/**
+ * ホスト側でゲストからのAnswerを設定する処理
+ */
 export async function handleGuestAnswer(answerObj) {
-  if (!pc || pc.signalingState !== "have-local-offer") {
-    alert("通信セッションの状態が正しくありません。最初からやり直してください。");
-    return;
-  }
+  if (!pc) throw new Error("RTCPeerConnectionが初期化されていません。");
   await pc.setRemoteDescription(new RTCSessionDescription(answerObj));
 }
 
-let onMessageCallback = null;
-export function setOnMessage(callback) { onMessageCallback = callback; }
+/**
+ * データ送信関数
+ */
 export function sendData(data) {
   if (dataChannel && dataChannel.readyState === 'open') {
     dataChannel.send(JSON.stringify(data));
+  } else {
+    console.warn("DataChannelが開いていないため、データを送信できませんでした。", data);
   }
 }
 
-export function isConnectionEstablished() {
-  return window.dataChannel && window.dataChannel.readyState === 'open';
+/**
+ * 受信メッセージコールバックの登録
+ */
+export function setOnMessage(callback) {
+  onMessageCallback = callback;
 }
 
-function setupDataChannelHandlers(channel, onOpen) {
-  dataChannel = channel;
-  dataChannel.onopen = () => { onOpen(); };
-  dataChannel.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (onMessageCallback) onMessageCallback(data);
+/* ==========================================================================
+   QRコード生成・スキャン関連ユーティリティ
+   ========================================================================== */
+
+/**
+ * 接続情報オブジェクトからQRコードを表示（LZStringで圧縮）
+ */
+export function generateMultiPartQR(containerId, localDesc, gameType) {
+  const container = document.getElementById(containerId);
+  const qrcodeElem = document.getElementById('qrcode');
+  if (!qrcodeElem) return;
+
+  qrcodeElem.innerHTML = '';
+
+  const payload = {
+    type: localDesc.type,
+    sdp: localDesc.sdp,
+    gameType: gameType
   };
+
+  const compressedStr = LZString.compressToBase64(JSON.stringify(payload));
+
+  // QRCode.js等での描画想定
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(qrcodeElem, {
+      text: compressedStr,
+      width: 200,
+      height: 200,
+      correctLevel: QRCode.CorrectLevel.L
+    });
+  } else {
+    console.warn("QRCodeライブラリが読み込まれていません。");
+  }
+}
+
+/**
+ * カメラを使ったQRコード読み取り開始
+ */
+export function startMultiPartScan(onSuccess, onCameraStart, onScanCancel) {
+  if (typeof Html5Qrcode === 'undefined') {
+    alert("QRコードスキャナライブラリが読み込まれていません。");
+    return;
+  }
+
+  if (onCameraStart) onCameraStart();
+
+  const qrRegionId = "qr-reader";
+  html5QrCodeScanner = new Html5Qrcode(qrRegionId);
+
+  html5QrCodeScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    (decodedText) => {
+      try {
+        const decompressed = LZString.decompressFromBase64(decodedText);
+        const parsed = JSON.parse(decompressed);
+        
+        cancelScan(() => {
+          if (onSuccess) onSuccess(parsed);
+        });
+      } catch (e) {
+        console.error("QRコードの解読に失敗しました:", e);
+      }
+    },
+    (errorMessage) => {
+      // 読み取り中のエラーログ（無視して継続）
+    }
+  ).catch((err) => {
+    console.error("カメラの起動に失敗しました:", err);
+    alert("カメラの起動に失敗しました。カメラ権限を確認してください。");
+    if (onScanCancel) onScanCancel();
+  });
+}
+
+/**
+ * QRコードスキャナの停止
+ */
+export function cancelScan(callback) {
+  if (html5QrCodeScanner) {
+    html5QrCodeScanner.stop().then(() => {
+      html5QrCodeScanner.clear();
+      html5QrCodeScanner = null;
+      if (callback) callback();
+    }).catch((err) => {
+      console.error("スキャナの停止処理エラー:", err);
+      html5QrCodeScanner = null;
+      if (callback) callback();
+    });
+  } else {
+    if (callback) callback();
+  }
 }

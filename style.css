@@ -1,6 +1,7 @@
 :root {
   --board-color: #2e7d32;
-  --cell-size: min(10vw, 40px);
+  /* 画面幅に合わせてセルが大きくなるよう clamp() を使用 */
+  --cell-size: clamp(35px, 10vw, 60px); 
   --primary-bg: #f0f4f8;
   --card-bg: #ffffff;
 }
@@ -24,13 +25,13 @@ h2, h3 {
   text-align: center; 
   margin: 6px 0; 
   color: #2c3e50;
-  font-size: 1.2rem;
+  font-size: clamp(1.2rem, 4vw, 1.6rem);
 }
 
 /* 共通ボタンデザイン */
 button, .btn-action {
-  padding: 10px 20px; 
-  font-size: 15px; 
+  padding: 12px 20px; 
+  font-size: clamp(14px, 3.5vw, 16px); 
   font-weight: bold; 
   cursor: pointer;
   margin: 6px 0; 
@@ -41,7 +42,7 @@ button, .btn-action {
   box-shadow: 0 3px 8px rgba(0,0,0,0.1);
   transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
   width: 100%;
-  max-width: 300px;
+  max-width: 450px;
   box-sizing: border-box;
 }
 
@@ -50,17 +51,18 @@ button:active, .btn-action:active {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
 }
 
+/* 画面コンテナの幅制限を 420px -> 600px に緩和 */
 .screen { 
   display: none; 
   width: 100%; 
-  max-width: 420px; 
+  max-width: 600px; 
   height: 100dvh; 
   max-height: 100dvh; 
   flex-direction: column; 
   align-items: center; 
   justify-content: space-between;
   background: var(--card-bg);
-  padding: 12px 16px; 
+  padding: 15px 20px; 
   border-radius: 16px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   box-sizing: border-box;
@@ -69,7 +71,6 @@ button:active, .btn-action:active {
 
 .screen.active { display: flex; }
 
-/* メインタイトルの装飾（秘密基地風） */
 .hero-header {
   text-align: center;
   margin-bottom: 15px;
@@ -89,7 +90,7 @@ button:active, .btn-action:active {
 }
 
 .hero-header h1 {
-  font-size: 24px;
+  font-size: clamp(20px, 6vw, 28px);
   line-height: 1.2;
   color: #1a202c;
   margin: 0;
@@ -109,6 +110,7 @@ button:active, .btn-action:active {
   display: flex; 
   flex-direction: column; 
   width: 100%; 
+  max-width: 450px;
   align-items: center; 
   gap: 8px; 
 }
@@ -117,21 +119,22 @@ button:active, .btn-action:active {
 .guest-btn { background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%); }
 .secondary-btn { background-color: #78909c !important; }
 
-#reader { width: 100%; max-width: 280px; margin: 5px 0; border-radius: 10px; overflow: hidden; }
+#reader { width: 100%; max-width: 320px; margin: 5px 0; border-radius: 10px; overflow: hidden; }
 
+/* オセロ */
 #score-board {
   display: flex; justify-content: space-between; width: 100%;
-  max-width: calc(var(--cell-size) * 8 + 12px);
-  margin-bottom: 8px; font-size: 16px; font-weight: bold;
+  max-width: calc(var(--cell-size) * 8 + 20px);
+  margin-bottom: 8px; font-size: clamp(14px, 4vw, 18px); font-weight: bold;
   background: #e8f5e9;
-  padding: 6px 12px;
+  padding: 8px 15px;
   border-radius: 6px;
   box-sizing: border-box;
 }
 
 #board {
-  display: grid; grid-template-columns: repeat(8, var(--cell-size)); gap: 2px;
-  background-color: #111; border: 3px solid #111; border-radius: 6px;
+  display: grid; grid-template-columns: repeat(8, var(--cell-size)); gap: 3px;
+  background-color: #111; border: 4px solid #111; border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
@@ -165,12 +168,10 @@ button:active, .btn-action:active {
 .disc.black { opacity: 1; transform: rotateY(0deg) scale(1); }
 .disc.white { opacity: 1; transform: rotateY(180deg) scale(1); }
 
-.loading-text { color: #f57c00; font-weight: bold; margin: 4px 0; text-align: center; font-size: 13px; }
-.error-text { color: #d32f2f; font-weight: bold; margin: 6px 0; background: #ffebee; padding: 8px; border-radius: 6px; font-size: 13px; }
+.loading-text { color: #f57c00; font-weight: bold; margin: 4px 0; text-align: center; font-size: 14px; }
+.error-text { color: #d32f2f; font-weight: bold; margin: 6px 0; background: #ffebee; padding: 8px; border-radius: 6px; font-size: 14px; }
 
-/* ==================================
-   QRコード画面専用のスタイル（大きく表示＆確実にスクロール許可）
-================================== */
+/* QRコード画面 */
 .screen.scrollable-screen {
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -181,7 +182,6 @@ button:active, .btn-action:active {
   padding-bottom: 30px;
 }
 
-/* QRコード画像を大きく見せる */
 .qr-img {
   width: 260px !important;
   height: 260px !important;
@@ -196,7 +196,7 @@ button:active, .btn-action:active {
   image-rendering: pixelated;
 }
 
-/* --- ドット・アンド・ボックス 用スタイル --- */
+/* ドット・アンド・ボックス */
 #dots-board-container {
   display: grid;
   grid-template-columns: 10px min(16vw, 50px) 10px min(16vw, 50px) 10px min(16vw, 50px) 10px;
@@ -212,17 +212,13 @@ button:active, .btn-action:active {
 
 .line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
 .line-h:hover, .line-v:hover { background-color: #cfd8dc; }
-
 .line-h.active-host, .line-v.active-host { background-color: #d32f2f; }
 .line-h.active-guest, .line-v.active-guest { background-color: #1976d2; }
-
 .box { width: 100%; height: 100%; background-color: transparent; transition: background-color 0.3s; border-radius: 3px; }
 .box.host { background-color: rgba(211, 47, 47, 0.2); }
 .box.guest { background-color: rgba(25, 118, 210, 0.2); }
 
-/* ==================================
-   テトリス用スタイル（自動サイズ調整対応）
-================================== */
+/* テトリス */
 #tetris-board {
   background: #111;
   display: block;
@@ -234,35 +230,21 @@ button:active, .btn-action:active {
   height: auto;
   aspect-ratio: 180 / 360; 
 }
-
 .tetris-info {
-  display: flex;
-  justify-content: space-around;
-  font-weight: bold;
-  font-size: 1rem;
-  width: 100%;
+  display: flex; justify-content: space-around; font-weight: bold; font-size: 1rem; width: 100%;
 }
-
 #tetris-next {
-  background: #111;
-  display: block;
-  border: 2px solid #333;
-  border-radius: 4px;
-  max-height: 10vh;
-  width: auto;
-  height: auto;
-  aspect-ratio: 1 / 1;
+  background: #111; display: block; border: 2px solid #333; border-radius: 4px;
+  max-height: 10vh; width: auto; height: auto; aspect-ratio: 1 / 1;
 }
 
-/* ==================================
-   神経衰弱用スタイル
-================================== */
+/* 神経衰弱 */
 #concentration-board {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  width: 280px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 450px;
   margin: 0 auto;
 }
 
@@ -270,35 +252,85 @@ button:active, .btn-action:active {
   aspect-ratio: 1;
   background: #3f51b5;
   color: white;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  user-select: none;
+  font-size: clamp(20px, 6vw, 30px);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; cursor: pointer; user-select: none;
   box-shadow: 0 3px 5px rgba(0,0,0,0.1);
   transition: transform 0.2s, background 0.2s;
 }
 
 .concentration-card.hidden:hover { background: #303f9f; transform: scale(1.03); }
-.concentration-card.flipped { background: #fff; color: #333; border: 2px solid #3f51b5; }
-.concentration-card.matched { background: #e8f5e9; color: #333; border: 2px solid #4caf50; opacity: 0.7; cursor: default; }
+.concentration-card.flipped { background: #fff; color: #333; border: 3px solid #3f51b5; }
+.concentration-card.matched { background: #e8f5e9; color: #333; border: 3px solid #4caf50; opacity: 0.7; cursor: default; }
 
 #reader video { object-fit: cover !important; }
 
+
 /* ==================================
-   マインスイーパー用スタイル
+   マインスイーパー用スタイル（レスポンシブ化）
 ================================== */
+.mine-info-container, .mine-controls, .mine-actions {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-direction: column;
+}
+
+.mine-controls {
+  flex-direction: row;
+}
+
+.mine-status-panel {
+  background: #e0e0e0;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: clamp(13px, 4vw, 16px);
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.mine-status-panel.dual-score {
+  background: #f0f0f0;
+  margin-bottom: 4px;
+}
+.score-host { color: #d32f2f; }
+.score-guest { color: #1976d2; }
+
+.mode-btn { background-color: #4caf50; flex: 1; margin: 0;}
+.turn-end-btn { background-color: #ff9800; flex: 1; margin: 0;}
+
+/* 盤面を画面の広さに合わせて大きくする */
+.mine-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: min(1vw, 4px);
+  width: 100%;
+  max-width: 500px; /* タブレットやPCでさらに大きく */
+  aspect-ratio: 1;  /* 完全な正方形を維持 */
+  background: #bbb;
+  padding: min(2vw, 8px);
+  border-radius: 10px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
 .mine-cell {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 1;
   background-color: #e0e0e0;
-  border-radius: 3px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 14px;
+  font-size: clamp(14px, 5vw, 28px); /* 盤面拡大に合わせて文字も拡大 */
   user-select: none;
   cursor: pointer;
   box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7);

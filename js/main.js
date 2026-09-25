@@ -325,10 +325,12 @@ document.getElementById('btn-rematch-concentration').onclick = () => requestConc
 
 setOnMessage((data) => {
   if (data.type === "DISCONNECT") {
-    alert("相手が通信を切断しました。");
-    isConnected = false;
-    initConnection();
-    showScreen('menu-screen');
+    if (isConnected) {
+      alert("通信が切断されました（相手が退室したか、通信が不安定です）。");
+      isConnected = false;
+      initConnection();
+      showScreen('menu-screen');
+    }
     return;
   }
 
@@ -380,7 +382,6 @@ setOnMessage((data) => {
   }
 });
 
-// --- テトリス・一人用などの処理（ボタン削除に伴う整理） ---
 document.getElementById('btn-play-tetris').onclick = () => { showScreen('tetris-game-screen'); initTetris(); };
 document.getElementById('btn-quit-tetris').onclick = () => { 
   if (confirm("ゲームを終了してメニューに戻りますか？")) {

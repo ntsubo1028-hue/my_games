@@ -2,10 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ボクらのデジタル秘密基地 - my_games</title>
   
-  <!-- 外部ライブラリ -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
@@ -43,7 +42,7 @@
     <button id="btn-disconnect-host" class="btn-action" style="margin-top: 5px; background-color: #d32f2f; color: #fff; display: none;">🛑 通信を切断してメニューに戻る</button>
   </div>
 
-  <!-- ③ 通信確立画面（ホスト・ゲスト共通・段階的選択フロー） -->
+  <!-- ③ 通信確立画面（ホスト・ゲスト共通） -->
   <div id="connection-screen" class="screen scrollable-screen">
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text">準備中...</p>
@@ -88,15 +87,15 @@
     <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 8px; margin-top: 5px;">
       <div style="border: 3px solid #f44336; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
         <div style="color: #f44336; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🔴 Part 1</div>
-        <img id="conn-qr-1" class="qr-img" alt="QR 1" style="display: block; width: 130px; height: 130px;">
+        <img id="conn-qr-1" class="qr-img" alt="QR 1">
       </div>
       <div style="border: 3px solid #2196f3; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
         <div style="color: #2196f3; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🔵 Part 2</div>
-        <img id="conn-qr-2" class="qr-img" alt="QR 2" style="display: block; width: 130px; height: 130px;">
+        <img id="conn-qr-2" class="qr-img" alt="QR 2">
       </div>
       <div style="border: 3px solid #ffeb3b; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
         <div style="color: #fbc02d; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🟡 Part 3</div>
-        <img id="conn-qr-3" class="qr-img" alt="QR 3" style="display: block; width: 130px; height: 130px;">
+        <img id="conn-qr-3" class="qr-img" alt="QR 3">
       </div>
     </div>
 
@@ -135,25 +134,25 @@
     </div>
     <div id="board"></div>
     <button id="btn-rematch-othello" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-game" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <button id="btn-quit-game" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
   <!-- ⑤ ゲーム本体画面 (ドット＆ボックス) -->
   <div id="dots-game-screen" class="screen">
     <h2 id="dots-turn-text">通信待機中...</h2>
-    <div id="dots-score-board" style="display: flex; justify-content: space-between; width: 100%; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+    <div id="dots-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 450px; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
       <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
     </div>
     <div id="dots-board-container"></div>
     <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-dots" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <button id="btn-quit-dots" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
   <!-- ⑥ ゲーム本体画面（神経衰弱） -->
   <div id="concentration-game-screen" class="screen">
     <h2 id="concentration-turn-text">通信待機中...</h2>
-    <div id="concentration-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+    <div id="concentration-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 450px; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
       <span id="concentration-score-host" style="color: #d32f2f;">ホスト: 0</span>
       <span id="concentration-score-guest" style="color: #1976d2;">ゲスト: 0</span>
     </div>
@@ -161,10 +160,10 @@
     <div id="concentration-board"></div>
 
     <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-concentration" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <button id="btn-quit-concentration" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
-  <!-- 画面: テトリス (一人用) ※ボタン廃止＆説明書き配置 -->
+  <!-- 画面: テトリス (一人用) -->
   <div id="tetris-game-screen" class="screen">
     <h2 style="margin: 5px 0;">テトリス</h2>
     <div class="tetris-info" style="margin-bottom: 5px;">
@@ -180,7 +179,6 @@
       </div>
     </div>
     
-  <!-- ② 操作説明書き（コマンドボタンの代わり） -->
     <div class="tetris-guide" style="background: #f8f9fa; padding: 8px 12px; border-radius: 8px; font-size: 12px; color: #333; margin-bottom: 8px; width: 100%; max-width: 270px; box-sizing: border-box; border: 1px solid #e0e0e0;">
       <p style="margin: 2px 0;">🖱️ <b>PC:</b> マウス左右移動 / 下で加速</p>
       <p style="margin: 2px 0;">🖱️ 左クリック: 一気に落とす</p>
@@ -198,29 +196,33 @@
 
   <!-- ⑦ ゲーム本体画面（マインスイーパー） -->
   <div id="minesweeper-game-screen" class="screen">
-    <h2 style="margin: 5px 0;">マインスイーパー</h2>
+    <!-- ★ ここが消えていたためエラーになっていました ★ -->
+    <h2 id="mine-turn-text" style="margin: 5px 0;">マインスイーパー</h2>
     
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 320px; margin-bottom: 6px;">
-      <div id="mine-count-board" style="font-weight: bold; font-size: 13px; background: #e0e0e0; padding: 4px 10px; border-radius: 6px; width: 100%; text-align: center; display: flex; justify-content: space-around; align-items: center;">
+    <div class="mine-info-container">
+      <div id="mine-count-board" class="mine-status-panel">
         <span>💣 残り爆弾: <span id="mine-remaining-count">10</span></span>
         <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ あと <span id="mine-timer-sec">10</span>秒</span>
       </div>
     </div>
 
-    <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 6px 12px; font-weight: bold; font-size: 13px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 6px;">
-      <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
-      <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
+    <div id="mine-score-board" class="mine-status-panel dual-score">
+      <span id="mine-score-host" class="score-host">ホスト: 0点</span>
+      <span id="mine-score-guest" class="score-guest">ゲスト: 0点</span>
     </div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-      <button id="btn-mine-mode" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #4caf50;">モード: ⛏️ 開く</button>
-      <button id="btn-mine-end-turn" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #ff9800; display: none;">ターン終了 ➔</button>
+    <div class="mine-controls">
+      <button id="btn-mine-mode" class="btn-action mode-btn">モード: ⛏️ 開く</button>
+      <button id="btn-mine-end-turn" class="btn-action turn-end-btn" style="display: none;">ターン終了 ➔</button>
     </div>
 
-    <div id="mine-board" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; width: 100%; max-width: 300px; background: #bbb; padding: 5px; border-radius: 8px; box-sizing: border-box;"></div>
+    <!-- UI崩れ防止のためクラス化 -->
+    <div id="mine-board" class="mine-board"></div>
 
-    <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 8px; font-size: 14px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 8px; font-size: 13px; padding: 8px 16px;">メニューに戻る</button>
+    <div class="mine-actions">
+      <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>
