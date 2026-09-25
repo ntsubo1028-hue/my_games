@@ -200,33 +200,31 @@
   <div id="minesweeper-game-screen" class="screen">
     <h2 style="margin: 5px 0;">マインスイーパー</h2>
     
+    <!-- ターン・状態表示 (JavaScriptが参照する必須要素) -->
+    <h3 id="mine-turn-text" style="font-size: 15px; margin: 5px 0; text-align: center;">通信待機中...</h3>
+
     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 320px; margin-bottom: 6px;">
       <div id="mine-count-board" style="font-weight: bold; font-size: 13px; background: #e0e0e0; padding: 4px 10px; border-radius: 6px; width: 100%; text-align: center; display: flex; justify-content: space-around; align-items: center;">
-        <span>残り爆弾: <span id="mine-remaining-count">10</span></span>
-        <span id="mine-timer-display" style="display: none;">⏱️ <span id="mine-timer-sec">10</span>秒</span>
+        <span>💣 残り爆弾: <span id="mine-remaining-count">10</span></span>
+        <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ あと <span id="mine-timer-sec">10</span>秒</span>
       </div>
     </div>
 
-    <!-- ターン・状態表示 -->
-    <h3 id="mine-turn-text" style="font-size: 15px; margin: 5px 0; text-align: center;">通信待機中...</h3>
-
-    <!-- スコアボード（対戦時のみ表示） -->
-    <div id="mine-score-board" style="display: none; justify-content: space-between; width: 100%; max-width: 320px; padding: 6px 15px; font-weight: bold; font-size: 13px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 6px;">
+    <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 6px 12px; font-weight: bold; font-size: 13px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 6px;">
       <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
       <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
     </div>
 
-    <!-- モード切替・ターン終了ボタンエリア -->
     <div style="display: flex; gap: 8px; margin-bottom: 8px; width: 100%; max-width: 320px; justify-content: center;">
-      <button id="btn-mine-mode" class="btn-action" style="background-color: #4caf50; font-size: 13px; padding: 6px 12px; flex: 1;">モード: ⛏️ 開く</button>
-      <button id="btn-mine-end-turn" class="btn-action" style="display: none; background-color: #ff9800; font-size: 13px; padding: 6px 12px; flex: 1;">ターン終了</button>
+      <button id="btn-mine-mode" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #4caf50; flex: 1;">モード: ⛏️ 開く</button>
+      <button id="btn-mine-end-turn" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #ff9800; display: none; flex: 1;">ターン終了 ➔</button>
     </div>
 
-    <!-- マインスイーパー盤面 -->
-    <div id="mine-board"></div>
+    <!-- マインスイーパー盤面（元のスタイルを復元） -->
+    <div id="mine-board" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; width: 100%; max-width: 300px; background: #bbb; padding: 5px; border-radius: 8px; box-sizing: border-box;"></div>
 
-    <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 8px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 8px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 8px; font-size: 14px;">🔄 もう一度遊ぶ</button>
+    <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 8px; font-size: 13px; padding: 8px 16px;">メニューに戻る</button>
   </div>
 
   <script type="module" src="js/main.js"></script>
