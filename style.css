@@ -1,178 +1,317 @@
-/* style_2.css */
-
-/* ==========================================
-   ベースレイアウト・リセット
-   ========================================== */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+:root {
+  --board-color: #2e7d32;
+  --cell-size: min(10vw, 40px);
+  --primary-bg: #f0f4f8;
+  --card-bg: #ffffff;
 }
 
-body {
-    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-    background-color: #f4f6f9;
-    color: #333;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    overflow-x: hidden;
+html, body {
+  width: 100%;
+  height: 100dvh;
+  margin: 0; 
+  padding: 0;
+  display: flex; 
+  flex-direction: column; 
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+  color: #333;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-h1, h2, h3 {
-    text-align: center;
-    margin-bottom: 15px;
-    color: #2c3e50;
+h2, h3 { 
+  text-align: center; 
+  margin: 6px 0; 
+  color: #2c3e50;
+  font-size: 1.2rem;
 }
 
-/* ==========================================
-   ボタン・UIコンポーネント
-   ========================================== */
-button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 20px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-    margin: 5px;
+/* 共通ボタンデザイン */
+button, .btn-action {
+  padding: 10px 20px; 
+  font-size: 15px; 
+  font-weight: bold; 
+  cursor: pointer;
+  margin: 6px 0; 
+  border-radius: 10px; 
+  border: none;
+  background-color: #007bff; 
+  color: white; 
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
 }
 
-button:hover {
-    background-color: #2980b9;
+button:active, .btn-action:active { 
+  transform: translateY(2px); 
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
 }
 
-button:active {
-    transform: scale(0.96);
+.screen { 
+  display: none; 
+  width: 100%; 
+  max-width: 420px; 
+  height: 100dvh; 
+  max-height: 100dvh; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: space-between;
+  background: var(--card-bg);
+  padding: 12px 16px; 
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.button-group {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
+.screen.active { display: flex; }
+
+/* メインタイトルの装飾（秘密基地風） */
+.hero-header {
+  text-align: center;
+  margin-bottom: 15px;
 }
 
-/* ==========================================
-   QRコード表示領域の最適化（なるべく大きく）
-   ========================================== */
-.qr-container,
-#qr-display-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    /* 画面の90%を確保 */
-    max-width: 90vw;
-    margin: 10px auto;
+.secret-badge {
+  display: inline-block;
+  background: #fffae6;
+  color: #f57c00;
+  border: 1px solid #ffe082;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  letter-spacing: 1px;
 }
 
-/* 生成されたQRコード本体 */
-.qr-container canvas,
-.qr-container img,
-#qr-code-canvas {
-    /* 縦・横の小さい方に合わせて自動可変（画面いっぱいに表示） */
-    width: min(90vw, 90vh) !important;
-    height: min(90vw, 90vh) !important;
-    max-width: 600px;
-    max-height: 600px;
-    object-fit: contain;
-    border: 8px solid #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    background-color: #ffffff;
-    display: block;
-    margin: 0 auto;
+.hero-header h1 {
+  font-size: 24px;
+  line-height: 1.2;
+  color: #1a202c;
+  margin: 0;
+  font-weight: 800;
 }
 
-/* ==========================================
-   カメラ読み取り領域の最適化（なるべく大きく）
-   ========================================== */
-.camera-scanner-container,
-#camera-preview-wrapper {
-    position: relative;
-    width: min(90vw, 90vh);
-    height: min(90vw, 90vh);
-    max-width: 600px;
-    max-height: 600px;
-    margin: 15px auto;
-    border-radius: 16px;
-    overflow: hidden;
-    background-color: #000000;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.hero-header .subtitle {
+  font-size: 13px;
+  color: #718096;
+  margin-top: 4px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
-.camera-scanner-container video,
-.camera-scanner-container canvas,
-#qr-video {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover;
+.menu-container {
+  display: flex; 
+  flex-direction: column; 
+  width: 100%; 
+  align-items: center; 
+  gap: 8px; 
 }
 
-/* カメラ読み取り時のスキャン枠（ガイドUI） */
-.scanner-guide-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 75%;
-    height: 75%;
-    border: 4px solid rgba(255, 255, 255, 0.9);
-    border-radius: 12px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* 周りを暗くする */
-    pointer-events: none;
-    z-index: 10;
+.host-btn { background: linear-gradient(135deg, #e53935 0%, #c62828 100%); }
+.guest-btn { background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%); }
+.secondary-btn { background-color: #78909c !important; }
+
+#reader { width: 100%; max-width: 280px; margin: 5px 0; border-radius: 10px; overflow: hidden; }
+
+#score-board {
+  display: flex; justify-content: space-between; width: 100%;
+  max-width: calc(var(--cell-size) * 8 + 12px);
+  margin-bottom: 8px; font-size: 16px; font-weight: bold;
+  background: #e8f5e9;
+  padding: 6px 12px;
+  border-radius: 6px;
+  box-sizing: border-box;
 }
 
-/* ==========================================
-   コンテナ・モーダル等の汎用レイアウト
-   ========================================== */
-.main-container,
-.game-container {
-    width: 100%;
-    max-width: 800px;
-    padding: 20px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+#board {
+  display: grid; grid-template-columns: repeat(8, var(--cell-size)); gap: 2px;
+  background-color: #111; border: 3px solid #111; border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.status-indicator {
-    font-weight: bold;
-    padding: 10px;
-    margin-bottom: 15px;
-    text-align: center;
-    border-radius: 6px;
+.cell {
+  width: var(--cell-size); height: var(--cell-size);
+  background-color: var(--board-color);
+  perspective: 800px; padding: 2px; box-sizing: border-box; cursor: pointer;
 }
 
-.status-connected {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+.disc {
+  width: 100%; height: 100%; border-radius: 50%; position: relative;
+  transform-style: preserve-3d; transition: transform 0.5s ease-in-out, opacity 0.3s;
 }
 
-.status-disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+.face {
+  position: absolute; width: 100%; height: 100%; border-radius: 50%;
+  backface-visibility: hidden;
 }
 
-/* ゲーム盤面などの共通グリッド（必要に応じて） */
-.grid-board {
-    display: grid;
-    gap: 2px;
-    background-color: #333;
-    padding: 2px;
-    margin: 0 auto;
+.face-black {
+  background-color: #111; box-shadow: inset -2px -2px 4px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.5);
+  transform: rotateY(0deg);
 }
+
+.face-white {
+  background-color: #f9f9f9; box-shadow: inset -2px -2px 4px rgba(0,0,0,0.1), 2px 2px 4px rgba(0,0,0,0.5);
+  transform: rotateY(180deg);
+}
+
+.disc.empty { opacity: 0; transform: scale(0.5); }
+.disc.black { opacity: 1; transform: rotateY(0deg) scale(1); }
+.disc.white { opacity: 1; transform: rotateY(180deg) scale(1); }
+
+.loading-text { color: #f57c00; font-weight: bold; margin: 4px 0; text-align: center; font-size: 13px; }
+.error-text { color: #d32f2f; font-weight: bold; margin: 6px 0; background: #ffebee; padding: 8px; border-radius: 6px; font-size: 13px; }
+
+/* ==================================
+   QRコード画面専用のスタイル（大きく表示＆確実にスクロール許可）
+================================== */
+.screen.scrollable-screen {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  max-height: 100dvh !important;
+  justify-content: flex-start !important;
+  gap: 12px;
+  padding-bottom: 30px;
+}
+
+/* QRコード画像を大きく見せる */
+.qr-img {
+  width: 260px !important;
+  height: 260px !important;
+  max-width: 80vw;
+  max-height: 80vw;
+  border: 3px solid white; 
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  background: white; 
+  margin: 8px auto; 
+  display: block;
+  border-radius: 8px;
+  image-rendering: pixelated;
+}
+
+/* --- ドット・アンド・ボックス 用スタイル --- */
+#dots-board-container {
+  display: grid;
+  grid-template-columns: 10px min(16vw, 50px) 10px min(16vw, 50px) 10px min(16vw, 50px) 10px;
+  grid-template-rows: 10px min(16vw, 50px) 10px min(16vw, 50px) 10px min(16vw, 50px) 10px;
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  margin: 5px auto;
+}
+
+.dot { background-color: #455a64; border-radius: 50%; width: 100%; height: 100%; }
+
+.line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
+.line-h:hover, .line-v:hover { background-color: #cfd8dc; }
+
+.line-h.active-host, .line-v.active-host { background-color: #d32f2f; }
+.line-h.active-guest, .line-v.active-guest { background-color: #1976d2; }
+
+.box { width: 100%; height: 100%; background-color: transparent; transition: background-color 0.3s; border-radius: 3px; }
+.box.host { background-color: rgba(211, 47, 47, 0.2); }
+.box.guest { background-color: rgba(25, 118, 210, 0.2); }
+
+/* ==================================
+   テトリス用スタイル（自動サイズ調整対応）
+================================== */
+#tetris-board {
+  background: #111;
+  display: block;
+  margin: 0 auto;
+  border: 2px solid #333;
+  border-radius: 4px;
+  max-height: 40vh; 
+  width: auto;
+  height: auto;
+  aspect-ratio: 180 / 360; 
+}
+
+.tetris-info {
+  display: flex;
+  justify-content: space-around;
+  font-weight: bold;
+  font-size: 1rem;
+  width: 100%;
+}
+
+#tetris-next {
+  background: #111;
+  display: block;
+  border: 2px solid #333;
+  border-radius: 4px;
+  max-height: 10vh;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+/* ==================================
+   神経衰弱用スタイル
+================================== */
+#concentration-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 280px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.concentration-card {
+  aspect-ratio: 1;
+  background: #3f51b5;
+  color: white;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.concentration-card.hidden:hover { background: #303f9f; transform: scale(1.03); }
+.concentration-card.flipped { background: #fff; color: #333; border: 2px solid #3f51b5; }
+.concentration-card.matched { background: #e8f5e9; color: #333; border: 2px solid #4caf50; opacity: 0.7; cursor: default; }
+
+#reader video { object-fit: cover !important; }
+
+/* ==================================
+   マインスイーパー用スタイル
+================================== */
+.mine-cell {
+  aspect-ratio: 1 / 1;
+  background-color: #e0e0e0;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  user-select: none;
+  cursor: pointer;
+  box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7);
+}
+
+.mine-cell.opened { background-color: #ffffff; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2); }
+.mine-cell.bomb { background-color: #ffcdd2; }
+
+.mine-num-1 { color: #1976d2; }
+.mine-num-2 { color: #388e3c; }
+.mine-num-3 { color: #d32f2f; }
+.mine-num-4 { color: #7b1fa2; }
+.mine-num-5 { color: #ff8f00; }
+.mine-num-6 { color: #00838f; }
+.mine-num-7 { color: #424242; }
+.mine-num-8 { color: #8d6e63; }
