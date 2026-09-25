@@ -66,13 +66,6 @@
       </div>
     </div>
 
-    <!-- ホスト用：情報を伝えた後の「完了」ボタン -->
-    <div id="step-host-done-container" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; text-align: center;">
-      <button id="btn-host-done-output" class="btn-action" style="background-color: #4caf50; font-size: 15px; padding: 12px;">
-        ✅ 接続情報を相手に伝えた
-      </button>
-    </div>
-
     <!-- ホスト用ステップ2：「伝えた」ボタン押下後に表示される、相手の情報の入力方法を選ぶ選択肢 -->
     <div id="step-host-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 15px; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
       <p style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #333;">Q. 相手の情報をどうやって入力しますか？</p>
@@ -119,6 +112,13 @@
         📋 接続情報をコピーする
       </button>
       <p style="font-size: 12px; color: #666; margin-top: 6px;">コピーしたらLINE等で相手に送信してください</p>
+    </div>
+
+    <!-- ホスト用：情報を伝えた後の「完了」ボタン（QRやコピー領域の【下】に移動） -->
+    <div id="step-host-done-container" style="display: none; width: 100%; max-width: 320px; margin-top: 25px; margin-bottom: 15px; text-align: center;">
+      <button id="btn-host-done-output" class="btn-action" style="background-color: #4caf50; font-size: 15px; padding: 12px;">
+        ✅ 接続情報を相手に伝えた
+      </button>
     </div>
 
     <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 20px;">◀ 戻る</button>

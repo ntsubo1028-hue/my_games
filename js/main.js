@@ -8,7 +8,7 @@ import {
   initConnection, 
   setOnMessage,
   sendData
-} from './connection.js'; // ★isConnectionEstablished は削除して自前で管理します
+} from './connection.js';
 
 import { initGame, processAction, updateGameState, syncStateToGuest, requestRematch } from './othello.js';
 import { initDotsGame, processDotsAction, updateDotsGameState, syncDotsStateToGuest, requestRematchDots } from './dots_and_boxes.js';
@@ -26,7 +26,7 @@ function decodeSdp(str) {
 let isHost = false;
 let selectedGame = 'othello'; 
 let localConnectionDataStr = ""; 
-let isConnected = false; // ★通信状態をこのファイル内で確実に管理する変数
+let isConnected = false; 
 
 // --- 画面切り替え ---
 function showScreen(screenId) {
@@ -52,7 +52,7 @@ document.getElementById('btn-select-minesweeper').onclick = () => { selectGameFl
 
 function selectGameFlow(game) {
   selectedGame = game;
-  if (isConnected) { // ★自前の変数で確実に通信状態を判定
+  if (isConnected) { 
     sendData({ type: "CHANGE_GAME", payload: { game: game } });
     showGameScreenForHost(game);
   } else {
@@ -89,7 +89,7 @@ async function startHostConnectionFlow() {
 
   try {
     const localDesc = await setupHostConnection(() => {
-      isConnected = true; // ★通信が確立したらフラグを立てる
+      isConnected = true; 
       showGameScreenForHost(selectedGame);
     });
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
@@ -139,7 +139,6 @@ async function startHostConnectionFlow() {
           async (answerObj) => { 
             await handleGuestAnswer(answerObj); 
             document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
-            // setTimeout部分は setupHostConnection のコールバック内で実行されます
           },
           () => showScreen('camera-screen'),
           () => showScreen('connection-screen')
@@ -199,7 +198,7 @@ function startGuestScanFlow() {
       document.getElementById('conn-status').innerText = "ホストへの返信を生成中...";
 
       const localDesc = await setupGuestConnection(offerObj, () => {
-        isConnected = true; // ★通信が確立したらフラグを立てる
+        isConnected = true;
         if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
         else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
         else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
@@ -290,7 +289,7 @@ function disconnectConnection() {
   if (isConnected) {
     sendData({ type: "DISCONNECT" });
   }
-  isConnected = false; // ★切断フラグを落とす
+  isConnected = false;
   setTimeout(() => {
     initConnection();
     showScreen('menu-screen');
@@ -300,8 +299,12 @@ document.getElementById('btn-disconnect-host').onclick = disconnectConnection;
 document.getElementById('btn-disconnect-guest').onclick = disconnectConnection;
 
 const handleQuitGame = () => {
+  // ★ 誤操作防止の確認ダイアログ
+  if (!confirm("ゲームを終了してメニューに戻りますか？\n（通信中の場合は相手もメニューに戻ります）")) {
+    return;
+  }
+
   if (isHost) {
-    // ★追加：ホストが辞めた場合、ゲストに「メニューに戻るよ」と通知を出す
     if (isConnected) {
       sendData({ type: "HOST_QUIT_TO_MENU" });
     }
@@ -330,13 +333,12 @@ document.getElementById('btn-rematch-concentration').onclick = () => requestConc
 setOnMessage((data) => {
   if (data.type === "DISCONNECT") {
     alert("相手が通信を切断しました。メインメニューに戻ります。");
-    isConnected = false; // ★切断フラグを落とす
+    isConnected = false;
     initConnection();
     showScreen('menu-screen');
     return;
   }
 
-  // ★追加：ホストがゲームをやめてメニューに戻った通知を受け取った時
   if (data.type === "HOST_QUIT_TO_MENU") {
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
@@ -377,7 +379,13 @@ setOnMessage((data) => {
 
 // --- テトリス・一人用などの処理 ---
 document.getElementById('btn-play-tetris').onclick = () => { showScreen('tetris-game-screen'); initTetris(); };
-document.getElementById('btn-quit-tetris').onclick = () => { stopTetris(); showScreen('menu-screen'); };
+// ★ テトリス用の確認ダイアログ追加
+document.getElementById('btn-quit-tetris').onclick = () => { 
+  if (confirm("ゲームを終了してメニューに戻りますか？")) {
+    stopTetris(); 
+    showScreen('menu-screen'); 
+  }
+};
 document.getElementById('btn-rematch-tetris').onclick = () => initTetris();
 document.getElementById('btn-tetris-left').onclick = () => moveTetris(-1);
 document.getElementById('btn-tetris-right').onclick = () => moveTetris(1);
@@ -388,9 +396,16 @@ document.getElementById('concentration-game-screen').onclick = () => { if (selec
 
 document.getElementById('btn-mine-mode').onclick = () => toggleInputMode();
 document.getElementById('btn-mine-end-turn').onclick = () => endTurn();
+
+// ★ マインスイーパー用の確認ダイアログ追加
 document.getElementById('btn-quit-mine').onclick = () => {
-  if (isConnected) handleQuitGame(); 
-  else showScreen('menu-screen');
+  if (isConnected) {
+    handleQuitGame(); 
+  } else {
+    if (confirm("ゲームを終了してメニューに戻りますか？")) {
+      showScreen('menu-screen');
+    }
+  }
 };
 document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
 
@@ -406,21 +421,17 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
-// ページ読み込み時にダミーの履歴を追加
 history.pushState(null, null, location.href);
 
-// ブラウザの「戻る」ボタンが押された時の処理
 window.addEventListener('popstate', (e) => {
   if (isConnected) {
     const confirmLeave = confirm("通信が切断されます。メインメニューに戻りますか？");
     if (confirmLeave) {
       disconnectConnection();
     } else {
-      // 戻る操作をキャンセルするため、再度ダミー履歴をセット
       history.pushState(null, null, location.href);
     }
   } else {
-    // 通信中でなければ、そのまま画面をメニューに戻す
     showScreen('menu-screen');
     history.pushState(null, null, location.href);
   }
