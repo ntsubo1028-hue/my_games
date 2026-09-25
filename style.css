@@ -1,349 +1,178 @@
-:root {
-  --board-color: #2e7d32;
-  /* 画面幅に合わせてセルが大きくなるよう clamp() を使用 */
-  --cell-size: clamp(35px, 10vw, 60px); 
-  --primary-bg: #f0f4f8;
-  --card-bg: #ffffff;
+/* style_2.css */
+
+/* ==========================================
+   ベースレイアウト・リセット
+   ========================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-html, body {
-  width: 100%;
-  height: 100dvh;
-  margin: 0; 
-  padding: 0;
-  display: flex; 
-  flex-direction: column; 
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
-  color: #333;
-  overflow: hidden;
-  box-sizing: border-box;
+body {
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+    background-color: #f4f6f9;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
-h2, h3 { 
-  text-align: center; 
-  margin: 6px 0; 
-  color: #2c3e50;
-  font-size: clamp(1.2rem, 4vw, 1.6rem);
+h1, h2, h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    color: #2c3e50;
 }
 
-/* 共通ボタンデザイン */
-button, .btn-action {
-  padding: 12px 20px; 
-  font-size: clamp(14px, 3.5vw, 16px); 
-  font-weight: bold; 
-  cursor: pointer;
-  margin: 6px 0; 
-  border-radius: 10px; 
-  border: none;
-  background-color: #007bff; 
-  color: white; 
-  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
-  width: 100%;
-  max-width: 450px;
-  box-sizing: border-box;
+/* ==========================================
+   ボタン・UIコンポーネント
+   ========================================== */
+button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    margin: 5px;
 }
 
-button:active, .btn-action:active { 
-  transform: translateY(2px); 
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+button:hover {
+    background-color: #2980b9;
 }
 
-/* 画面コンテナの幅制限を 420px -> 600px に緩和 */
-.screen { 
-  display: none; 
-  width: 100%; 
-  max-width: 600px; 
-  height: 100dvh; 
-  max-height: 100dvh; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: space-between;
-  background: var(--card-bg);
-  padding: 15px 20px; 
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-  box-sizing: border-box;
-  overflow: hidden;
+button:active {
+    transform: scale(0.96);
 }
 
-.screen.active { display: flex; }
-
-.hero-header {
-  text-align: center;
-  margin-bottom: 15px;
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
-.secret-badge {
-  display: inline-block;
-  background: #fffae6;
-  color: #f57c00;
-  border: 1px solid #ffe082;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: bold;
-  margin-bottom: 6px;
-  letter-spacing: 1px;
+/* ==========================================
+   QRコード表示領域の最適化（なるべく大きく）
+   ========================================== */
+.qr-container,
+#qr-display-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    /* 画面の90%を確保 */
+    max-width: 90vw;
+    margin: 10px auto;
 }
 
-.hero-header h1 {
-  font-size: clamp(20px, 6vw, 28px);
-  line-height: 1.2;
-  color: #1a202c;
-  margin: 0;
-  font-weight: 800;
+/* 生成されたQRコード本体 */
+.qr-container canvas,
+.qr-container img,
+#qr-code-canvas {
+    /* 縦・横の小さい方に合わせて自動可変（画面いっぱいに表示） */
+    width: min(90vw, 90vh) !important;
+    height: min(90vw, 90vh) !important;
+    max-width: 600px;
+    max-height: 600px;
+    object-fit: contain;
+    border: 8px solid #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    background-color: #ffffff;
+    display: block;
+    margin: 0 auto;
 }
 
-.hero-header .subtitle {
-  font-size: 13px;
-  color: #718096;
-  margin-top: 4px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-weight: 600;
+/* ==========================================
+   カメラ読み取り領域の最適化（なるべく大きく）
+   ========================================== */
+.camera-scanner-container,
+#camera-preview-wrapper {
+    position: relative;
+    width: min(90vw, 90vh);
+    height: min(90vw, 90vh);
+    max-width: 600px;
+    max-height: 600px;
+    margin: 15px auto;
+    border-radius: 16px;
+    overflow: hidden;
+    background-color: #000000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.menu-container {
-  display: flex; 
-  flex-direction: column; 
-  width: 100%; 
-  max-width: 450px;
-  align-items: center; 
-  gap: 8px; 
+.camera-scanner-container video,
+.camera-scanner-container canvas,
+#qr-video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
 }
 
-.host-btn { background: linear-gradient(135deg, #e53935 0%, #c62828 100%); }
-.guest-btn { background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%); }
-.secondary-btn { background-color: #78909c !important; }
-
-#reader { width: 100%; max-width: 320px; margin: 5px 0; border-radius: 10px; overflow: hidden; }
-
-/* オセロ */
-#score-board {
-  display: flex; justify-content: space-between; width: 100%;
-  max-width: calc(var(--cell-size) * 8 + 20px);
-  margin-bottom: 8px; font-size: clamp(14px, 4vw, 18px); font-weight: bold;
-  background: #e8f5e9;
-  padding: 8px 15px;
-  border-radius: 6px;
-  box-sizing: border-box;
+/* カメラ読み取り時のスキャン枠（ガイドUI） */
+.scanner-guide-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 75%;
+    height: 75%;
+    border: 4px solid rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* 周りを暗くする */
+    pointer-events: none;
+    z-index: 10;
 }
 
-#board {
-  display: grid; grid-template-columns: repeat(8, var(--cell-size)); gap: 3px;
-  background-color: #111; border: 4px solid #111; border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+/* ==========================================
+   コンテナ・モーダル等の汎用レイアウト
+   ========================================== */
+.main-container,
+.game-container {
+    width: 100%;
+    max-width: 800px;
+    padding: 20px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-.cell {
-  width: var(--cell-size); height: var(--cell-size);
-  background-color: var(--board-color);
-  perspective: 800px; padding: 2px; box-sizing: border-box; cursor: pointer;
+.status-indicator {
+    font-weight: bold;
+    padding: 10px;
+    margin-bottom: 15px;
+    text-align: center;
+    border-radius: 6px;
 }
 
-.disc {
-  width: 100%; height: 100%; border-radius: 50%; position: relative;
-  transform-style: preserve-3d; transition: transform 0.5s ease-in-out, opacity 0.3s;
+.status-connected {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
-.face {
-  position: absolute; width: 100%; height: 100%; border-radius: 50%;
-  backface-visibility: hidden;
+.status-disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
-.face-black {
-  background-color: #111; box-shadow: inset -2px -2px 4px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.5);
-  transform: rotateY(0deg);
+/* ゲーム盤面などの共通グリッド（必要に応じて） */
+.grid-board {
+    display: grid;
+    gap: 2px;
+    background-color: #333;
+    padding: 2px;
+    margin: 0 auto;
 }
-
-.face-white {
-  background-color: #f9f9f9; box-shadow: inset -2px -2px 4px rgba(0,0,0,0.1), 2px 2px 4px rgba(0,0,0,0.5);
-  transform: rotateY(180deg);
-}
-
-.disc.empty { opacity: 0; transform: scale(0.5); }
-.disc.black { opacity: 1; transform: rotateY(0deg) scale(1); }
-.disc.white { opacity: 1; transform: rotateY(180deg) scale(1); }
-
-.loading-text { color: #f57c00; font-weight: bold; margin: 4px 0; text-align: center; font-size: 14px; }
-.error-text { color: #d32f2f; font-weight: bold; margin: 6px 0; background: #ffebee; padding: 8px; border-radius: 6px; font-size: 14px; }
-
-/* QRコード画面 */
-.screen.scrollable-screen {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: auto !important;
-  max-height: 100dvh !important;
-  justify-content: flex-start !important;
-  gap: 12px;
-  padding-bottom: 30px;
-}
-
-.qr-img {
-  width: 260px !important;
-  height: 260px !important;
-  max-width: 80vw;
-  max-height: 80vw;
-  border: 3px solid white; 
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  background: white; 
-  margin: 8px auto; 
-  display: block;
-  border-radius: 8px;
-  image-rendering: pixelated;
-}
-
-/* ドット・アンド・ボックス */
-#dots-board-container {
-  display: grid;
-  grid-template-columns: 10px min(16vw, 50px) 10px min(16vw, 50px) 10px min(16vw, 50px) 10px;
-  grid-template-rows: 10px min(16vw, 50px) 10px min(16vw, 50px) 10px min(16vw, 50px) 10px;
-  background-color: #fff;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-  margin: 5px auto;
-}
-
-.dot { background-color: #455a64; border-radius: 50%; width: 100%; height: 100%; }
-
-.line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
-.line-h:hover, .line-v:hover { background-color: #cfd8dc; }
-.line-h.active-host, .line-v.active-host { background-color: #d32f2f; }
-.line-h.active-guest, .line-v.active-guest { background-color: #1976d2; }
-.box { width: 100%; height: 100%; background-color: transparent; transition: background-color 0.3s; border-radius: 3px; }
-.box.host { background-color: rgba(211, 47, 47, 0.2); }
-.box.guest { background-color: rgba(25, 118, 210, 0.2); }
-
-/* テトリス */
-#tetris-board {
-  background: #111;
-  display: block;
-  margin: 0 auto;
-  border: 2px solid #333;
-  border-radius: 4px;
-  max-height: 40vh; 
-  width: auto;
-  height: auto;
-  aspect-ratio: 180 / 360; 
-}
-.tetris-info {
-  display: flex; justify-content: space-around; font-weight: bold; font-size: 1rem; width: 100%;
-}
-#tetris-next {
-  background: #111; display: block; border: 2px solid #333; border-radius: 4px;
-  max-height: 10vh; width: auto; height: auto; aspect-ratio: 1 / 1;
-}
-
-/* 神経衰弱 */
-#concentration-board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  width: 100%;
-  max-width: 450px;
-  margin: 0 auto;
-}
-
-.concentration-card {
-  aspect-ratio: 1;
-  background: #3f51b5;
-  color: white;
-  font-size: clamp(20px, 6vw, 30px);
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; cursor: pointer; user-select: none;
-  box-shadow: 0 3px 5px rgba(0,0,0,0.1);
-  transition: transform 0.2s, background 0.2s;
-}
-
-.concentration-card.hidden:hover { background: #303f9f; transform: scale(1.03); }
-.concentration-card.flipped { background: #fff; color: #333; border: 3px solid #3f51b5; }
-.concentration-card.matched { background: #e8f5e9; color: #333; border: 3px solid #4caf50; opacity: 0.7; cursor: default; }
-
-#reader video { object-fit: cover !important; }
-
-
-/* ==================================
-   マインスイーパー用スタイル（レスポンシブ化）
-================================== */
-.mine-info-container, .mine-controls, .mine-actions {
-  width: 100%;
-  max-width: 500px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-  flex-direction: column;
-}
-
-.mine-controls {
-  flex-direction: row;
-}
-
-.mine-status-panel {
-  background: #e0e0e0;
-  padding: 8px 15px;
-  border-radius: 8px;
-  font-weight: bold;
-  font-size: clamp(13px, 4vw, 16px);
-  width: 100%;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  box-sizing: border-box;
-}
-
-.mine-status-panel.dual-score {
-  background: #f0f0f0;
-  margin-bottom: 4px;
-}
-.score-host { color: #d32f2f; }
-.score-guest { color: #1976d2; }
-
-.mode-btn { background-color: #4caf50; flex: 1; margin: 0;}
-.turn-end-btn { background-color: #ff9800; flex: 1; margin: 0;}
-
-/* 盤面を画面の広さに合わせて大きくする */
-.mine-board {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: min(1vw, 4px);
-  width: 100%;
-  max-width: 500px; /* タブレットやPCでさらに大きく */
-  aspect-ratio: 1;  /* 完全な正方形を維持 */
-  background: #bbb;
-  padding: min(2vw, 8px);
-  border-radius: 10px;
-  box-sizing: border-box;
-  margin-bottom: 10px;
-}
-
-.mine-cell {
-  aspect-ratio: 1;
-  background-color: #e0e0e0;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: clamp(14px, 5vw, 28px); /* 盤面拡大に合わせて文字も拡大 */
-  user-select: none;
-  cursor: pointer;
-  box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7);
-}
-
-.mine-cell.opened { background-color: #ffffff; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2); }
-.mine-cell.bomb { background-color: #ffcdd2; }
-
-.mine-num-1 { color: #1976d2; }
-.mine-num-2 { color: #388e3c; }
-.mine-num-3 { color: #d32f2f; }
-.mine-num-4 { color: #7b1fa2; }
-.mine-num-5 { color: #ff8f00; }
-.mine-num-6 { color: #00838f; }
-.mine-num-7 { color: #424242; }
-.mine-num-8 { color: #8d6e63; }
