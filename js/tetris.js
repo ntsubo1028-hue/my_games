@@ -11,7 +11,7 @@ const btnRematch = document.getElementById('btn-rematch-tetris');
 
 const ROWS = 20;
 const COLS = 10;
-const BLOCK_SIZE = 20;
+const BLOCK_SIZE = 18; // 1画面収容のため少しコンパクト化
 
 const COLORS = [
   null,
@@ -37,7 +37,7 @@ const SHAPES = [
 
 let board = [];
 let piece = null;
-let nextPiece = null; // 次のピース
+let nextPiece = null;
 let dropCounter = 0;
 let dropInterval = 1000;
 let lastTime = 0;
@@ -52,6 +52,17 @@ let floatingTexts = [];
 let shakeTime = 0;
 let shakeIntensity = 0;
 
+// タップ判定用タイマー管理
+let tapTimeout = null;
+let lastTapTime = 0;
+
+function clearTapTimer() {
+  if (tapTimeout) {
+    clearTimeout(tapTimeout);
+    tapTimeout = null;
+  }
+}
+
 function createBoard() {
   return Array.from({length: ROWS}, () => Array(COLS).fill(0));
 }
@@ -65,6 +76,7 @@ function getRandomPiece() {
 }
 
 function spawnPiece() {
+  clearTapTimer();
   if (!nextPiece) {
     nextPiece = getRandomPiece();
   }
@@ -121,11 +133,10 @@ function createParticles(yIndex, rowValues) {
 
     for (let i = 0; i < 6; i++) {
       particles.push({
-        x: px,
-        y: py,
+        x: px, y: py,
         vx: (Math.random() - 0.5) * 8,
         vy: (Math.random() - 0.5) * 8 - 2,
-        size: Math.random() * 5 + 3,
+        size: Math.random() * 4 + 2,
         color: COLORS[colorVal],
         life: 1.0,
         decay: Math.random() * 0.03 + 0.02
@@ -175,19 +186,10 @@ function sweep() {
     dropInterval = Math.max(100, 1000 - (Math.floor(lines / 10) * 100));
     updateScore();
 
-    if (rowCount === 1) {
-      triggerShake(3, 10);
-      addFloatingText('SINGLE!', '#00FFFF');
-    } else if (rowCount === 2) {
-      triggerShake(6, 12);
-      addFloatingText('DOUBLE!!', '#00FF00');
-    } else if (rowCount === 3) {
-      triggerShake(9, 15);
-      addFloatingText('TRIPLE!!!', '#FFA500');
-    } else if (rowCount >= 4) {
-      triggerShake(15, 25);
-      addFloatingText('TETRIS!!!!', '#FF0055');
-    }
+    if (rowCount === 1) { triggerShake(3, 10); addFloatingText('SINGLE!', '#00FFFF'); }
+    else if (rowCount === 2) { triggerShake(6, 12); addFloatingText('DOUBLE!!', '#00FF00'); }
+    else if (rowCount === 3) { triggerShake(9, 15); addFloatingText('TRIPLE!!!', '#FFA500'); }
+    else if (rowCount >= 4) { triggerShake(15, 25); addFloatingText('TETRIS!!!!', '#FF0055'); }
   }
 }
 
@@ -230,6 +232,7 @@ export function rotateTetris() {
 
 export function hardDropTetris() {
   if (isGameOver) return;
+  clearTapTimer();
   while (!collide(board, piece)) {
     piece.pos.y++;
   }
@@ -248,11 +251,8 @@ function rotateMatrix(matrix, dir = 1) {
       [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
     }
   }
-  if (dir > 0) {
-    matrix.forEach(row => row.reverse());
-  } else {
-    matrix.reverse();
-  }
+  if (dir > 0) { matrix.forEach(row => row.reverse()); }
+  else { matrix.reverse(); }
 }
 
 function updateScore() {
@@ -260,7 +260,6 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// ブロック描画ヘルパー
 function drawBlock(targetCtx, x, y, value, size) {
   if (!value) return;
   const px = x * size;
@@ -272,22 +271,9 @@ function drawBlock(targetCtx, x, y, value, size) {
 
   targetCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
   targetCtx.beginPath();
-  targetCtx.moveTo(px, py);
-  targetCtx.lineTo(px + size, py);
-  targetCtx.lineTo(px + size - bw, py + bw);
-  targetCtx.lineTo(px + bw, py + bw);
-  targetCtx.lineTo(px + bw, py + size - bw);
-  targetCtx.lineTo(px, py + size);
-  targetCtx.fill();
-
-  targetCtx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-  targetCtx.beginPath();
-  targetCtx.moveTo(px + size, py + size);
-  targetCtx.lineTo(px, py + size);
-  targetCtx.lineTo(px + bw, py + size - bw);
-  targetCtx.lineTo(px + size - bw, py + size - bw);
-  targetCtx.lineTo(px + size - bw, py + bw);
-  targetCtx.lineTo(px + size, py);
+  targetCtx.moveTo(px, py); targetCtx.lineTo(px + size, py);
+  targetCtx.lineTo(px + size - bw, py + bw); targetCtx.lineTo(px + bw, py + bw);
+  targetCtx.lineTo(px + bw, py + size - bw); targetCtx.lineTo(px, py + size);
   targetCtx.fill();
 
   targetCtx.strokeStyle = '#111';
@@ -304,7 +290,6 @@ function drawMatrix(matrix, offset) {
   });
 }
 
-// NEXTピースの描画
 function drawNext() {
   if (!nextCtx) return;
   nextCtx.fillStyle = '#111';
@@ -312,11 +297,9 @@ function drawNext() {
 
   if (!nextPiece) return;
   const matrix = nextPiece.matrix;
-  const size = 16; // NEXT枠用の少し小さなブロックサイズ
+  const size = 14;
   const rows = matrix.length;
   const cols = matrix[0].length;
-
-  // 中央に配置するためのオフセット計算
   const offsetX = (nextCanvas.width - cols * size) / 2 / size;
   const offsetY = (nextCanvas.height - rows * size) / 2 / size;
 
@@ -332,16 +315,8 @@ function drawNext() {
 function updateAndDrawEffects() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.2;
-    p.life -= p.decay;
-
-    if (p.life <= 0) {
-      particles.splice(i, 1);
-      continue;
-    }
-
+    p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= p.decay;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
     ctx.save();
     ctx.globalAlpha = p.life;
     ctx.fillStyle = p.color;
@@ -354,16 +329,11 @@ function updateAndDrawEffects() {
     ft.y -= 0.8;
     if (ft.scale < ft.maxScale) ft.scale += 0.1;
     ft.life -= ft.decay;
-
-    if (ft.life <= 0) {
-      floatingTexts.splice(i, 1);
-      continue;
-    }
-
+    if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
     ctx.save();
     ctx.globalAlpha = ft.life;
     ctx.fillStyle = ft.color;
-    ctx.font = `900 ${Math.floor(20 * ft.scale)}px sans-serif`;
+    ctx.font = `900 ${Math.floor(18 * ft.scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 6;
@@ -374,7 +344,6 @@ function updateAndDrawEffects() {
 
 function draw() {
   ctx.save();
-
   if (shakeTime > 0) {
     const dx = (Math.random() - 0.5) * shakeIntensity;
     const dy = (Math.random() - 0.5) * shakeIntensity;
@@ -394,7 +363,7 @@ function draw() {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 24px sans-serif';
+    ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
   }
@@ -423,6 +392,7 @@ export function initTetris() {
   floatingTexts = [];
   shakeTime = 0;
   nextPiece = null;
+  clearTapTimer();
   btnRematch.style.display = 'none';
   updateScore();
   spawnPiece();
@@ -433,14 +403,151 @@ export function initTetris() {
 }
 
 export function stopTetris() {
+  clearTapTimer();
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
 }
 
+// ==========================================
+// ④ PC & スマホ統合操作システムの実装
+// ==========================================
+const TILE_SENSITIVITY = 20; // 1マス移動に必要な感度（px）
+const tetrisScreenEl = document.getElementById('tetris-game-screen');
+
+// スマホタッチ直後のマウスイベント誤爆を防ぐためのタイマー変数
+let lastTouchEndTime = 0;
+
+// 1. PC用マウス操作
+let lastMouseX = null;
+let lastMouseY = null;
+
+tetrisScreenEl.addEventListener('mouseenter', (e) => {
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
+
+tetrisScreenEl.addEventListener('mouseleave', () => {
+  lastMouseX = null;
+  lastMouseY = null;
+});
+
+tetrisScreenEl.addEventListener('mousemove', (e) => {
+  if (!tetrisScreenEl.classList.contains('active') || isGameOver || lastMouseX === null || lastMouseY === null) return;
+
+  const deltaX = e.clientX - lastMouseX;
+  const deltaY = e.clientY - lastMouseY;
+
+  if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
+    const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
+    if (steps !== 0) {
+      moveTetris(steps > 0 ? 1 : -1);
+      lastMouseX += steps * TILE_SENSITIVITY;
+    }
+  }
+
+  if (deltaY >= TILE_SENSITIVITY) {
+    dropTetris();
+    lastMouseY += TILE_SENSITIVITY;
+  } else if (deltaY < 0) {
+    lastMouseY = e.clientY;
+  }
+});
+
+tetrisScreenEl.addEventListener('mousedown', (e) => {
+  if (!tetrisScreenEl.classList.contains('active') || isGameOver) return;
+
+  // ★ スマホのタッチ直後に発生するマウスイベント（エミュレーション）は無視するガード
+  if (new Date().getTime() - lastTouchEndTime < 500) return;
+
+  if (e.button === 0) {
+    hardDropTetris();
+  } else if (e.button === 2) {
+    rotateTetris();
+  }
+});
+
+tetrisScreenEl.addEventListener('contextmenu', (e) => {
+  if (tetrisScreenEl.classList.contains('active')) {
+    e.preventDefault();
+  }
+});
+
+// 2. スマホ用タッチ・ドラッグ＆タップ判定操作（シングルタップ＝回転、ダブルタップ＝ハードドロップ）
+let dragStartX = 0;
+let dragStartY = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+tetrisScreenEl.addEventListener('touchstart', (e) => {
+  if (isGameOver) return;
+  dragStartX = e.touches[0].clientX;
+  dragStartY = e.touches[0].clientY;
+  lastTouchX = dragStartX;
+  lastTouchY = dragStartY;
+}, { passive: true });
+
+tetrisScreenEl.addEventListener('touchmove', (e) => {
+  if (isGameOver) return;
+  const currentX = e.touches[0].clientX;
+  const currentY = e.touches[0].clientY;
+  const deltaX = currentX - lastTouchX;
+  const deltaY = currentY - lastTouchY;
+
+  if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
+    const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
+    if (steps !== 0) {
+      moveTetris(steps > 0 ? 1 : -1);
+      lastTouchX += steps * TILE_SENSITIVITY;
+    }
+  }
+
+  if (deltaY >= TILE_SENSITIVITY) {
+    dropTetris();
+    lastTouchY = currentY;
+  } else if (deltaY < 0) {
+    lastTouchY = currentY;
+  }
+}, { passive: true });
+
+tetrisScreenEl.addEventListener('touchend', (e) => {
+  if (isGameOver) return;
+  
+  // タッチ終了時間を記録して、マウスイベントの誤爆を防ぐ
+  lastTouchEndTime = new Date().getTime();
+
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  const totalDx = touchEndX - dragStartX;
+  const totalDy = touchEndY - dragStartY;
+
+  // 移動距離が極小の場合はタップとみなす
+  if (Math.abs(totalDx) < 10 && Math.abs(totalDy) < 10) {
+    const currentTime = new Date().getTime();
+    // 直前のタップからの経過時間（初回タップ時は大きく空くため問題なし）
+    const tapInterval = lastTapTime ? (currentTime - lastTapTime) : 999;
+
+    // 120ミリ秒以内に2回目のタップが来た場合：ダブルタップ（ハードドロップ）
+    if (tapInterval < 180 && tapInterval > 0) {
+      clearTapTimer();
+      lastTapTime = 0;
+      hardDropTetris();
+    } else {
+      // 1回目のタップ：130ミリ秒待ってから回転を実行する（ダブルタップが来たらキャンセルされる）
+      lastTapTime = currentTime;
+      clearTapTimer();
+      tapTimeout = setTimeout(() => {
+        rotateTetris();
+        tapTimeout = null;
+      }, 190);
+    }
+  }
+});
+
+// キーボード操作（予備用）
 document.addEventListener('keydown', event => {
-  if (document.getElementById('tetris-game-screen').classList.contains('active') && !isGameOver) {
+  if (tetrisScreenEl.classList.contains('active') && !isGameOver) {
     switch(event.keyCode) {
       case 37: moveTetris(-1); break;
       case 39: moveTetris(1); break;
