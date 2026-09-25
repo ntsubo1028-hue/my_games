@@ -402,7 +402,18 @@ function updateUI() {
 
   if (remainingCountEl) {
     const flagCount = myFlags.filter(f => f).length;
-    remainingCountEl.innerText = Math.max(0, BOMBS - flagCount);
+    let remaining = BOMBS;
+
+    if (isSoloMode) {
+      // 一人用の時：従来通り、立てた旗の数だけマイナス
+      remaining -= flagCount;
+    } else {
+      // 対戦の時：立てた旗の数 ＋ すでに開かれて見つかった爆弾の数をマイナス
+      const openedBombsCount = board.filter(cell => cell.isOpened && cell.isBomb).length;
+      remaining -= (flagCount + openedBombsCount);
+    }
+
+    remainingCountEl.innerText = Math.max(0, remaining);
   }
 
   if (!isSoloMode) {
