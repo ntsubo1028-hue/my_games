@@ -302,8 +302,9 @@ const handleQuitGame = () => {
   if (isHost) {
     if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
     showScreen('host-game-select-screen');
-    document.getElementById('btn-back-main').style.display = 'inline-block';
-    document.getElementById('btn-disconnect-host').style.display = 'none';
+    // ↓ 通常の戻るボタンを隠し、通信切断ボタンを表示するように変更
+    document.getElementById('btn-back-main').style.display = 'none';
+    document.getElementById('btn-disconnect-host').style.display = 'inline-block';
   } else {
     if (isConnected) sendData({ type: "GUEST_QUIT_TO_MENU" });
     showScreen('connection-screen');
@@ -346,8 +347,9 @@ setOnMessage((data) => {
     if (isHost) {
       alert("ゲストがゲームを終了しました。");
       showScreen('host-game-select-screen');
-      document.getElementById('btn-back-main').style.display = 'inline-block';
-      document.getElementById('btn-disconnect-host').style.display = 'none';
+      // ↓ こちらも通信切断ボタンを表示するように変更
+      document.getElementById('btn-back-main').style.display = 'none';
+      document.getElementById('btn-disconnect-host').style.display = 'inline-block';
     }
     return;
   }
