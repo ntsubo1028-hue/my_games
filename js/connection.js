@@ -4,21 +4,29 @@ let onMessageCallback = null;
 let html5QrCodeScanner = null;
 
 /**
- * ICE Candidate（通信経路候補）の収集が完了するまで待つヘルパー関数
+ * ICE Candidate（通信経路候補）の収集を最大2秒間だけ待つ（タイムアウト付き）
  */
-function waitForIceGathering(peerConnection) {
+function waitForIceGathering(peerConnection, timeoutMs = 2000) {
   return new Promise((resolve) => {
     if (peerConnection.iceGatheringState === 'complete') {
       resolve();
-    } else {
-      const checkState = () => {
-        if (peerConnection.iceGatheringState === 'complete') {
-          peerConnection.removeEventListener('icegatheringstatechange', checkState);
-          resolve();
-        }
-      };
-      peerConnection.addEventListener('icegatheringstatechange', checkState);
+      return;
     }
+
+    const timer = setTimeout(() => {
+      peerConnection.removeEventListener('icegatheringstatechange', checkState);
+      console.log("ICE Candidateの収集をタイムアウトで完了とします");
+      resolve();
+    }, timeoutMs);
+
+    const checkState = () => {
+      if (peerConnection.iceGatheringState === 'complete') {
+        clearTimeout(timer);
+        peerConnection.removeEventListener('icegatheringstatechange', checkState);
+        resolve();
+      }
+    };
+    peerConnection.addEventListener('icegatheringstatechange', checkState);
   });
 }
 
@@ -42,12 +50,11 @@ export function initConnection() {
 export async function setupHostConnection(onOpenCallback) {
   initConnection();
 
-  // STUNサーバーの設定（localhostおよび外部通信用）
+  // STUNサーバーの設定（インターネット越しのマッチング用）
   pc = new RTCPeerConnection({
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
   });
 
-  // 1. ホスト側からDataChannelを作成
   dataChannel = pc.createDataChannel('gameChannel');
 
   dataChannel.onopen = () => {
@@ -70,14 +77,12 @@ export async function setupHostConnection(onOpenCallback) {
     console.log("Host ICE State:", pc.iceConnectionState);
   };
 
-  // Offer作成と設定
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  // 【重要】全ICE Candidateの収集完了を待機
+  // タイムアウト付きの待機処理で高速化
   await waitForIceGathering(pc);
 
-  // Candidateが含まれた状態のlocalDescriptionを返す
   return pc.localDescription;
 }
 
@@ -91,7 +96,6 @@ export async function setupGuestConnection(offerObj, onOpenCallback) {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
   });
 
-  // ゲスト側はホスト側から渡される DataChannel を受信用イベントで取得
   pc.ondatachannel = (event) => {
     dataChannel = event.channel;
 
@@ -116,12 +120,11 @@ export async function setupGuestConnection(offerObj, onOpenCallback) {
     console.log("Guest ICE State:", pc.iceConnectionState);
   };
 
-  // ホストのOfferを設定し、Answerを生成
   await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
 
-  // 【重要】全ICE Candidateの収集完了を待機
+  // タイムアウト付きの待機処理で高速化
   await waitForIceGathering(pc);
 
   return pc.localDescription;
@@ -161,7 +164,6 @@ export function setOnMessage(callback) {
  * 接続情報オブジェクトからQRコードを表示（LZStringで圧縮）
  */
 export function generateMultiPartQR(containerId, localDesc, gameType) {
-  const container = document.getElementById(containerId);
   const qrcodeElem = document.getElementById('qrcode');
   if (!qrcodeElem) return;
 
@@ -175,12 +177,11 @@ export function generateMultiPartQR(containerId, localDesc, gameType) {
 
   const compressedStr = LZString.compressToBase64(JSON.stringify(payload));
 
-  // QRCode.js等での描画想定
   if (typeof QRCode !== 'undefined') {
     new QRCode(qrcodeElem, {
       text: compressedStr,
-      width: 200,
-      height: 200,
+      width: 250,
+      height: 250,
       correctLevel: QRCode.CorrectLevel.L
     });
   } else {
@@ -197,34 +198,45 @@ export function startMultiPartScan(onSuccess, onCameraStart, onScanCancel) {
     return;
   }
 
+  // 1. まず画面を切り替えてDOM要素を可視化する
   if (onCameraStart) onCameraStart();
 
-  const qrRegionId = "qr-reader";
-  html5QrCodeScanner = new Html5Qrcode(qrRegionId);
-
-  html5QrCodeScanner.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 250 } },
-    (decodedText) => {
-      try {
-        const decompressed = LZString.decompressFromBase64(decodedText);
-        const parsed = JSON.parse(decompressed);
-        
-        cancelScan(() => {
-          if (onSuccess) onSuccess(parsed);
-        });
-      } catch (e) {
-        console.error("QRコードの解読に失敗しました:", e);
-      }
-    },
-    (errorMessage) => {
-      // 読み取り中のエラーログ（無視して継続）
+  // 2. 画面が描画されるのを少し待ってからカメラを起動する
+  setTimeout(() => {
+    const qrRegion = document.getElementById("qr-reader");
+    if (!qrRegion) {
+      console.error("HTML要素 #qr-reader が見つかりません。");
+      alert("カメラ表示用要素が見つかりませんでした。");
+      if (onScanCancel) onScanCancel();
+      return;
     }
-  ).catch((err) => {
-    console.error("カメラの起動に失敗しました:", err);
-    alert("カメラの起動に失敗しました。カメラ権限を確認してください。");
-    if (onScanCancel) onScanCancel();
-  });
+
+    html5QrCodeScanner = new Html5Qrcode("qr-reader");
+
+    html5QrCodeScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => {
+        try {
+          const decompressed = LZString.decompressFromBase64(decodedText);
+          const parsed = JSON.parse(decompressed);
+          
+          cancelScan(() => {
+            if (onSuccess) onSuccess(parsed);
+          });
+        } catch (e) {
+          console.error("QRコードの解読に失敗しました:", e);
+        }
+      },
+      (errorMessage) => {
+        // 読み取り中の軽微なエラーログは無視する
+      }
+    ).catch((err) => {
+      console.error("カメラの起動に失敗しました:", err);
+      alert("カメラの起動に失敗しました。カメラ権限を確認してください。");
+      if (onScanCancel) onScanCancel();
+    });
+  }, 100);
 }
 
 /**
