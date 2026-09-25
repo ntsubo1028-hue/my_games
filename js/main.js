@@ -84,18 +84,11 @@ async function startHostConnectionFlow() {
   resetConnectionUI();
 
   try {
-    // 接続が完全に確立した（DataChannelが開いた）時に自動でゲーム画面に遷移するコールバックを登録
-    const localDesc = await setupHostConnection(() => {
-      document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
-      setTimeout(() => {
-        showGameScreenForHost(selectedGame);
-      }, 300);
-    });
-
+    const localDesc = await setupHostConnection(() => showGameScreenForHost(selectedGame));
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
+
     document.getElementById('conn-status').innerText = "接続情報が整いました。";
 
-    // 1. ホスト側はまず「Q. 自分の情報をどうやって相手に伝えますか？」を表示
     const hostChooseOutput = document.getElementById('step-host-choose-output');
     hostChooseOutput.style.display = 'block';
 
@@ -124,13 +117,11 @@ async function startHostConnectionFlow() {
       });
     };
 
-    // 2. 「接続情報を相手に伝えた」ボタンが押されたあとの処理
     document.getElementById('btn-host-done-output').onclick = () => {
       document.getElementById('qr-container').style.display = 'none';
       document.getElementById('text-copy-container').style.display = 'none';
       document.getElementById('step-host-done-container').style.display = 'none';
 
-      // 3. 次に「Q. 相手の情報をどうやって入力しますか？」を表示
       document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
       const hostChooseInput = document.getElementById('step-host-choose-input');
       hostChooseInput.style.display = 'block';
@@ -140,8 +131,10 @@ async function startHostConnectionFlow() {
         startMultiPartScan(
           async (answerObj) => { 
             await handleGuestAnswer(answerObj); 
-            document.getElementById('conn-status').innerText = "接続を確立しています...";
-            // 画面遷移は setupHostConnection のコールバック（接続完了時）に自動任せする
+            document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+            setTimeout(() => {
+              showGameScreenForHost(selectedGame);
+            }, 500);
           },
           () => showScreen('camera-screen'),
           () => showScreen('connection-screen')
@@ -156,18 +149,27 @@ async function startHostConnectionFlow() {
 
     const textInput = document.getElementById('text-sdp-input');
     textInput.value = '';
-    document.getElementById('btn-submit-sdp').onclick = async () => {
-      try {
-        const pasted = textInput.value.trim();
-        if (!pasted) return;
-        const answerObj = decodeSdp(pasted);
-        await handleGuestAnswer(answerObj);
-        document.getElementById('conn-status').innerText = "接続を確立しています...";
-        document.getElementById('step-text-input-area').style.display = 'none';
-        // 画面遷移は setupHostConnection のコールバック（接続完了時）に自動任せする
-      } catch (e) {
-        alert("無効なテキストです。正しくコピーできているか確認してください。");
-      }
+    
+    // ホスト側のテキスト送信時（2秒ウェイト）
+    document.getElementById('btn-submit-sdp').onclick = () => {
+      const pasted = textInput.value.trim();
+      if (!pasted) return;
+
+      document.getElementById('step-text-input-area').style.display = 'none';
+      document.getElementById('conn-status').innerText = "接続を確立しています（少々お待ちください）...";
+
+      setTimeout(async () => {
+        try {
+          const answerObj = decodeSdp(pasted);
+          await handleGuestAnswer(answerObj);
+          document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+          setTimeout(() => {
+            showGameScreenForHost(selectedGame);
+          }, 500);
+        } catch (e) {
+          alert("無効なテキストです。正しくコピーできているか確認してください。");
+        }
+      }, 2000);
     };
 
   } catch (e) {
@@ -183,7 +185,6 @@ function startGuestScanFlow() {
   document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
   resetConnectionUI();
 
-  // ゲスト側：最初にホスト情報の入力を求められる
   const guestChooseInput = document.getElementById('step-guest-choose-input');
   guestChooseInput.style.display = 'block';
 
@@ -246,16 +247,23 @@ function startGuestScanFlow() {
 
   const textInput = document.getElementById('text-sdp-input');
   textInput.value = '';
-  document.getElementById('btn-submit-sdp').onclick = async () => {
-    try {
-      const pasted = textInput.value.trim();
-      if (!pasted) return;
-      const scanResult = decodeSdp(pasted);
-      document.getElementById('step-text-input-area').style.display = 'none';
-      await processHostOffer(scanResult);
-    } catch (e) {
-      alert("無効なテキストです。正しくコピーできているか確認してください。");
-    }
+  
+  // ゲスト側のテキスト送信時（2秒ウェイト）
+  document.getElementById('btn-submit-sdp').onclick = () => {
+    const pasted = textInput.value.trim();
+    if (!pasted) return;
+
+    document.getElementById('step-text-input-area').style.display = 'none';
+    document.getElementById('conn-status').innerText = "接続を確立しています（少々お待ちください）...";
+
+    setTimeout(async () => {
+      try {
+        const scanResult = decodeSdp(pasted);
+        await processHostOffer(scanResult);
+      } catch (e) {
+        alert("無効なテキストです。正しくコピーできているか確認してください。");
+      }
+    }, 2000);
   };
 }
 
