@@ -102,7 +102,7 @@ async function startHostConnectionFlow() {
       hostChooseOutput.style.display = 'none';
       document.getElementById('qr-container').style.display = 'flex';
       generateMultiPartQR('conn-status', localDesc, selectedGame);
-      document.getElementById('conn-status').innerText = "下のQRコードを相手に読み取ってもらってください";
+      document.getElementById('conn-status').innerText = "赤・青・黄の3つのQRコードを相手に読み取ってもらってください";
       showDoneButton();
     };
 
@@ -210,7 +210,7 @@ function startGuestScanFlow() {
         guestChooseOutput.style.display = 'none';
         document.getElementById('qr-container').style.display = 'flex';
         generateMultiPartQR('conn-status', localDesc, selectedGame);
-        document.getElementById('conn-status').innerText = "このQRコードをホストに読み取ってもらってください";
+        document.getElementById('conn-status').innerText = "赤・青・黄の3つのQRコードをホストに読み取ってもらってください";
       };
 
       document.getElementById('btn-guest-output-text').onclick = () => {

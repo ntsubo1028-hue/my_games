@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <!-- データ圧縮用 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
-  <!-- QRコード生成用（追加） -->
+  <!-- QRコード生成用 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
@@ -88,9 +88,9 @@
       <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; font-size: 13px; padding: 6px; margin-top: 4px;">このテキストで接続する</button>
     </div>
 
-    <!-- QRコード表示コンテナの修正（1つに統合） -->
-    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 8px; margin-top: 5px;">
-      <div id="qrcode" style="background: #fff; padding: 10px; border-radius: 6px; border: 3px solid #ff9800;"></div>
+    <!-- 赤・青・黄 QRコード表示エリア -->
+    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 10px; margin-top: 5px; max-height: 400px; overflow-y: auto; width: 100%;">
+      <div id="qrcode" style="display: flex; flex-direction: column; align-items: center; gap: 10px; width: 90%; max-width: 300px; box-sizing: border-box;"></div>
     </div>
 
     <div id="text-copy-container" style="display: none; width: 100%; max-width: 320px; text-align: center; margin-top: 5px;">
@@ -105,11 +105,10 @@
     <button id="btn-disconnect-guest" class="btn-action" style="margin-top: 5px; background-color: #d32f2f; color: #fff; display: none;">🛑 通信を切断してメニューに戻る</button>
   </div>
 
-  <!-- カメラ読み取り画面 -->
+  <!-- カメラ読み取り画面（バッジ表示用エリア含む） -->
   <div id="camera-screen" class="screen">
-    <h3 id="scan-guide-text" style="font-size: 15px; margin: 5px 0;">枠内にQRコードを合わせてください</h3>
-    
-    <!-- IDをJS側の qr-reader と一致させました -->
+    <div id="scan-badge-container" style="display: flex; justify-content: center; gap: 5px; margin-bottom: 8px;"></div>
+    <h3 id="scan-guide-text" style="font-size: 14px; margin: 4px 0; color: #333;">QRコードを枠内に合わせてください</h3>
     <div id="qr-reader" style="width: 100%; max-width: 300px; margin: 0 auto;"></div>
     <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 10px;">キャンセル</button>
   </div>
