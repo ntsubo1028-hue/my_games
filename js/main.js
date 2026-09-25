@@ -284,7 +284,7 @@ document.getElementById('btn-back-select').onclick = () => {
   else showScreen('menu-screen');
 };
 
-// 意図的な切断とメニューへの帰還
+// --- 通信切断処理 ---
 function disconnectConnection() {
   if (isConnected) {
     sendData({ type: "DISCONNECT" });
@@ -295,23 +295,32 @@ function disconnectConnection() {
     showScreen('menu-screen');
   }, 100);
 }
-document.getElementById('btn-disconnect-host').onclick = disconnectConnection;
-document.getElementById('btn-disconnect-guest').onclick = disconnectConnection;
 
+// ★ 待機画面の「切断して戻る」ボタンにも確認ダイアログを追加
+const handleDisconnectClick = () => {
+  if (confirm("通信を切断してメインメニューに戻りますか？\n（相手との接続が切れます）")) {
+    disconnectConnection();
+  }
+};
+document.getElementById('btn-disconnect-host').onclick = handleDisconnectClick;
+document.getElementById('btn-disconnect-guest').onclick = handleDisconnectClick;
+
+// --- 🎮 ゲーム終了・退出処理 ---
 const handleQuitGame = () => {
-  // ★ 誤操作防止の確認ダイアログ
   if (!confirm("ゲームを終了してメニューに戻りますか？\n（通信中の場合は相手もメニューに戻ります）")) {
     return;
   }
 
   if (isHost) {
-    if (isConnected) {
-      sendData({ type: "HOST_QUIT_TO_MENU" });
-    }
+    if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
+    
     showScreen('host-game-select-screen');
     document.getElementById('btn-back-main').style.display = 'none';
     document.getElementById('btn-disconnect-host').style.display = 'block';
   } else {
+    // ★ ゲストからホストへ退出を伝える処理を追加！
+    if (isConnected) sendData({ type: "GUEST_QUIT_TO_MENU" });
+    
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
@@ -349,6 +358,17 @@ setOnMessage((data) => {
     return;
   }
 
+  // ★ ゲストがゲームを辞めたという通知をホストが受け取った時の処理
+  if (data.type === "GUEST_QUIT_TO_MENU") {
+    if (isHost) {
+      alert("ゲストがゲームを終了しました。\nゲーム選択画面に戻ります。");
+      showScreen('host-game-select-screen');
+      document.getElementById('btn-back-main').style.display = 'none';
+      document.getElementById('btn-disconnect-host').style.display = 'block';
+    }
+    return;
+  }
+
   if (data.type === "CHANGE_GAME") {
     selectedGame = data.payload.game;
     if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
@@ -379,7 +399,6 @@ setOnMessage((data) => {
 
 // --- テトリス・一人用などの処理 ---
 document.getElementById('btn-play-tetris').onclick = () => { showScreen('tetris-game-screen'); initTetris(); };
-// ★ テトリス用の確認ダイアログ追加
 document.getElementById('btn-quit-tetris').onclick = () => { 
   if (confirm("ゲームを終了してメニューに戻りますか？")) {
     stopTetris(); 
@@ -397,7 +416,6 @@ document.getElementById('concentration-game-screen').onclick = () => { if (selec
 document.getElementById('btn-mine-mode').onclick = () => toggleInputMode();
 document.getElementById('btn-mine-end-turn').onclick = () => endTurn();
 
-// ★ マインスイーパー用の確認ダイアログ追加
 document.getElementById('btn-quit-mine').onclick = () => {
   if (isConnected) {
     handleQuitGame(); 
@@ -411,7 +429,7 @@ document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch()
 
 
 // ==========================================
-// ★ブラウザの「戻る」誤操作防止（History APIを使用）
+// ★ブラウザ・スマホの「戻る」ボタン誤操作防止（より強力なロジック）
 // ==========================================
 window.addEventListener('beforeunload', (e) => {
   if (isConnected) {
@@ -421,18 +439,23 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// アプリの開始時に現在の状態を履歴に積んでおく
 history.pushState(null, null, location.href);
 
 window.addEventListener('popstate', (e) => {
+  // ★ 戻るボタンが押された瞬間、即座に履歴を「進める(元に戻す)」ことで画面遷移を打ち消す
+  history.pushState(null, null, location.href);
+
   if (isConnected) {
-    const confirmLeave = confirm("通信が切断されます。メインメニューに戻りますか？");
-    if (confirmLeave) {
+    if (confirm("通信が切断されます。メインメニューに戻りますか？")) {
       disconnectConnection();
-    } else {
-      history.pushState(null, null, location.href);
     }
   } else {
-    showScreen('menu-screen');
-    history.pushState(null, null, location.href);
+    // メインメニュー以外にいる時だけ確認メッセージを出す
+    if (!document.getElementById('menu-screen').classList.contains('active')) {
+      if (confirm("メインメニューに戻りますか？")) {
+        showScreen('menu-screen');
+      }
+    }
   }
 });

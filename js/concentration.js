@@ -104,9 +104,9 @@ function updateUI() {
     if (turnText) {
       if (isWaitingForConfirmation) {
         if (currentTurn === myRole) {
-          turnText.innerText = "👀 覚えるタイム（タップで閉じる / 5秒で自動）";
+          turnText.innerText = "👀覚えるタイム(タップ又は5秒で終了)";
         } else {
-          turnText.innerText = "👀 相手が覚えています...";
+          turnText.innerText = "👀相手が覚えています...";
         }
       } else {
         turnText.innerText = isMyTurn ? `🟢 あなたのターン (${turnName})` : `🔴 相手のターン (${turnName})`;
