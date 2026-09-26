@@ -15,6 +15,7 @@ import { initDotsGame, processDotsAction, updateDotsGameState, syncDotsStateToGu
 import { initTetris, stopTetris } from './tetris.js';
 import { initGame as initConcentrationGame, processAction as processConcentrationAction, updateGameState as updateConcentrationGameState, syncStateToGuest as syncConcentrationStateToGuest, requestRematch as requestConcentrationRematch, handleScreenTap as handleConcentrationScreenTap } from './concentration.js';
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
+import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey } from './airhockey.js';
 
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
@@ -46,6 +47,7 @@ document.getElementById('btn-select-othello').onclick = () => { selectGameFlow('
 document.getElementById('btn-select-dots').onclick = () => { selectGameFlow('dots'); };
 document.getElementById('btn-select-concentration').onclick = () => { selectGameFlow('concentration'); };
 document.getElementById('btn-select-minesweeper').onclick = () => { selectGameFlow('minesweeper'); };
+document.getElementById('btn-select-airhockey').onclick = () => { selectGameFlow('airhockey'); };
 
 function selectGameFlow(game) {
   selectedGame = game;
@@ -63,6 +65,7 @@ function showGameScreenForHost(game) {
   else if (game === 'dots') { showScreen('dots-game-screen'); initDotsGame(true); syncDotsStateToGuest(); }
   else if (game === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(true); syncConcentrationStateToGuest(); }
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
+  else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
 }
 
 function resetConnectionUI() {
@@ -197,6 +200,7 @@ function startGuestScanFlow() {
         else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
         else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
         else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
+        else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey();}
       });
 
       localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
@@ -319,10 +323,12 @@ const handleQuitGame = () => {
 document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
+document.getElementById('btn-quit-airhockey').onclick = () => { stopAirHockey(); handleQuitGame(); };
 
 document.getElementById('btn-rematch-othello').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
 document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
+document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ type: 'start_airhockey' }); startAirHockey(); };
 
 setOnMessage((data) => {
   if (data.type === "DISCONNECT") {
@@ -360,6 +366,7 @@ setOnMessage((data) => {
     else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
     else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
     else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
+    else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
     return;
   }
 
@@ -379,6 +386,12 @@ setOnMessage((data) => {
     if (data.type === "MINE_OPEN" || data.type === "MINE_END_TURN") processMineAction(data);
     else if (isHost && data.type === "MINE_REMATCH") { initPvPGame(true); syncMineStateToGuest(); }
     else if (!isHost && data.type === "MINE_STATE_SYNC") updateMineGameState(data.payload);
+  } else if (selectedGame === 'airhockey') {
+    if (data.type === "ah_sync_host" || data.type === "ah_sync_guest" || data.type === "ah_score") {
+      processAirHockeyData(data);
+    } else if (data.type === "start_airhockey") {
+      startAirHockey();
+    }
   }
 });
 

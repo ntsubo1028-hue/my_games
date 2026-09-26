@@ -37,6 +37,7 @@
       <button id="btn-select-dots" class="btn-action" style="background-color: #e65100;">🟠 ドット＆ボックス (1対1)</button>
       <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> 
       <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (1対1)</button>
+      <button id="btn-select-airhockey" class="btn-action" style="background-color: #9c27b0;">🏑 エアホッケー (1対1)</button>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
       <button id="btn-back-main" class="btn-action secondary-btn">◀ メニューに戻る</button>
@@ -231,6 +232,26 @@
     <div class="button-group-col" style="margin-top: 15px;">
       <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ゲーム本体画面（エアホッケー） -->
+  <div id="airhockey-game-screen" class="screen">
+    <h2>エアホッケー</h2>
+    <h3 id="airhockey-status-text">通信待機中...</h3>
+
+    <div id="airhockey-score-board" class="info-board">
+      <span id="airhockey-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
+      <span id="airhockey-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
+    </div>
+
+    <div class="game-board-container">
+      <canvas id="airhockey-board" width="300" height="500" style="touch-action: none;"></canvas>
+    </div>
+
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-rematch-airhockey" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-airhockey" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
 
