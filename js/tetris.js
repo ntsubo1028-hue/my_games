@@ -5,6 +5,12 @@ const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('tetris-next');
 const nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
 
+// ホールド用変数と1ターン1回の制限フラグ ▼
+const holdCanvas = document.getElementById('tetris-hold');
+const holdCtx = holdCanvas ? holdCanvas.getContext('2d') : null;
+let holdPiece = null;
+let canHold = true;
+
 const scoreEl = document.getElementById('tetris-score');
 const linesEl = document.getElementById('tetris-lines');
 const btnRematch = document.getElementById('btn-rematch-tetris');
@@ -77,6 +83,7 @@ function getRandomPiece() {
 
 function spawnPiece() {
   clearTapTimer();
+  canHold = true; // ▼追加: ブロック生成時にホールド権を復活させる
   if (!nextPiece) {
     nextPiece = getRandomPiece();
   }
@@ -260,6 +267,58 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
+// ▼ 追加: ホールド実行処理 ▼
+export function actionHold() {
+  // ゲームオーバー時、または既にこのターンでホールドを使用済みの場合は無効
+  if (isGameOver || !canHold) return;
+
+  if (holdPiece === null) {
+    // 初回ホールド（現在操作中のブロックを格納して次をスポーン）
+    holdPiece = piece.typeId;
+    spawnPiece();
+  } else {
+    // 既存ホールドブロックとの入れ替え
+    const temp = piece.typeId;
+    piece = {
+      pos: { x: Math.floor(COLS / 2) - Math.floor(SHAPES[holdPiece][0].length / 2), y: 0 },
+      matrix: SHAPES[holdPiece],
+      typeId: holdPiece
+    };
+    holdPiece = temp;
+    
+    // 入れ替え時にブロックが重なる場合のフェイルセーフ
+    if (collide(board, piece)) {
+      piece.pos.y--;
+    }
+  }
+  
+  canHold = false; // ホールド使用済みとしてロックする（設置するまで解除不可）
+  drawHold();
+}
+
+// ▼ 追加: ホールド領域への描画処理 ▼
+function drawHold() {
+  if (!holdCtx) return;
+  holdCtx.fillStyle = '#111';
+  holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+
+  if (!holdPiece) return;
+  const matrix = SHAPES[holdPiece];
+  const size = 14;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  const offsetX = (holdCanvas.width - cols * size) / 2 / size;
+  const offsetY = (holdCanvas.height - rows * size) / 2 / size;
+
+  matrix.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value !== 0) {
+        drawBlock(holdCtx, x + offsetX, y + offsetY, value, size);
+      }
+    });
+  });
+}
+
 function drawBlock(targetCtx, x, y, value, size) {
   if (!value) return;
   const px = x * size;
@@ -384,6 +443,13 @@ function update(time = 0) {
 
 export function initTetris() {
   board = createBoard();
+  holdPiece = null;
+  canHold = true;
+  if (holdCtx) {
+    holdCtx.fillStyle = '#111';
+    holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+  }
+  score = 0;
   score = 0;
   lines = 0;
   dropInterval = 1000;
@@ -450,8 +516,9 @@ tetrisScreenEl.addEventListener('mousemove', (e) => {
   if (deltaY >= TILE_SENSITIVITY) {
     dropTetris();
     lastMouseY += TILE_SENSITIVITY;
-  } else if (deltaY < 0) {
-    lastMouseY = e.clientY;
+  } else if (deltaY <= -TILE_SENSITIVITY) { // ▼ 修正: 上方向への移動でホールド
+    actionHold();
+    lastMouseY = e.clientY; // 連続発火を防止
   }
 });
 
@@ -506,8 +573,9 @@ tetrisScreenEl.addEventListener('touchmove', (e) => {
   if (deltaY >= TILE_SENSITIVITY) {
     dropTetris();
     lastTouchY = currentY;
-  } else if (deltaY < 0) {
-    lastTouchY = currentY;
+  } else if (deltaY <= -TILE_SENSITIVITY) { // ▼ 修正: 上スワイプでホールド
+    actionHold();
+    lastTouchY = currentY; // 連続発火を防止
   }
 }, { passive: true });
 
@@ -554,6 +622,9 @@ document.addEventListener('keydown', event => {
       case 40: dropTetris(); break;
       case 38: rotateTetris(); break;
       case 32: hardDropTetris(); break;
+      case 67: // Cキー (追加)
+      case 16: // Shiftキー (追加)
+      actionHold(); break;
     }
   }
 });

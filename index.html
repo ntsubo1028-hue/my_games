@@ -216,6 +216,10 @@
     
     <div class="game-board-container">
       <div class="tetris-wrapper">
+        <div class="tetris-next-container">
+          <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 4px; color: #555;">HOLD</span>
+          <canvas id="tetris-hold" width="70" height="70"></canvas>
+        </div>
         <canvas id="tetris-board" width="180" height="360"></canvas>
         <div class="tetris-next-container">
           <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 4px; color: #555;">NEXT</span>
@@ -225,8 +229,8 @@
     </div>
     
     <div class="tetris-guide step-container" style="padding: 10px; font-size: clamp(10px, 2vw, 12px); color: #333; margin-bottom: 10px;">
-      <p style="margin: 2px 0;">🖱️ <b>PC:</b> 左右/下キー, クリック:落下, 右クリック:回転</p>
-      <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ, タップ:回転, Wタップ:落下</p>
+      <p style="margin: 2px 0;">🖱️ <b>PC:</b> 左右/下キー, <b>C/Shiftキー(HOLD)</b>, クリック:落下, 右クリック:回転</p>
+      <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ, <b>上スワイプ(HOLD)</b>, タップ:回転, Wタップ:落下</p>
     </div>
     
     <div class="button-group-col">
