@@ -29,60 +29,14 @@ let ahState = {
 let ahAnimId = null;
 let ahFrameCount = 0;
 
-// 通信量トラッキング用変数
-let totalBytesSent = 0;
-let totalBytesReceived = 0;
-let trafficBadge = null;
-
 // main.jsから受け取る通信設定
 let isHost = false;
 let sendData = null; 
 
-// 数値を小数点第一位に丸めてデータ量を削減するヘルパー
-const round1 = (val) => Math.round(val * 10) / 10;
-
-// 最適化されたデータ送信ラッパー（通信量を自動計測）
-function sendOptimizedData(data) {
-  if (!sendData) return;
-  const jsonStr = JSON.stringify(data);
-  totalBytesSent += new TextEncoder().encode(jsonStr).length;
-  sendData(data);
-}
-
-// 通信量表示用の控えめなバッジを画面の右上隅に作成・更新
-function updateTrafficBadge() {
-  if (!trafficBadge) {
-    trafficBadge = document.getElementById('airhockey-traffic-badge');
-    if (!trafficBadge) {
-      trafficBadge = document.createElement('div');
-      trafficBadge.id = 'airhockey-traffic-badge';
-      // 画面の右上隅に配置するためのスタイル
-      trafficBadge.style.position = 'absolute';
-      trafficBadge.style.top = '10px';
-      trafficBadge.style.right = '10px';
-      trafficBadge.style.fontSize = '11px';
-      trafficBadge.style.color = '#64748b';
-      trafficBadge.style.background = 'rgba(15, 23, 42, 0.75)';
-      trafficBadge.style.padding = '3px 8px';
-      trafficBadge.style.borderRadius = '4px';
-      trafficBadge.style.pointerEvents = 'none';
-      trafficBadge.style.zIndex = '10';
-      
-      // スクリーン要素に位置基準を持たせて追加
-      airhockeyScreen.style.position = 'relative';
-      airhockeyScreen.appendChild(trafficBadge);
-    }
-  }
-  let trafficKB = ((totalBytesSent + totalBytesReceived) / 1024).toFixed(2);
-  trafficBadge.innerText = `通信量: ${trafficKB} KB`;
-}
-
-// 初期設定
+// 初期設定（main.jsから通信環境を渡してもらう）
 export function initAirHockeySystem(hostFlag, sendFunction) {
   isHost = hostFlag;
   sendData = sendFunction;
-  totalBytesSent = 0;
-  totalBytesReceived = 0;
 }
 
 // ゲーム開始処理
@@ -96,27 +50,21 @@ export function startAirHockey() {
   btnRematchAirHockey.style.display = 'none';
   updateAHScoreBoard();
 
+
   resetPuck(true);
-  totalBytesSent = 0;
-  totalBytesReceived = 0;
   
   airhockeyStatusText.innerText = isHost ? "あなたのターン（赤）" : "あなたのターン（青）";
-  updateTrafficBadge();
   
   if (ahAnimId) cancelAnimationFrame(ahAnimId);
   ahLoop();
 }
 
-// ゲーム停止
+// ゲーム停止（メニューに戻った時など）
 export function stopAirHockey() {
   ahState.isPlaying = false;
   if (ahAnimId) {
     cancelAnimationFrame(ahAnimId);
     ahAnimId = null;
-  }
-  if (trafficBadge) {
-    trafficBadge.remove();
-    trafficBadge = null;
   }
 }
 
@@ -125,15 +73,15 @@ function resetPuck(placeAtHost) {
   ahState.puck.x = AH_WIDTH / 2;
   // ホスト側は下側 (AH_HEIGHT * 0.75)、ゲスト側は上側 (AH_HEIGHT * 0.25)
   ahState.puck.y = placeAtHost ? AH_HEIGHT * 0.75 : AH_HEIGHT * 0.25;
-  ahState.puck.vx = 0;
-  ahState.puck.vy = 0;
+  ahState.puck.vx = 0; // 完全に停止させる
+  ahState.puck.vy = 0; // 完全に停止させる
 }
 
 // 描画と物理演算のメインループ
 function ahLoop() {
   if (!ahState.isPlaying) return;
 
-  // 1. 物理演算 (ホスト側)
+  // 1. 物理演算 (ホスト側が絶対的な正解)
   if (isHost) {
     let p = ahState.puck;
     p.x += p.vx;
@@ -142,9 +90,11 @@ function ahLoop() {
     p.vx *= 0.99;
     p.vy *= 0.99;
 
+    // ▼ 左右の壁バウンド（音を追加）
     if (p.x - PUCK_RADIUS < 0) { p.x = PUCK_RADIUS; p.vx *= -1; playSound('put'); }
     if (p.x + PUCK_RADIUS > AH_WIDTH) { p.x = AH_WIDTH - PUCK_RADIUS; p.vx *= -1; playSound('put'); }
 
+    // ▼ 上下の壁バウンド（ゴール判定と、ゴール以外の壁バウンド音）
     if (p.y - PUCK_RADIUS < 0) {
       if (p.x > (AH_WIDTH - GOAL_WIDTH) / 2 && p.x < (AH_WIDTH + GOAL_WIDTH) / 2) {
         ahState.hostScore++; goalScored(true);
@@ -167,23 +117,14 @@ function ahLoop() {
   // 2. 描画
   drawAHBoard();
 
-  // 3. 通信 (スリム化した配列形式で送信)
+  // 3. 通信 (設定したSYNC_RATEに基づく)
   ahFrameCount++;
   if (ahFrameCount % SYNC_RATE === 0 && sendData) {
     if (isHost) {
-      sendOptimizedData([
-        'h', 
-        round1(ahState.puck.x), round1(ahState.puck.y), 
-        round1(ahState.puck.vx), round1(ahState.puck.vy), 
-        round1(ahState.hostMallet.x), round1(ahState.hostMallet.y)
-      ]);
+      sendData({ type: 'ah_sync_host', puck: ahState.puck, mallet: ahState.hostMallet });
     } else {
-      sendOptimizedData([
-        'g', 
-        round1(ahState.guestMallet.x), round1(ahState.guestMallet.y)
-      ]);
+      sendData({ type: 'ah_sync_guest', mallet: ahState.guestMallet });
     }
-    updateTrafficBadge();
   }
 
   ahAnimId = requestAnimationFrame(ahLoop);
@@ -196,7 +137,7 @@ function checkCollision(mallet, puck) {
   let distance = Math.hypot(dx, dy);
   
   if (distance < PUCK_RADIUS + MALLET_RADIUS) {
-    playSound('flip');
+    playSound('flip'); // ← マレットで打った時の音を追加（pではなくpuckです）
     
     let angle = Math.atan2(dy, dx);
     let speed = Math.hypot(puck.vx, puck.vy);
@@ -211,10 +152,12 @@ function checkCollision(mallet, puck) {
 
 // ゴール処理
 function goalScored(isHostScored) {
-  playSound('win');
-  updateAHScoreBoard();
+  playSound('win'); // ← ゴール時の音を追加
   
-  sendOptimizedData(['s', ahState.hostScore, ahState.guestScore, isHostScored ? 1 : 0]);
+  updateAHScoreBoard();
+  if (sendData) {
+    sendData({ type: 'ah_score', hostScore: ahState.hostScore, guestScore: ahState.guestScore, isHostScored });
+  }
   
   if (ahState.hostScore >= 5 || ahState.guestScore >= 5) {
     endAirHockey(ahState.hostScore >= 5 ? 'host' : 'guest');
@@ -232,33 +175,36 @@ function endAirHockey(winner) {
   ahState.isPlaying = false;
   let winText = (winner === 'host' && isHost) || (winner === 'guest' && !isHost) ? "🎉 あなたの勝ち！" : "😭 あなたの負け...";
   airhockeyStatusText.innerText = `ゲーム終了 - ${winText}`;
-  updateTrafficBadge();
+  btnRematchAirHockey.style.display = 'block';
 }
 
-// 描画処理
+// グラフィカルにリニューアルした描画処理
 function drawAHBoard() {
+  // 1. 背景（引き締まったダークネイビー）
   ctxAH.fillStyle = '#0f172a';
   ctxAH.fillRect(0, 0, AH_WIDTH, AH_HEIGHT);
 
+  // リンクの外枠
   ctxAH.strokeStyle = '#334155';
   ctxAH.lineWidth = 4;
   ctxAH.strokeRect(2, 2, AH_WIDTH - 4, AH_HEIGHT - 4);
 
-  // ゴールエリア（上）
+  // 2. ゴールエリア（見やすさを改善：明るい色と枠線を追加）
+  // 相手側ゴール（上）
   ctxAH.fillStyle = 'rgba(59, 130, 246, 0.4)';
   ctxAH.fillRect((AH_WIDTH - GOAL_WIDTH) / 2, 0, GOAL_WIDTH, 12);
   ctxAH.strokeStyle = '#60a5fa';
   ctxAH.lineWidth = 2;
   ctxAH.strokeRect((AH_WIDTH - GOAL_WIDTH) / 2, 0, GOAL_WIDTH, 12);
 
-  // ゴールエリア（下）
+  // 自分側ゴール（下）
   ctxAH.fillStyle = 'rgba(239, 68, 68, 0.4)';
   ctxAH.fillRect((AH_WIDTH - GOAL_WIDTH) / 2, AH_HEIGHT - 12, GOAL_WIDTH, 12);
   ctxAH.strokeStyle = '#f87171';
   ctxAH.lineWidth = 2;
   ctxAH.strokeRect((AH_WIDTH - GOAL_WIDTH) / 2, AH_HEIGHT - 12, GOAL_WIDTH, 12);
 
-  // センターライン & サークル
+  // 3. センターライン & センターサークル
   ctxAH.strokeStyle = '#1e293b';
   ctxAH.lineWidth = 3;
   ctxAH.beginPath();
@@ -270,6 +216,7 @@ function drawAHBoard() {
   ctxAH.arc(AH_WIDTH / 2, AH_HEIGHT / 2, 45, 0, Math.PI * 2);
   ctxAH.stroke();
 
+  // 中央のドット
   ctxAH.fillStyle = '#334155';
   ctxAH.beginPath();
   ctxAH.arc(AH_WIDTH / 2, AH_HEIGHT / 2, 6, 0, Math.PI * 2);
@@ -278,15 +225,17 @@ function drawAHBoard() {
   let drawX = (x) => (isHost ? x : AH_WIDTH - x);
   let drawY = (y) => (isHost ? y : AH_HEIGHT - y);
 
-  // パック
+  // 4. パック（ツヤと立体感のあるグラデーション）
   let puckX = drawX(ahState.puck.x);
   let puckY = drawY(ahState.puck.y);
 
+  // パックの影
   ctxAH.fillStyle = 'rgba(0, 0, 0, 0.4)';
   ctxAH.beginPath();
   ctxAH.arc(puckX, puckY + 3, PUCK_RADIUS, 0, Math.PI * 2);
   ctxAH.fill();
 
+  // パック本体
   let puckGrad = ctxAH.createRadialGradient(puckX - 3, puckY - 3, 2, puckX, puckY, PUCK_RADIUS);
   puckGrad.addColorStop(0, '#ffffff');
   puckGrad.addColorStop(0.7, '#cbd5e1');
@@ -296,7 +245,7 @@ function drawAHBoard() {
   ctxAH.arc(puckX, puckY, PUCK_RADIUS, 0, Math.PI * 2);
   ctxAH.fill();
 
-  // ホスト側マレット（赤）
+  // 5. ホスト側マレット（赤・立体感）
   let hostX = drawX(ahState.hostMallet.x);
   let hostY = drawY(ahState.hostMallet.y);
 
@@ -314,13 +263,14 @@ function drawAHBoard() {
   ctxAH.arc(hostX, hostY, MALLET_RADIUS, 0, Math.PI * 2);
   ctxAH.fill();
 
+  // マレットの持ち手（内側のリング）
   ctxAH.strokeStyle = '#7f1d1d';
   ctxAH.lineWidth = 3;
   ctxAH.beginPath();
   ctxAH.arc(hostX, hostY, MALLET_RADIUS * 0.5, 0, Math.PI * 2);
   ctxAH.stroke();
 
-  // ゲスト側マレット（青）
+  // 6. ゲスト側マレット（青・立体感）
   let guestX = drawX(ahState.guestMallet.x);
   let guestY = drawY(ahState.guestMallet.y);
 
@@ -338,6 +288,7 @@ function drawAHBoard() {
   ctxAH.arc(guestX, guestY, MALLET_RADIUS, 0, Math.PI * 2);
   ctxAH.fill();
 
+  // マレットの持ち手（内側のリング）
   ctxAH.strokeStyle = '#1e3a8a';
   ctxAH.lineWidth = 3;
   ctxAH.beginPath();
@@ -359,6 +310,7 @@ function handleAHInput(e) {
   let x = (clientX - rect.left) * scaleX;
   let y = (clientY - rect.top) * scaleY;
 
+  // ゲスト視点のタッチ座標をホスト基準（絶対座標）に変換
   if (!isHost) {
     x = AH_WIDTH - x;
     y = AH_HEIGHT - y;
@@ -367,6 +319,7 @@ function handleAHInput(e) {
   x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, x));
 
   if (isHost) {
+    // ホストは下半分（AH_HEIGHT / 2 〜 AH_HEIGHT）
     let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
     let maxY = AH_HEIGHT - MALLET_RADIUS;
     y = Math.max(minY, Math.min(maxY, y));
@@ -374,10 +327,12 @@ function handleAHInput(e) {
     ahState.hostMallet.x = x;
     ahState.hostMallet.y = y;
   } else {
+    // ゲストは上半分（0 〜 AH_HEIGHT / 2）
     let minY = MALLET_RADIUS;
     let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
     y = Math.max(minY, Math.min(maxY, y));
 
+    // ホスト基準の座標をそのまま格納（二重反転を解消）
     ahState.guestMallet.x = x;
     ahState.guestMallet.y = y; 
   }
@@ -386,31 +341,30 @@ function handleAHInput(e) {
 canvasAH.addEventListener('touchmove', handleAHInput, { passive: false });
 canvasAH.addEventListener('mousemove', handleAHInput);
 
-// 通信データ受信時の処理
+// 通信データ受信時の処理（main.jsから呼ばれる）
 export function processAirHockeyData(data) {
-  if (!data) return;
-  
-  const jsonStr = JSON.stringify(data);
-  totalBytesReceived += new TextEncoder().encode(jsonStr).length;
-
-  if (Array.isArray(data)) {
-    const type = data[0];
-    if (type === 'h' && !isHost) {
-      ahState.puck = { x: data[1], y: data[2], vx: data[3], vy: data[4] };
-      ahState.hostMallet = { x: data[5], y: data[6] };
-    } else if (type === 'g' && isHost) {
-      ahState.guestMallet = { x: data[1], y: data[2] };
-    } else if (type === 's') {
-      playSound('win');
-      ahState.hostScore = data[1];
-      ahState.guestScore = data[2];
+  switch (data.type) {
+    case 'ah_sync_host':
+      if (!isHost) {
+        ahState.puck = data.puck;
+        ahState.hostMallet = data.mallet;
+      }
+      break;
+    case 'ah_sync_guest':
+      if (isHost) {
+        ahState.guestMallet = data.mallet;
+      }
+      break;
+    case 'ah_score':
+      playSound('win'); // ← ★ゲスト側にもゴール音が鳴るように追加しました
+      ahState.hostScore = data.hostScore;
+      ahState.guestScore = data.guestScore;
       updateAHScoreBoard();
       if (ahState.hostScore >= 5 || ahState.guestScore >= 5) {
         endAirHockey(ahState.hostScore >= 5 ? 'host' : 'guest');
       } else {
-        resetPuck(data[3] !== 1);
+        resetPuck(!data.isHostScored);
       }
-    }
+      break;
   }
-  updateTrafficBadge();
 }
