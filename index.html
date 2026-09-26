@@ -2,10 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ボクらのデジタル秘密基地 - my_games</title>
   
-  <!-- 外部ライブラリ -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
@@ -13,7 +12,7 @@
 </head>
 <body>
 
-  <!-- ① メインメニュー画面 -->
+  <!-- メインメニュー -->
   <div id="menu-screen" class="screen active">
     <div class="hero-header">
       <div class="secret-badge">🎮 P2P Arcade</div>
@@ -24,13 +23,13 @@
       <button id="btn-goto-host-select" class="btn-action host-btn">ホストとして部屋を作る</button>
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
 
-      <h2 style="margin-top: 1.5rem; font-size: 1.1rem; color: #555;">一人で遊ぶ</h2>
-      <button id="btn-play-tetris" class="secondary-btn">テトリス</button>
-      <button id="btn-play-solo-mine" class="secondary-btn">マインスイーパー (一人用)</button>
+      <h2>一人で遊ぶ</h2>
+      <button id="btn-play-tetris" class="btn-action secondary-btn">テトリス</button>
+      <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
     </div>
   </div>
 
-  <!-- ② ホスト用：ゲーム選択画面 -->
+  <!-- ホスト用：ゲーム選択画面 -->
   <div id="host-game-select-screen" class="screen">
     <h2>遊ぶゲームを選択</h2>
     <div class="menu-container">
@@ -39,192 +38,200 @@
       <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> 
       <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (1対1)</button>
     </div>
-    <button id="btn-back-main" class="btn-action secondary-btn" style="margin-top: 10px;">◀ メニューに戻る</button>
-    <button id="btn-disconnect-host" class="btn-action" style="margin-top: 5px; background-color: #d32f2f; color: #fff; display: none;">🛑 通信を切断してメニューに戻る</button>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-back-main" class="btn-action secondary-btn">◀ メニューに戻る</button>
+      <button id="btn-disconnect-host" class="btn-action" style="background-color: #d32f2f; display: none;">🛑 通信を切断してメニューに戻る</button>
+    </div>
   </div>
 
-  <!-- ③ 通信確立画面（ホスト・ゲスト共通・段階的選択フロー） -->
+  <!-- 通信確立画面（※ここだけは内容が多いのでスクロールを許可） -->
   <div id="connection-screen" class="screen scrollable-screen">
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text">準備中...</p>
     
-    <div id="step-guest-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #333;">Q. ホストの情報をどうやって入力しますか？</p>
-      <div style="display: flex; gap: 6px; flex-direction: column;">
-        <button id="btn-guest-input-qr" class="btn-action" style="background-color: #2196f3; font-size: 13px; padding: 8px;">📷 QRコードを読み取る</button>
-        <button id="btn-guest-input-text" class="btn-action" style="background-color: #4caf50; font-size: 13px; padding: 8px;">📝 テキストをペーストする</button>
+    <div id="step-guest-choose-input" class="step-container" style="display: none;">
+      <p class="step-question">Q. ホストの情報をどうやって入力しますか？</p>
+      <div class="button-group-col">
+        <button id="btn-guest-input-qr" class="btn-action" style="background-color: #2196f3;">📷 QRコードを読み取る</button>
+        <button id="btn-guest-input-text" class="btn-action" style="background-color: #4caf50;">📝 テキストをペーストする</button>
       </div>
     </div>
 
-    <div id="step-host-choose-output" style="display: none; width: 100%; max-width: 320px; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #333;">Q. 自分の情報をどうやって相手に伝えますか？</p>
-      <div style="display: flex; gap: 6px; flex-direction: column;">
-        <button id="btn-host-output-qr" class="btn-action" style="background-color: #ff9800; font-size: 13px; padding: 8px;">🔴 QRコードを表示する</button>
-        <button id="btn-host-output-text" class="btn-action" style="background-color: #2196f3; font-size: 13px; padding: 8px;">📋 テキストをコピーする</button>
+    <div id="step-host-choose-output" class="step-container" style="display: none;">
+      <p class="step-question">Q. 自分の情報をどうやって相手に伝えますか？</p>
+      <div class="button-group-col">
+        <button id="btn-host-output-qr" class="btn-action" style="background-color: #ff9800;">🔴 QRコードを表示する</button>
+        <button id="btn-host-output-text" class="btn-action" style="background-color: #2196f3;">📋 テキストをコピーする</button>
       </div>
     </div>
 
-    <div id="step-host-choose-input" style="display: none; width: 100%; max-width: 320px; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #333;">Q. 相手の情報をどうやって入力しますか？</p>
-      <div style="display: flex; gap: 6px; flex-direction: column;">
-        <button id="btn-host-input-qr" class="btn-action" style="background-color: #2196f3; font-size: 13px; padding: 8px;">📷 QRコードを読み取る</button>
-        <button id="btn-host-input-text" class="btn-action" style="background-color: #4caf50; font-size: 13px; padding: 8px;">📝 テキストをペーストする</button>
+    <div id="step-host-choose-input" class="step-container" style="display: none;">
+      <p class="step-question">Q. 相手の情報をどうやって入力しますか？</p>
+      <div class="button-group-col">
+        <button id="btn-host-input-qr" class="btn-action" style="background-color: #2196f3;">📷 QRコードを読み取る</button>
+        <button id="btn-host-input-text" class="btn-action" style="background-color: #4caf50;">📝 テキストをペーストする</button>
       </div>
     </div>
 
-    <div id="step-guest-choose-output" style="display: none; width: 100%; max-width: 320px; margin-bottom: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-      <p style="font-weight: bold; font-size: 13px; margin-bottom: 6px; color: #333;">Q. ホストに返信情報をどうやって伝えますか？</p>
-      <div style="display: flex; gap: 6px; flex-direction: column;">
-        <button id="btn-guest-output-qr" class="btn-action" style="background-color: #ff9800; font-size: 13px; padding: 8px;">🔴 QRコードを表示する</button>
-        <button id="btn-guest-output-text" class="btn-action" style="background-color: #2196f3; font-size: 13px; padding: 8px;">📋 テキストをコピーする</button>
+    <div id="step-guest-choose-output" class="step-container" style="display: none;">
+      <p class="step-question">Q. ホストに返信情報をどうやって伝えますか？</p>
+      <div class="button-group-col">
+        <button id="btn-guest-output-qr" class="btn-action" style="background-color: #ff9800;">🔴 QRコードを表示する</button>
+        <button id="btn-guest-output-text" class="btn-action" style="background-color: #2196f3;">📋 テキストをコピーする</button>
       </div>
     </div>
 
-    <div id="step-text-input-area" style="display: none; width: 100%; max-width: 320px; margin-bottom: 10px;">
-      <textarea id="text-sdp-input" rows="2" style="width: 100%; padding: 6px; font-size: 12px; border-radius: 4px; box-sizing: border-box; resize: none;" placeholder="相手からのテキストをペースト"></textarea>
-      <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; font-size: 13px; padding: 6px; margin-top: 4px;">このテキストで接続する</button>
+    <div id="step-text-input-area" class="step-container" style="display: none;">
+      <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 10px; font-size: 14px; border-radius: 6px; box-sizing: border-box; resize: none;" placeholder="相手からのテキストをペースト"></textarea>
+      <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; margin-top: 10px;">このテキストで接続する</button>
     </div>
 
-    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 8px; margin-top: 5px;">
-      <div style="border: 3px solid #f44336; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
-        <div style="color: #f44336; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🔴 Part 1</div>
-        <img id="conn-qr-1" class="qr-img" alt="QR 1" style="display: block; width: 130px; height: 130px;">
+    <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; width: 100%;">
+      <div class="qr-box red-box">
+        <div class="qr-title">🔴 Part 1</div>
+        <img id="conn-qr-1" class="qr-img" alt="QR 1">
       </div>
-      <div style="border: 3px solid #2196f3; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
-        <div style="color: #2196f3; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🔵 Part 2</div>
-        <img id="conn-qr-2" class="qr-img" alt="QR 2" style="display: block; width: 130px; height: 130px;">
+      <div class="qr-box blue-box">
+        <div class="qr-title">🔵 Part 2</div>
+        <img id="conn-qr-2" class="qr-img" alt="QR 2">
       </div>
-      <div style="border: 3px solid #ffeb3b; padding: 6px; border-radius: 6px; text-align: center; background: #fff;">
-        <div style="color: #fbc02d; font-weight: bold; margin-bottom: 2px; font-size: 12px;">🟡 Part 3</div>
-        <img id="conn-qr-3" class="qr-img" alt="QR 3" style="display: block; width: 130px; height: 130px;">
+      <div class="qr-box yellow-box">
+        <div class="qr-title">🟡 Part 3</div>
+        <img id="conn-qr-3" class="qr-img" alt="QR 3">
       </div>
     </div>
 
-    <div id="text-copy-container" style="display: none; width: 100%; max-width: 320px; text-align: center; margin-top: 5px;">
-      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; font-size: 14px; padding: 10px;">📋 接続情報をコピーする</button>
+    <div id="text-copy-container" class="step-container" style="display: none; text-align: center;">
+      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3;">📋 接続情報をコピーする</button>
     </div>
 
-    <div id="step-host-done-container" style="display: none; width: 100%; max-width: 320px; margin-top: 10px; text-align: center;">
-      <button id="btn-host-done-output" class="btn-action" style="background-color: #4caf50; font-size: 14px; padding: 10px;">✅ 接続情報を相手に伝えた</button>
+    <div id="step-host-done-container" class="step-container" style="display: none; text-align: center;">
+      <button id="btn-host-done-output" class="btn-action" style="background-color: #4caf50;">✅ 接続情報を相手に伝えた</button>
     </div>
 
-    <button id="btn-back-select" class="btn-action secondary-btn" style="margin-top: 10px;">◀ 戻る</button>
-    <button id="btn-disconnect-guest" class="btn-action" style="margin-top: 5px; background-color: #d32f2f; color: #fff; display: none;">🛑 通信を切断してメニューに戻る</button>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-back-select" class="btn-action secondary-btn">◀ 戻る</button>
+      <button id="btn-disconnect-guest" class="btn-action" style="background-color: #d32f2f; display: none;">🛑 通信を切断してメニューに戻る</button>
+    </div>
   </div>
 
   <!-- カメラ読み取り画面 -->
   <div id="camera-screen" class="screen">
-    <h3 id="scan-guide-text" style="font-size: 15px; margin: 5px 0;">枠内にQRコードを合わせてください</h3>
-    
-    <div id="scan-indicators" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; font-size: 14px; font-weight: bold;">
+    <h3 id="scan-guide-text">枠内にQRコードを合わせてください</h3>
+    <div id="scan-indicators" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; font-weight: bold;">
       <span id="indicator-1">⬜ 🔴赤</span>
       <span id="indicator-2">⬜ 🔵青</span>
       <span id="indicator-3">⬜ 🟡黄</span>
     </div>
-
     <div id="reader"></div>
-    <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 10px;">キャンセル</button>
+    <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 15px;">キャンセル</button>
   </div>
 
-  <!-- ④ ゲーム本体画面 (オセロ) -->
+  <!-- ゲーム本体画面 (オセロ) -->
   <div id="game-screen" class="screen">
     <h2 id="turn-text">通信待機中...</h2>
-    <div id="score-board">
+    <div id="score-board" class="info-board" style="background: #e8f5e9;">
       <span id="score-black">黒: 2</span>
       <span id="score-white">白: 2</span>
     </div>
-    <div id="board"></div>
-    <button id="btn-rematch-othello" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-game" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <div class="game-board-container">
+      <div id="board"></div>
+    </div>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-rematch-othello" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-game" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
-  <!-- ⑤ ゲーム本体画面 (ドット＆ボックス) -->
+  <!-- ゲーム本体画面 (ドット＆ボックス) -->
   <div id="dots-game-screen" class="screen">
     <h2 id="dots-turn-text">通信待機中...</h2>
-    <div id="dots-score-board" style="display: flex; justify-content: space-between; width: 100%; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+    <div id="dots-score-board" class="info-board">
       <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
     </div>
-    <div id="dots-board-container"></div>
-    <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-dots" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <div class="game-board-container">
+      <div id="dots-board-container"></div>
+    </div>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-dots" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
-  <!-- ⑥ ゲーム本体画面（神経衰弱） -->
+  <!-- ゲーム本体画面（神経衰弱） -->
   <div id="concentration-game-screen" class="screen">
     <h2 id="concentration-turn-text">通信待機中...</h2>
-    <div id="concentration-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 8px 15px; font-weight: bold; font-size: 14px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+    <div id="concentration-score-board" class="info-board">
       <span id="concentration-score-host" style="color: #d32f2f;">ホスト: 0</span>
       <span id="concentration-score-guest" style="color: #1976d2;">ゲスト: 0</span>
     </div>
-    
-    <div id="concentration-board"></div>
-
-    <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 10px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-concentration" class="btn-action secondary-btn" style="margin-top: 10px; padding: 8px 16px;">ゲームを辞めてメニューに戻る</button>
+    <div class="game-board-container">
+      <div id="concentration-board"></div>
+    </div>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-concentration" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
-  <!-- 画面: テトリス (一人用) ※ボタン廃止＆説明書き配置 -->
+  <!-- ゲーム本体画面: テトリス (一人用) -->
   <div id="tetris-game-screen" class="screen">
-    <h2 style="margin: 5px 0;">テトリス</h2>
-    <div class="tetris-info" style="margin-bottom: 5px;">
+    <h2>テトリス</h2>
+    <div class="info-board tetris-info" style="margin-bottom: 5px;">
       <span id="tetris-score">スコア: 0</span>
       <span id="tetris-lines">ライン: 0</span>
     </div>
     
-    <div style="display: flex; gap: 15px; align-items: flex-start; justify-content: center; margin-bottom: 8px;">
-      <canvas id="tetris-board" width="180" height="360" style="margin: 0;"></canvas>
-      <div style="display: flex; flex-direction: column; align-items: center;">
-        <span style="font-size: 11px; font-weight: bold; margin-bottom: 2px; color: #555;">NEXT</span>
-        <canvas id="tetris-next" width="70" height="70"></canvas>
+    <div class="game-board-container">
+      <div class="tetris-wrapper">
+        <canvas id="tetris-board" width="180" height="360"></canvas>
+        <div class="tetris-next-container">
+          <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 4px; color: #555;">NEXT</span>
+          <canvas id="tetris-next" width="70" height="70"></canvas>
+        </div>
       </div>
     </div>
     
-  <!-- ② 操作説明書き（コマンドボタンの代わり） -->
-    <div class="tetris-guide" style="background: #f8f9fa; padding: 8px 12px; border-radius: 8px; font-size: 12px; color: #333; margin-bottom: 8px; width: 100%; max-width: 270px; box-sizing: border-box; border: 1px solid #e0e0e0;">
-      <p style="margin: 2px 0;">🖱️ <b>PC:</b> マウス左右移動 / 下で加速</p>
-      <p style="margin: 2px 0;">🖱️ 左クリック: 一気に落とす</p>
-      <p style="margin: 2px 0;">🖱️ 右クリック: 回転</p>
-      <hr style="border: none; border-top: 1px solid #ddd; margin: 3px 0;">
-      <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ</p>
-      <p style="margin: 2px 0;">📱 <b>タップ:</b> 回転 / <b>ダブルタップ:</b> 一気に落とす</p>
+    <div class="tetris-guide step-container" style="padding: 10px; font-size: clamp(10px, 2vw, 12px); color: #333; margin-bottom: 10px;">
+      <p style="margin: 2px 0;">🖱️ <b>PC:</b> 左右/下キー, クリック:落下, 右クリック:回転</p>
+      <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ, タップ:回転, Wタップ:落下</p>
     </div>
     
-    <div class="btn-area" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-      <button id="btn-rematch-tetris" class="btn-action" style="display:none; background-color: #fbc02d; color: #000; margin: 4px 0;">もう一度遊ぶ</button>
-      <button id="btn-quit-tetris" class="btn-action secondary-btn" style="margin: 4px 0; padding: 10px;">メニューに戻る</button>
+    <div class="button-group-col">
+      <button id="btn-rematch-tetris" class="btn-action" style="display:none; background-color: #fbc02d; color: #000;">もう一度遊ぶ</button>
+      <button id="btn-quit-tetris" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
 
-  <!-- ⑦ ゲーム本体画面（マインスイーパー） -->
+  <!-- ゲーム本体画面（マインスイーパー） -->
   <div id="minesweeper-game-screen" class="screen">
-    <h2 style="margin: 5px 0;">マインスイーパー</h2>
-    
-    <!-- ターン・状態表示 (JavaScriptが参照する必須要素) -->
-    <h3 id="mine-turn-text" style="font-size: 15px; margin: 5px 0; text-align: center;">通信待機中...</h3>
+    <h2>マインスイーパー</h2>
+    <h3 id="mine-turn-text">通信待機中...</h3>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 320px; margin-bottom: 6px;">
-      <div id="mine-count-board" style="font-weight: bold; font-size: 13px; background: #e0e0e0; padding: 4px 10px; border-radius: 6px; width: 100%; text-align: center; display: flex; justify-content: space-around; align-items: center;">
-        <span>💣 残り爆弾: <span id="mine-remaining-count">10</span></span>
-        <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ あと <span id="mine-timer-sec">10</span>秒</span>
-      </div>
+    <div id="mine-count-board" class="info-board" style="background: #e0e0e0; justify-content: space-around;">
+      <span>💣 残り: <span id="mine-remaining-count">10</span></span>
+      <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ <span id="mine-timer-sec">10</span>秒</span>
     </div>
 
-    <div id="mine-score-board" style="display: flex; justify-content: space-between; width: 100%; max-width: 320px; padding: 6px 12px; font-weight: bold; font-size: 13px; box-sizing: border-box; background: #f0f0f0; border-radius: 8px; margin-bottom: 6px;">
+    <div id="mine-score-board" class="info-board">
       <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
       <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
     </div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 8px; width: 100%; max-width: 320px; justify-content: center;">
-      <button id="btn-mine-mode" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #4caf50; flex: 1;">モード: ⛏️ 開く</button>
-      <button id="btn-mine-end-turn" class="btn-action" style="padding: 4px 12px; font-size: 13px; background-color: #ff9800; display: none; flex: 1;">ターン終了 ➔</button>
+    <div class="button-group" style="margin-bottom: 5px;">
+      <button id="btn-mine-mode" class="btn-action" style="background-color: #4caf50; min-height: 40px; padding: 8px;">モード: ⛏️ 開く</button>
+      <button id="btn-mine-end-turn" class="btn-action" style="background-color: #ff9800; display: none; min-height: 40px; padding: 8px;">ターン終了 ➔</button>
     </div>
 
-    <!-- マインスイーパー盤面（元のスタイルを復元） -->
-    <div id="mine-board" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; width: 100%; max-width: 300px; background: #bbb; padding: 5px; border-radius: 8px; box-sizing: border-box;"></div>
+    <div class="game-board-container">
+      <div id="mine-board"></div>
+    </div>
 
-    <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-top: 8px; font-size: 14px;">🔄 もう一度遊ぶ</button>
-    <button id="btn-quit-mine" class="btn-action secondary-btn" style="margin-top: 8px; font-size: 13px; padding: 8px 16px;">メニューに戻る</button>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>
