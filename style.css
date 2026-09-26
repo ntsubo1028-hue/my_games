@@ -132,11 +132,38 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   letter-spacing: 1px;
 }
 
-/* イメージイラストの枠 */
+/* ==================================
+   ★ メインメニュー画面（画像はみ出し防止の可変レイアウト） ★
+================================== */
+#menu-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; 
+  height: 100%;
+  max-height: 100vh;
+  box-sizing: border-box;
+  padding: 10px 15px;
+  overflow: hidden; 
+}
+
+#menu-screen h2,
+#menu-screen .button-group-col,
+#menu-screen .version-info {
+  flex-shrink: 0; 
+}
+
+/* イメージイラストの枠（余剰スペースに合わせて柔軟に伸縮） */
 .hero-image-container {
+  flex: 1 1 auto;        
+  min-height: 60px;       
+  max-height: 180px;      
   width: 100%;
   max-width: 320px;
-  margin: 10px auto 15px auto;
+  margin: 8px auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   border: 3px solid #555;
   border-radius: 8px;
   overflow: hidden;
@@ -145,8 +172,11 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 }
 
 .hero-image {
-  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
+  object-fit: contain;
   display: block;
   /* 少しだけコントラストを強調してレトロな雰囲気に */
   filter: contrast(1.05) saturate(1.1);
@@ -297,3 +327,22 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .mine-cell.opened { background-color: #ffffff; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2); }
 .mine-cell.bomb { background-color: #ffcdd2; }
 .mine-num-1 { color: #1976d2; } .mine-num-2 { color: #388e3c; } .mine-num-3 { color: #d32f2f; } .mine-num-4 { color: #7b1fa2; }
+
+/* ==================================
+   ★ レスポンシブ対応 (縦幅が極端に狭い画面用) ★
+================================== */
+@media (max-height: 600px) {
+  #menu-screen h2 {
+    font-size: 1.2rem;
+    margin: 4px 0;
+  }
+  .hero-image-container {
+    max-height: 90px;   /* 縦幅が狭い端末では画像をさらに小さく */
+    margin: 4px auto;
+  }
+  .button-group-col .btn-action {
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+}
