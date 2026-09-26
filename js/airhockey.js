@@ -14,8 +14,8 @@ const GOAL_WIDTH = 100;
 const PUCK_RADIUS = 12;
 const MALLET_RADIUS = 20;
 
-// 通信頻度の調整用定数（3フレームごとに同期通信）
-const SYNC_RATE = 3;
+// 通信頻度の調整用定数（5フレームごとに同期通信）
+const SYNC_RATE = 5;
 
 let ahState = {
   hostScore: 0,
@@ -33,10 +33,55 @@ let ahFrameCount = 0;
 let isHost = false;
 let sendData = null; 
 
+// --- 通信量トラッキング用追加分 ---
+let totalBytesSent = 0;
+let totalBytesReceived = 0;
+let trafficBadge = null;
+
+// 通信データを送信しつつ、データ量を計測するラッパー関数
+function sendDataWrapper(data) {
+  if (!sendData) return;
+  const jsonStr = JSON.stringify(data);
+  totalBytesSent += new TextEncoder().encode(jsonStr).length;
+  sendData(data);
+}
+
+// 通信量表示用のバッジを作成・更新（右上、見やすく調整）
+function updateTrafficBadge() {
+  if (!trafficBadge) {
+    trafficBadge = document.getElementById('airhockey-traffic-badge');
+    if (!trafficBadge) {
+      trafficBadge = document.createElement('div');
+      trafficBadge.id = 'airhockey-traffic-badge';
+      
+      // バッジのデザイン設定
+      trafficBadge.style.position = 'absolute';
+      trafficBadge.style.top = '10px';
+      trafficBadge.style.right = '10px';
+      trafficBadge.style.fontSize = '13px'; // 少し大きめに
+      trafficBadge.style.fontWeight = 'bold'; // 太字でハッキリと
+      trafficBadge.style.color = '#ffffff'; // 真っ白な文字
+      trafficBadge.style.background = 'rgba(0, 0, 0, 0.8)'; // 背景を濃くしてコントラストUP
+      trafficBadge.style.padding = '4px 10px';
+      trafficBadge.style.borderRadius = '4px';
+      trafficBadge.style.pointerEvents = 'none';
+      trafficBadge.style.zIndex = '10';
+      
+      airhockeyScreen.style.position = 'relative';
+      airhockeyScreen.appendChild(trafficBadge);
+    }
+  }
+  let trafficKB = ((totalBytesSent + totalBytesReceived) / 1024).toFixed(2);
+  trafficBadge.innerText = `通信量: ${trafficKB} KB`;
+}
+// ----------------------------------
+
 // 初期設定（main.jsから通信環境を渡してもらう）
 export function initAirHockeySystem(hostFlag, sendFunction) {
   isHost = hostFlag;
   sendData = sendFunction;
+  totalBytesSent = 0;
+  totalBytesReceived = 0;
 }
 
 // ゲーム開始処理
@@ -50,10 +95,12 @@ export function startAirHockey() {
   btnRematchAirHockey.style.display = 'none';
   updateAHScoreBoard();
 
-
   resetPuck(true);
+  totalBytesSent = 0;
+  totalBytesReceived = 0;
   
   airhockeyStatusText.innerText = isHost ? "あなたのターン（赤）" : "あなたのターン（青）";
+  updateTrafficBadge();
   
   if (ahAnimId) cancelAnimationFrame(ahAnimId);
   ahLoop();
@@ -65,6 +112,10 @@ export function stopAirHockey() {
   if (ahAnimId) {
     cancelAnimationFrame(ahAnimId);
     ahAnimId = null;
+  }
+  if (trafficBadge) {
+    trafficBadge.remove();
+    trafficBadge = null;
   }
 }
 
@@ -117,14 +168,38 @@ function ahLoop() {
   // 2. 描画
   drawAHBoard();
 
+  // 数値を小数点第一位に丸めるヘルパー関数を定義
+  const round1 = (val) => Math.round(val * 10) / 10;
+
   // 3. 通信 (設定したSYNC_RATEに基づく)
   ahFrameCount++;
   if (ahFrameCount % SYNC_RATE === 0 && sendData) {
     if (isHost) {
-      sendData({ type: 'ah_sync_host', puck: ahState.puck, mallet: ahState.hostMallet });
+      // 構造は維持しつつ、数値だけを丸めて軽くして送信
+      sendDataWrapper({ 
+        type: 'ah_sync_host', 
+        puck: { 
+          x: round1(ahState.puck.x), 
+          y: round1(ahState.puck.y), 
+          vx: round1(ahState.puck.vx), 
+          vy: round1(ahState.puck.vy) 
+        }, 
+        mallet: { 
+          x: round1(ahState.hostMallet.x), 
+          y: round1(ahState.hostMallet.y) 
+        } 
+      });
     } else {
-      sendData({ type: 'ah_sync_guest', mallet: ahState.guestMallet });
+      // 構造は維持しつつ、数値だけを丸めて軽くして送信
+      sendDataWrapper({ 
+        type: 'ah_sync_guest', 
+        mallet: { 
+          x: round1(ahState.guestMallet.x), 
+          y: round1(ahState.guestMallet.y) 
+        } 
+      });
     }
+    updateTrafficBadge();
   }
 
   ahAnimId = requestAnimationFrame(ahLoop);
@@ -156,7 +231,7 @@ function goalScored(isHostScored) {
   
   updateAHScoreBoard();
   if (sendData) {
-    sendData({ type: 'ah_score', hostScore: ahState.hostScore, guestScore: ahState.guestScore, isHostScored });
+    sendDataWrapper({ type: 'ah_score', hostScore: ahState.hostScore, guestScore: ahState.guestScore, isHostScored });
   }
   
   if (ahState.hostScore >= 5 || ahState.guestScore >= 5) {
@@ -176,6 +251,7 @@ function endAirHockey(winner) {
   let winText = (winner === 'host' && isHost) || (winner === 'guest' && !isHost) ? "🎉 あなたの勝ち！" : "😭 あなたの負け...";
   airhockeyStatusText.innerText = `ゲーム終了 - ${winText}`;
   btnRematchAirHockey.style.display = 'block';
+  updateTrafficBadge();
 }
 
 // グラフィカルにリニューアルした描画処理
@@ -343,6 +419,12 @@ canvasAH.addEventListener('mousemove', handleAHInput);
 
 // 通信データ受信時の処理（main.jsから呼ばれる）
 export function processAirHockeyData(data) {
+  if (!data) return;
+  
+  // 受信時のデータ量計測
+  const jsonStr = JSON.stringify(data);
+  totalBytesReceived += new TextEncoder().encode(jsonStr).length;
+
   switch (data.type) {
     case 'ah_sync_host':
       if (!isHost) {
@@ -367,4 +449,6 @@ export function processAirHockeyData(data) {
       }
       break;
   }
+  
+  updateTrafficBadge();
 }
