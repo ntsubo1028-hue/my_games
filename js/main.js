@@ -92,7 +92,8 @@ async function startHostConnectionFlow() {
     });
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
 
-    document.getElementById('conn-status').innerText = "接続情報が整いました。";
+    // 文言を修正
+    document.getElementById('conn-status').innerText = "自分の情報をどうやって相手に伝えますか？";
 
     const hostChooseOutput = document.getElementById('step-host-choose-output');
     hostChooseOutput.style.display = 'block';
@@ -105,7 +106,6 @@ async function startHostConnectionFlow() {
       hostChooseOutput.style.display = 'none';
       document.getElementById('qr-container').style.display = 'flex';
       generateMultiPartQR('conn-status', localDesc, selectedGame);
-      document.getElementById('conn-status').innerText = "下のQRコードを相手に読み取ってもらってください";
       showDoneButton();
     };
 
@@ -166,6 +166,8 @@ async function startHostConnectionFlow() {
           document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
         } catch (e) {
           alert("無効なテキストです。");
+          document.getElementById('step-text-input-area').style.display = 'block';
+          document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
         }
       }, 2000);
     };
@@ -214,12 +216,12 @@ function startGuestScanFlow() {
         guestChooseOutput.style.display = 'none';
         document.getElementById('qr-container').style.display = 'flex';
         generateMultiPartQR('conn-status', localDesc, selectedGame);
-        document.getElementById('conn-status').innerText = "このQRコードをホストに読み取ってもらってください";
       };
 
       document.getElementById('btn-guest-output-text').onclick = () => {
         guestChooseOutput.style.display = 'none';
         document.getElementById('text-copy-container').style.display = 'block';
+        document.getElementById('conn-status').innerText = "接続情報をコピーして相手に送ってください";
       };
 
       document.getElementById('btn-copy-sdp').onclick = () => {
@@ -230,6 +232,8 @@ function startGuestScanFlow() {
 
     } catch (e) {
       alert("処理に失敗しました。");
+      document.getElementById('step-guest-choose-input').style.display = 'block';
+      document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
     }
   };
 
@@ -263,17 +267,60 @@ function startGuestScanFlow() {
         await processHostOffer(scanResult);
       } catch (e) {
         alert("無効なテキストです。");
+        document.getElementById('step-text-input-area').style.display = 'block';
+        document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
       }
     }, 2000);
   };
 }
 
+// ==========================================
+// ★ キャンセル（選び直し）処理の統合 ★
+// ==========================================
+
+// 1. カメラ読み取りのキャンセル
 document.getElementById('btn-cancel-scan').onclick = () => {
   cancelScan(() => {
-    if (isHost) showScreen('connection-screen');
-    else showScreen('menu-screen');
+    showScreen('connection-screen');
+    if (isHost) {
+      document.getElementById('step-host-choose-input').style.display = 'block';
+      document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
+    } else {
+      document.getElementById('step-guest-choose-input').style.display = 'block';
+      document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
+    }
   });
 };
+
+// 2. テキスト入力のキャンセル
+document.getElementById('btn-cancel-text-input').onclick = () => {
+  document.getElementById('step-text-input-area').style.display = 'none';
+  if (isHost) {
+    document.getElementById('step-host-choose-input').style.display = 'block';
+    document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
+  } else {
+    document.getElementById('step-guest-choose-input').style.display = 'block';
+    document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
+  }
+};
+
+// 3. 出力方法（QR / テキスト）のキャンセル
+function cancelOutputSelection() {
+  document.getElementById('qr-container').style.display = 'none';
+  document.getElementById('text-copy-container').style.display = 'none';
+  if (isHost) {
+    document.getElementById('step-host-done-container').style.display = 'none';
+    document.getElementById('step-host-choose-output').style.display = 'block';
+    document.getElementById('conn-status').innerText = "自分の情報をどうやって相手に伝えますか？";
+  } else {
+    document.getElementById('step-guest-choose-output').style.display = 'block';
+    document.getElementById('conn-status').innerText = "返信の準備ができました。";
+  }
+}
+document.getElementById('btn-cancel-output-qr').onclick = cancelOutputSelection;
+document.getElementById('btn-cancel-output-text').onclick = cancelOutputSelection;
+// ==========================================
+
 
 document.getElementById('btn-back-select').onclick = () => {
   initConnection();
@@ -306,7 +353,6 @@ const handleQuitGame = () => {
   if (isHost) {
     if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
     showScreen('host-game-select-screen');
-    // ↓ 通常の戻るボタンを隠し、通信切断ボタンを表示するように変更
     document.getElementById('btn-back-main').style.display = 'none';
     document.getElementById('btn-disconnect-host').style.display = 'inline-block';
   } else {
@@ -353,7 +399,6 @@ setOnMessage((data) => {
     if (isHost) {
       alert("ゲストがゲームを終了しました。");
       showScreen('host-game-select-screen');
-      // ↓ こちらも通信切断ボタンを表示するように変更
       document.getElementById('btn-back-main').style.display = 'none';
       document.getElementById('btn-disconnect-host').style.display = 'inline-block';
     }
@@ -395,7 +440,6 @@ setOnMessage((data) => {
   }
 });
 
-// --- テトリス・一人用などの処理（ボタン削除に伴う整理） ---
 document.getElementById('btn-play-tetris').onclick = () => { showScreen('tetris-game-screen'); initTetris(); };
 document.getElementById('btn-quit-tetris').onclick = () => { 
   if (confirm("ゲームを終了してメニューに戻りますか？")) {
