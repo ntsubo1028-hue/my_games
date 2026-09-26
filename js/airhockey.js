@@ -197,14 +197,39 @@ function checkCollision(mallet, puck) {
   if (distance < PUCK_RADIUS + MALLET_RADIUS) {
     playSound('flip');
     
-    let angle = Math.atan2(dy, dx);
-    let speed = Math.hypot(puck.vx, puck.vy);
-    let newSpeed = Math.min(speed + 4, 15);
-    puck.vx = Math.cos(angle) * newSpeed;
-    puck.vy = Math.sin(angle) * newSpeed;
+    // 1. 衝突法線ベクトル（マレット中心からパック中心へ向かう向き）
+    let nx = dx / distance;
+    let ny = dy / distance;
     
-    puck.x = mallet.x + Math.cos(angle) * (PUCK_RADIUS + MALLET_RADIUS + 1);
-    puck.y = mallet.y + Math.cos(angle) * (PUCK_RADIUS + MALLET_RADIUS + 1);
+    // 2. めり込みを解消（パックがマレットに埋まらないように外へ押し出す）
+    puck.x = mallet.x + nx * (PUCK_RADIUS + MALLET_RADIUS + 0.1);
+    puck.y = mallet.y + ny * (PUCK_RADIUS + MALLET_RADIUS + 0.1);
+
+    // 3. パックの速度と法線ベクトルの内積を計算
+    let dot = puck.vx * nx + puck.vy * ny;
+    
+    // パックがマレットに向かっている場合のみ「入射角＝反射角」の反射計算を行う
+    if (dot < 0) {
+      // 弾性衝突の公式: 速度 = 元の速度 - 2 * 内積 * 法線ベクトル
+      puck.vx -= 2 * dot * nx;
+      puck.vy -= 2 * dot * ny;
+    } else if (Math.hypot(puck.vx, puck.vy) < 1) {
+      // パックがほぼ止まっている時にマレットを押し当てた場合は、法線方向へ押し出す
+      puck.vx += nx * 2;
+      puck.vy += ny * 2;
+    }
+
+    // 4. エアホッケーらしい爽快感のためのスピード調整
+    let currentSpeed = Math.hypot(puck.vx, puck.vy);
+    if (currentSpeed > 0) {
+      let newSpeed = Math.min(currentSpeed + 3, 15); // 当たるたびに少し加速（最大15）
+      newSpeed = Math.max(newSpeed, 6);              // 勢いが死なないように最低速度を底上げ
+      puck.vx = (puck.vx / currentSpeed) * newSpeed;
+      puck.vy = (puck.vy / currentSpeed) * newSpeed;
+    } else {
+      puck.vx = nx * 6;
+      puck.vy = ny * 6;
+    }
   }
 }
 
