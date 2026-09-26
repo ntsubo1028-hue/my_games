@@ -246,16 +246,20 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    ゲーム盤面 (エアホッケー)
 ================================== */
+
 #airhockey-board {
   width: 100%;
-  height: 100%;
+  height: auto;
   max-width: 400px;
   max-height: 100%;
-  aspect-ratio: 3 / 5; /* 縦長の長方形コート */
+  aspect-ratio: 3 / 5; /* AH_WIDTH(300) と AH_HEIGHT(500) の比率を指定 */
   background: #111;
   border: 4px solid #333;
   border-radius: 8px;
   box-sizing: border-box;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
 }
 
 .mine-cell { width: 100%; height: 100%; background-color: #e0e0e0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: clamp(12px, 3vw, 18px); user-select: none; cursor: pointer; box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7); }

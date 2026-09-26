@@ -14,8 +14,8 @@ const GOAL_WIDTH = 100;
 const PUCK_RADIUS = 12;
 const MALLET_RADIUS = 20;
 
-// 通信頻度の調整用定数（5フレームごとに同期通信）
-const SYNC_RATE = 5;
+// 通信頻度の調整用定数（3フレームごとに同期通信）
+const SYNC_RATE = 3;
 
 let ahState = {
   hostScore: 0,
