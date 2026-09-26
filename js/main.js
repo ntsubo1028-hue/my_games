@@ -489,8 +489,3 @@ window.addEventListener('popstate', (e) => {
     }
   }
 });
-
-// 画面読み込み時にバージョン表記を自動設定
-if (document.getElementById('app-version-text') && window.APP_VERSION) {
-  document.getElementById('app-version-text').innerText = `Ver ${window.APP_VERSION}`;
-}
