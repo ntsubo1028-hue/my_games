@@ -1,4 +1,7 @@
-import { playSound } from './sounds.js'; // ★ 効果音モジュールを追加インポート
+import { playSound } from './sounds.js';
+
+// ★ QRコードの分割数。3連に戻したい場合は、ここを 3 に変更するだけでOKです
+const QR_PARTS_COUNT = 4;
 
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
@@ -33,45 +36,50 @@ function waitForIceGathering(peerConnection) {
   });
 }
 
-// SDPからデータ通信に関係ない不要な行を削除しデータ量を半減させる関数
+// SDPを超圧縮（不要行の削除と、改行コードの統一）
 function filterSdp(sdp) {
   if (!sdp) return '';
   return sdp
     .split('\r\n')
     .filter(line => {
-      return !line.startsWith('a=extmap:') &&
-             !line.startsWith('a=rtcp-fb:') &&
-             !line.startsWith('a=fmtp:') &&
-             !line.startsWith('a=rtcp:') &&
-             !line.startsWith('a=ssrc:') &&
-             !line.startsWith('a=msid:') &&
-             !line.startsWith('a=mid:');
+      return !line.startsWith('a=extmap') &&
+             !line.startsWith('a=rtcp-fb') &&
+             !line.startsWith('a=fmtp') &&
+             !line.startsWith('a=rtcp') &&
+             !line.startsWith('a=ssrc') &&
+             !line.startsWith('a=msid') &&
+             !line.startsWith('a=mid');
     })
-    .join('\r\n');
+    .join('\n'); 
 }
 
-// 3枚のQRコードを同時生成する（軽量化適用）
 export function generateMultiPartQR(statusId, sdpObj, gameType = 'othello') {
   const cleanedSdp = filterSdp(sdpObj.sdp);
   const compactData = { t: sdpObj.type, s: cleanedSdp, g: gameType };
   const jsonString = JSON.stringify(compactData);
   const fullStr = LZString.compressToBase64(jsonString);
   
-  const len = Math.ceil(fullStr.length / 3);
-  const parts = [
-    "1:" + fullStr.slice(0, len),
-    "2:" + fullStr.slice(len, len * 2),
-    "3:" + fullStr.slice(len * 2)
-  ];
+  const len = Math.ceil(fullStr.length / QR_PARTS_COUNT);
+  const parts = [];
+  for (let i = 0; i < QR_PARTS_COUNT; i++) {
+    parts.push(`${i+1}:` + fullStr.slice(len * i, len * (i + 1)));
+  }
   
   const statusEl = document.getElementById(statusId);
   statusEl.className = 'loading-text';
-  statusEl.innerText = "相手に3つのQRコードを順に読ませてください";
+  statusEl.innerText = `相手に${QR_PARTS_COUNT}つのQRコードを順に読ませてください`;
 
-  for (let i = 1; i <= 3; i++) {
-    const imgEl = document.getElementById(`conn-qr-${i}`);
-    const data = parts[i - 1];
-    imgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=L&data=${encodeURIComponent(data)}`;
+  // UI上の表示個数も自動調整
+  for (let i = 1; i <= 4; i++) {
+    const boxEl = document.getElementById(`qr-box-${i}`);
+    if (boxEl) {
+      boxEl.style.display = (i <= QR_PARTS_COUNT) ? 'block' : 'none';
+      if (i <= QR_PARTS_COUNT) {
+        const imgEl = document.getElementById(`conn-qr-${i}`);
+        const data = parts[i - 1];
+        imgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=L&data=${encodeURIComponent(data)}`;
+      }
+    }
   }
 }
 
@@ -85,9 +93,16 @@ function runScanner(onCameraStart, onScanDone) {
   onCameraStart();
   isScanComplete = false;
   
-  document.getElementById('indicator-1').innerText = "⬜ 🔴赤";
-  document.getElementById('indicator-2').innerText = "⬜ 🔵青";
-  document.getElementById('indicator-3').innerText = "⬜ 🟡黄";
+  for (let i = 1; i <= 4; i++) {
+    const indicator = document.getElementById(`indicator-${i}`);
+    if (indicator) {
+      indicator.style.display = (i <= QR_PARTS_COUNT) ? 'inline' : 'none';
+      if (i === 1) indicator.innerText = "⬜ 🔴赤";
+      if (i === 2) indicator.innerText = "⬜ 🔵青";
+      if (i === 3) indicator.innerText = "⬜ 🟡黄";
+      if (i === 4) indicator.innerText = "⬜ 🟢緑";
+    }
+  }
 
   if (!html5QrCode) {
     html5QrCode = new Html5Qrcode("reader");
@@ -110,47 +125,54 @@ function runScanner(onCameraStart, onScanDone) {
 
 function processScannedData(text, onScanDone) {
   try {
-    if (text.startsWith("1:") || text.startsWith("2:") || text.startsWith("3:")) {
-      const partNum = text[0];
-      const payload = text.slice(2);
-      
-      // まだ読んでいない色なら登録してUI・音・バイブを更新
-      if (!scannedParts[partNum]) {
-        scannedParts[partNum] = payload;
+    const partMatch = text.match(/^(\d):/);
+    if (partMatch) {
+      const partNum = parseInt(partMatch[1], 10);
+      if (partNum >= 1 && partNum <= QR_PARTS_COUNT) {
+        const payload = text.slice(2);
         
-        // ★ 1枚成功時のアクション（音＋バイブ）
-        playSound('put'); // オセロ等で使っている石を置く音などを流用
-        if (navigator.vibrate) navigator.vibrate(100);
+        if (!scannedParts[partNum]) {
+          scannedParts[partNum] = payload;
+          
+          playSound('put');
+          if (navigator.vibrate) navigator.vibrate(100);
 
-        const indicator = document.getElementById(`indicator-${partNum}`);
-        if (partNum === '1') indicator.innerText = "✅ 🔴赤";
-        if (partNum === '2') indicator.innerText = "✅ 🔵青";
-        if (partNum === '3') indicator.innerText = "✅ 🟡黄";
+          const indicator = document.getElementById(`indicator-${partNum}`);
+          if (partNum === 1) indicator.innerText = "✅ 🔴赤";
+          if (partNum === 2) indicator.innerText = "✅ 🔵青";
+          if (partNum === 3) indicator.innerText = "✅ 🟡黄";
+          if (partNum === 4) indicator.innerText = "✅ 🟢緑";
 
-        // 3つ全て揃った場合の処理
-        if (scannedParts['1'] && scannedParts['2'] && scannedParts['3']) {
-          isScanComplete = true; // 多重発火を防止
+          let allScanned = true;
+          for (let i = 1; i <= QR_PARTS_COUNT; i++) {
+            if (!scannedParts[i]) allScanned = false;
+          }
 
-          // ★ 全枚数成功時のアクション（音＋バイブ）
-          setTimeout(() => playSound('win'), 200); // 少し遅らせて勝利音(完了音)を鳴らす
-          if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+          if (allScanned && !isScanComplete) {
+            isScanComplete = true;
 
-          html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-            html5QrCode = null;
-            
-            const fullStr = scannedParts['1'] + scannedParts['2'] + scannedParts['3'];
-            const decompressed = LZString.decompressFromBase64(fullStr);
-            const parsed = JSON.parse(decompressed);
-            
-            currentScanCallback({ type: parsed.t, sdp: parsed.s, gameType: parsed.g || 'othello' });
-            onScanDone();
-          });
+            setTimeout(() => playSound('win'), 200);
+            if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+
+            html5QrCode.stop().then(() => {
+              html5QrCode.clear();
+              html5QrCode = null;
+              
+              let fullStr = "";
+              for (let i = 1; i <= QR_PARTS_COUNT; i++) {
+                fullStr += scannedParts[i];
+              }
+              const decompressed = LZString.decompressFromBase64(fullStr);
+              const parsed = JSON.parse(decompressed);
+              
+              currentScanCallback({ type: parsed.t, sdp: parsed.s, gameType: parsed.g || 'othello' });
+              onScanDone();
+            });
+          }
         }
       }
     }
   } catch(e) {
-    // 読み取りミス時は無視してスキャン継続
   }
 }
 

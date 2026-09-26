@@ -115,12 +115,13 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* QR画面など、どうしても内容が多い画面だけ縦スクロールを許可 */
 .screen.scrollable-screen { overflow-y: auto; justify-content: flex-start; }
 .qr-box { border: 3px solid; padding: 10px; border-radius: 8px; text-align: center; background: #fff; width: 100%; max-width: 320px; box-sizing: border-box; margin: 0 auto; }
-.red-box { border-color: #f44336; } .blue-box { border-color: #2196f3; } .yellow-box { border-color: #ffeb3b; }
+.red-box { border-color: #f44336; } .blue-box { border-color: #2196f3; }
+.yellow-box { border-color: #ffeb3b; }
+.green-box { border-color: #4caf50; }
 .qr-title { font-weight: bold; margin-bottom: 6px; font-size: 14px; }
 .qr-img { width: 100% !important; height: auto !important; max-width: 260px; aspect-ratio: 1 / 1; border: 2px solid #f0f0f0; background: white; margin: 0 auto; display: block; border-radius: 8px; image-rendering: pixelated; }
 #reader { width: 100%; max-width: 320px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
 #reader video { object-fit: cover !important; width: 100%; }
-
 /* ==================================
    ゲーム盤面 (オセロ)
 ================================== */

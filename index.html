@@ -84,26 +84,35 @@
 
     <div id="step-text-input-area" class="step-container" style="display: none;">
       <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 10px; font-size: 14px; border-radius: 6px; box-sizing: border-box; resize: none;" placeholder="相手からのテキストをペースト"></textarea>
-      <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50; margin-top: 10px;">このテキストで接続する</button>
+      <div class="button-group-col" style="margin-top: 10px;">
+        <button id="btn-submit-sdp" class="btn-action" style="background-color: #4caf50;">このテキストで接続する</button>
+        <button id="btn-cancel-text-input" class="btn-action secondary-btn">選び直す</button>
+      </div>
     </div>
 
     <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; width: 100%;">
-      <div class="qr-box red-box">
+      <div id="qr-box-1" class="qr-box red-box">
         <div class="qr-title">🔴 Part 1</div>
         <img id="conn-qr-1" class="qr-img" alt="QR 1">
       </div>
-      <div class="qr-box blue-box">
+      <div id="qr-box-2" class="qr-box blue-box">
         <div class="qr-title">🔵 Part 2</div>
         <img id="conn-qr-2" class="qr-img" alt="QR 2">
       </div>
-      <div class="qr-box yellow-box">
+      <div id="qr-box-3" class="qr-box yellow-box">
         <div class="qr-title">🟡 Part 3</div>
         <img id="conn-qr-3" class="qr-img" alt="QR 3">
       </div>
+      <div id="qr-box-4" class="qr-box green-box">
+        <div class="qr-title">🟢 Part 4</div>
+        <img id="conn-qr-4" class="qr-img" alt="QR 4">
+      </div>
+      <button id="btn-cancel-output-qr" class="btn-action secondary-btn" style="margin-top: 10px;">選び直す</button>
     </div>
 
     <div id="text-copy-container" class="step-container" style="display: none; text-align: center;">
-      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3;">📋 接続情報をコピーする</button>
+      <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; margin-bottom: 10px;">📋 接続情報をコピーする</button>
+      <button id="btn-cancel-output-text" class="btn-action secondary-btn">選び直す</button>
     </div>
 
     <div id="step-host-done-container" class="step-container" style="display: none; text-align: center;">
@@ -111,7 +120,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
-      <button id="btn-back-select" class="btn-action secondary-btn">◀ 戻る</button>
+      <button id="btn-back-select" class="btn-action secondary-btn">🛑 接続をやめて戻る</button>
       <button id="btn-disconnect-guest" class="btn-action" style="background-color: #d32f2f; display: none;">🛑 通信を切断してメニューに戻る</button>
     </div>
   </div>
@@ -123,9 +132,10 @@
       <span id="indicator-1">⬜ 🔴赤</span>
       <span id="indicator-2">⬜ 🔵青</span>
       <span id="indicator-3">⬜ 🟡黄</span>
+      <span id="indicator-4">⬜ 🟢緑</span>
     </div>
     <div id="reader"></div>
-    <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 15px;">キャンセル</button>
+    <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 15px;">選び直す</button>
   </div>
 
   <!-- ゲーム本体画面 (オセロ) -->
