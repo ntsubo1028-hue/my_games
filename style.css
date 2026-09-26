@@ -122,6 +122,36 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .qr-img { width: 100% !important; height: auto !important; max-width: 260px; aspect-ratio: 1 / 1; border: 2px solid #f0f0f0; background: white; margin: 0 auto; display: block; border-radius: 8px; image-rendering: pixelated; }
 #reader { width: 100%; max-width: 320px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
 #reader video { object-fit: cover !important; width: 100%; }
+
+/* バージョン情報 */
+.version-info {
+  text-align: center;
+  font-size: 11px;
+  color: #888;
+  margin-top: 15px;
+  letter-spacing: 1px;
+}
+
+/* イメージイラストの枠 */
+.hero-image-container {
+  width: 100%;
+  max-width: 320px;
+  margin: 10px auto 15px auto;
+  border: 3px solid #555;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  background-color: #000;
+}
+
+.hero-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  /* 少しだけコントラストを強調してレトロな雰囲気に */
+  filter: contrast(1.05) saturate(1.1);
+}
+
 /* ==================================
    ゲーム盤面 (オセロ)
 ================================== */

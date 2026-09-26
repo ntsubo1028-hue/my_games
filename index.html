@@ -3,6 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- ★ バージョン管理（ここだけ変更すればOKです） ★ -->
+  <script>
+    window.APP_VERSION = '1.1.0';
+
+    // CSSのキャッシュバスター（?v=1.1.0）を自動付与して読み込む
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = `style.css?v=${window.APP_VERSION}`;
+    document.head.appendChild(cssLink);
+  </script>
+
   <title>ボクらのデジタル秘密基地 - my_games</title>
   
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -19,6 +31,19 @@
       <h1>ボクらの<br>デジタル秘密基地</h1>
       <p class="subtitle">my_games</p>
     </div>
+
+    <!-- 秘密基地のメインビジュアル -->
+    <div class="hero-image-container">
+      <img src="secret_base.png" alt="昭和後期の秘密基地" class="hero-image">
+    </div>
+
+    <div class="button-group-col">
+      <button id="btn-goto-host-select" class="btn-action" style="background-color: #4caf50;">🔴 ホストとして遊ぶ（部屋作成）</button>
+      <button id="btn-guest" class="btn-action" style="background-color: #2196f3;">🔵 ゲストとして参加する</button>
+      <button id="btn-play-solo-mine" class="btn-action" style="background-color: #ff9800;">💣 ソロでマインスイーパー</button>
+      <button id="btn-play-tetris" class="btn-action" style="background-color: #9c27b0;">🧩 ソロでテトリス</button>
+    </div>
+
     <div class="menu-container">
       <button id="btn-goto-host-select" class="btn-action host-btn">ホストとして部屋を作る</button>
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
@@ -26,6 +51,8 @@
       <h2>一人で遊ぶ</h2>
       <button id="btn-play-tetris" class="btn-action secondary-btn">テトリス</button>
       <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
+      <!-- バージョン情報 -->
+      <div class="version-info" id="app-version-text"></div>
     </div>
   </div>
 
