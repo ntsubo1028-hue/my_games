@@ -10,9 +10,9 @@ import {
   sendData
 } from './connection.js';
 
-import { initGame, processAction, updateGameState, syncStateToGuest, requestRematch } from './othello.js';
+import { initGame, processAction, updateGameState, syncStateToGuest, requestRematch } from './reversi.js';
 import { initDotsGame, processDotsAction, updateDotsGameState, syncDotsStateToGuest, requestRematchDots } from './dots_and_boxes.js';
-import { initTetris, stopTetris } from './tetris.js';
+import { initBlock_drop, stopBlock_drop } from './block_drop.js';
 import { initGame as initConcentrationGame, processAction as processConcentrationAction, updateGameState as updateConcentrationGameState, syncStateToGuest as syncConcentrationStateToGuest, requestRematch as requestConcentrationRematch, handleScreenTap as handleConcentrationScreenTap } from './concentration.js';
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey } from './airhockey.js';
@@ -25,7 +25,7 @@ function decodeSdp(str) {
 }
 
 let isHost = false;
-let selectedGame = 'othello'; 
+let selectedGame = 'reversi'; 
 let localConnectionDataStr = ""; 
 let isConnected = false; 
 
@@ -152,7 +152,7 @@ document.getElementById('btn-play-solo-mine').onclick = () => {
   initSoloGame(); 
 };
 
-document.getElementById('btn-select-othello').onclick = () => { selectGameFlow('othello'); };
+document.getElementById('btn-select-reversi').onclick = () => { selectGameFlow('reversi'); };
 document.getElementById('btn-select-dots').onclick = () => { selectGameFlow('dots'); };
 document.getElementById('btn-select-concentration').onclick = () => { selectGameFlow('concentration'); };
 document.getElementById('btn-select-minesweeper').onclick = () => { selectGameFlow('minesweeper'); };
@@ -173,7 +173,7 @@ function showGameScreenForHost(game) {
   // ★ 修正箇所：メニューから戻ってきた際など、ホストがゲームに入る時は必ず表示をONにする
   setStampButtonVisible(true);
 
-  if (game === 'othello') { showScreen('game-screen'); initGame(true); syncStateToGuest(); }
+  if (game === 'reversi') { showScreen('game-screen'); initGame(true); syncStateToGuest(); }
   else if (game === 'dots') { showScreen('dots-game-screen'); initDotsGame(true); syncDotsStateToGuest(); }
   else if (game === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(true); syncConcentrationStateToGuest(); }
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
@@ -308,7 +308,7 @@ function startGuestScanFlow() {
       const localDesc = await setupGuestConnection(offerObj, () => {
         isConnected = true;
         setStampButtonVisible(true);
-        if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
+        if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
         else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
         else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
         else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
@@ -470,7 +470,7 @@ document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
 document.getElementById('btn-quit-airhockey').onclick = () => { stopAirHockey(); handleQuitGame(); };
 
-document.getElementById('btn-rematch-othello').onclick = () => requestRematch();
+document.getElementById('btn-rematch-reversi').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
 document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
 document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ type: 'start_airhockey' }); startAirHockey(); };
@@ -515,7 +515,7 @@ setOnMessage((data) => {
   if (data.type === "CHANGE_GAME") {
     selectedGame = data.payload.game;
     setStampButtonVisible(true);
-    if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
+    if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
     else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
     else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
     else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
@@ -523,9 +523,9 @@ setOnMessage((data) => {
     return;
   }
 
-  if (selectedGame === 'othello') {
+  if (selectedGame === 'reversi') {
     if (isHost && data.type === "ACTION_PUT_STONE") processAction(data);
-    else if (isHost && data.type === "ACTION_REMATCH_OTHELLO") { initGame(true); syncStateToGuest(); }
+    else if (isHost && data.type === "ACTION_REMATCH_REVERSI") { initGame(true); syncStateToGuest(); }
     else if (!isHost && data.type === "STATE_SYNC") updateGameState(data.payload);
   } else if (selectedGame === 'dots') {
     if (data.type === "ACTION_DRAW_LINE") processDotsAction(data);
@@ -548,18 +548,18 @@ setOnMessage((data) => {
   }
 });
 
-document.getElementById('btn-play-tetris').onclick = () => { 
+document.getElementById('btn-play-block_drop').onclick = () => { 
   setStampButtonVisible(false);
-  showScreen('tetris-game-screen'); 
-  initTetris(); 
+  showScreen('block_drop-game-screen'); 
+  initBlock_drop(); 
 };
-document.getElementById('btn-quit-tetris').onclick = () => { 
+document.getElementById('btn-quit-block_drop').onclick = () => { 
   if (confirm("ゲームを終了してメニューに戻りますか？")) {
-    stopTetris(); 
+    stopBlock_drop(); 
     showScreen('menu-screen'); 
   }
 };
-document.getElementById('btn-rematch-tetris').onclick = () => initTetris();
+document.getElementById('btn-rematch-block_drop').onclick = () => initBlock_drop();
 document.getElementById('concentration-game-screen').onclick = () => { if (selectedGame === 'concentration') handleConcentrationScreenTap(); };
 
 document.getElementById('btn-mine-mode').onclick = () => toggleInputMode();

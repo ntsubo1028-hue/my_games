@@ -1,15 +1,15 @@
 /**
- * Tetris Game Module - Version 1.1.9
+ * Block_drop Game Module - Version 1.1.9
  */
 import { playSound } from './sounds.js';
 
-const canvas = document.getElementById('tetris-board');
+const canvas = document.getElementById('block_drop-board');
 const ctx = canvas.getContext('2d');
-const nextCanvas = document.getElementById('tetris-next');
+const nextCanvas = document.getElementById('block_drop-next');
 const nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
 
 // ホールド用変数と1ターン1回の制限フラグ
-const holdCanvas = document.getElementById('tetris-hold');
+const holdCanvas = document.getElementById('block_drop-hold');
 const holdCtx = holdCanvas ? holdCanvas.getContext('2d') : null;
 let holdPiece = null;
 let canHold = true;
@@ -17,9 +17,9 @@ let canHold = true;
 // HOLD操作の継続判定用タイマー
 let holdTimer = null;
 
-const scoreEl = document.getElementById('tetris-score');
-const linesEl = document.getElementById('tetris-lines');
-const btnRematch = document.getElementById('btn-rematch-tetris');
+const scoreEl = document.getElementById('block_drop-score');
+const linesEl = document.getElementById('block_drop-lines');
+const btnRematch = document.getElementById('btn-rematch-block_drop');
 
 const ROWS = 20;
 const COLS = 10;
@@ -59,7 +59,7 @@ let animationId = null;
 let isGameOver = false;
 
 // 7-Bag（7種1巡）用変数
-let tetrisBag = [];
+let block_dropBag = [];
 
 // --- 演出用変数 ---
 let particles = [];
@@ -79,7 +79,7 @@ function clearTapTimer() {
 }
 
 function createBoard() {
-  return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 }
 
 // 7-Bagの袋を生成・シャッフルする関数
@@ -94,10 +94,10 @@ function generateBag() {
 
 // 7-Bagからミノを取り出す関数
 function getRandomPiece() {
-  if (tetrisBag.length === 0) {
-    tetrisBag = generateBag();
+  if (block_dropBag.length === 0) {
+    block_dropBag = generateBag();
   }
-  const typeId = tetrisBag.pop();
+  const typeId = block_dropBag.pop();
   return {
     matrix: SHAPES[typeId],
     typeId: typeId
@@ -106,8 +106,8 @@ function getRandomPiece() {
 
 function spawnPiece() {
   clearTapTimer();
-  cancelHold(); // スポーン時にもタイマーをクリア
-  canHold = true; // ブロック生成時にホールド権を復活させる
+  cancelHold();
+  canHold = true;
   if (!nextPiece) {
     nextPiece = getRandomPiece();
   }
@@ -220,11 +220,11 @@ function sweep() {
     if (rowCount === 1) { triggerShake(3, 10); addFloatingText('SINGLE!', '#00FFFF'); }
     else if (rowCount === 2) { triggerShake(6, 12); addFloatingText('DOUBLE!!', '#00FF00'); }
     else if (rowCount === 3) { triggerShake(9, 15); addFloatingText('TRIPLE!!!', '#FFA500'); }
-    else if (rowCount >= 4) { triggerShake(15, 25); addFloatingText('TETRIS!!!!', '#FF0055'); }
+    else if (rowCount >= 4) { triggerShake(15, 25); addFloatingText('BLOCK_DROP!!!!', '#FF0055'); }
   }
 }
 
-export function moveTetris(dir) {
+export function moveBlock_drop(dir) {
   if (isGameOver) return;
   piece.pos.x += dir;
   if (collide(board, piece)) {
@@ -232,7 +232,7 @@ export function moveTetris(dir) {
   }
 }
 
-export function dropTetris() {
+export function dropBlock_drop() {
   if (isGameOver) return;
   piece.pos.y++;
   if (collide(board, piece)) {
@@ -245,7 +245,7 @@ export function dropTetris() {
   dropCounter = 0;
 }
 
-export function rotateTetris() {
+export function rotateBlock_drop() {
   if (isGameOver) return;
   const pos = piece.pos.x;
   let offset = 1;
@@ -261,7 +261,7 @@ export function rotateTetris() {
   }
 }
 
-export function hardDropTetris() {
+export function hardDropBlock_drop() {
   if (isGameOver) return;
   clearTapTimer();
   cancelHold();
@@ -292,7 +292,6 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// ▼ 変更: immediate引数によりPC操作時は即時反応、タッチ操作時は100ms遅延で誤動作防止 ▼
 export function actionHold(immediate = false) {
   if (isGameOver || !canHold) return;
 
@@ -465,7 +464,7 @@ function draw() {
 
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawMatrix(board, {x: 0, y: 0});
+  drawMatrix(board, { x: 0, y: 0 });
   
   if (piece) {
     const ghostY = getGhostY();
@@ -495,18 +494,18 @@ function update(time = 0) {
     lastTime = time;
     dropCounter += deltaTime;
     if (dropCounter > dropInterval) {
-      dropTetris();
+      dropBlock_drop();
     }
   }
   draw();
   animationId = requestAnimationFrame(update);
 }
 
-export function initTetris() {
+export function initBlock_drop() {
   board = createBoard();
   holdPiece = null;
   canHold = true;
-  tetrisBag = [];
+  block_dropBag = [];
   cancelHold();
   if (holdCtx) {
     holdCtx.fillStyle = '#111';
@@ -530,7 +529,7 @@ export function initTetris() {
   update(lastTime);
 }
 
-export function stopTetris() {
+export function stopBlock_drop() {
   clearTapTimer();
   cancelHold();
   if (animationId) {
@@ -543,25 +542,25 @@ export function stopTetris() {
 // PC & スマホ統合操作システムの実装
 // ==========================================
 const TILE_SENSITIVITY = 20;
-const tetrisScreenEl = document.getElementById('tetris-game-screen');
+const block_dropScreenEl = document.getElementById('block_drop-game-screen');
 
 let lastTouchEndTime = 0;
 let lastMouseX = null;
 let lastMouseY = null;
 
-tetrisScreenEl.addEventListener('mouseenter', (e) => {
+block_dropScreenEl.addEventListener('mouseenter', (e) => {
   lastMouseX = e.clientX;
   lastMouseY = e.clientY;
 });
 
-tetrisScreenEl.addEventListener('mouseleave', () => {
+block_dropScreenEl.addEventListener('mouseleave', () => {
   lastMouseX = null;
   lastMouseY = null;
   cancelHold();
 });
 
-tetrisScreenEl.addEventListener('mousemove', (e) => {
-  if (!tetrisScreenEl.classList.contains('active') || isGameOver || lastMouseX === null || lastMouseY === null) return;
+block_dropScreenEl.addEventListener('mousemove', (e) => {
+  if (!block_dropScreenEl.classList.contains('active') || isGameOver || lastMouseX === null || lastMouseY === null) return;
 
   const deltaX = e.clientX - lastMouseX;
   const deltaY = e.clientY - lastMouseY;
@@ -569,36 +568,41 @@ tetrisScreenEl.addEventListener('mousemove', (e) => {
   if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
     const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
     if (steps !== 0) {
-      moveTetris(steps > 0 ? 1 : -1);
+      moveBlock_drop(steps > 0 ? 1 : -1);
       lastMouseX += steps * TILE_SENSITIVITY;
     }
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
-    cancelHold();
-    dropTetris();
-    lastMouseY += TILE_SENSITIVITY;
+    const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
+    if (stepsY > 0) {
+      cancelHold();
+      for (let i = 0; i < stepsY; i++) {
+        dropBlock_drop();
+      }
+      lastMouseY += stepsY * TILE_SENSITIVITY;
+    }
   }
 });
 
-tetrisScreenEl.addEventListener('mousedown', (e) => {
-  if (!tetrisScreenEl.classList.contains('active') || isGameOver) return;
+block_dropScreenEl.addEventListener('mousedown', (e) => {
+  if (!block_dropScreenEl.classList.contains('active') || isGameOver) return;
   if (new Date().getTime() - lastTouchEndTime < 500) return;
 
   if (e.button === 0) {
     cancelHold();
-    hardDropTetris();
+    hardDropBlock_drop();
   } else if (e.button === 2) {
-    rotateTetris();
+    rotateBlock_drop();
   }
 });
 
-tetrisScreenEl.addEventListener('mouseup', () => {
+block_dropScreenEl.addEventListener('mouseup', () => {
   cancelHold();
 });
 
-tetrisScreenEl.addEventListener('contextmenu', (e) => {
-  if (tetrisScreenEl.classList.contains('active')) {
+block_dropScreenEl.addEventListener('contextmenu', (e) => {
+  if (block_dropScreenEl.classList.contains('active')) {
     e.preventDefault();
   }
 });
@@ -608,7 +612,7 @@ let dragStartY = 0;
 let lastTouchX = 0;
 let lastTouchY = 0;
 
-tetrisScreenEl.addEventListener('touchstart', (e) => {
+block_dropScreenEl.addEventListener('touchstart', (e) => {
   if (isGameOver) return;
   dragStartX = e.touches[0].clientX;
   dragStartY = e.touches[0].clientY;
@@ -616,7 +620,7 @@ tetrisScreenEl.addEventListener('touchstart', (e) => {
   lastTouchY = dragStartY;
 }, { passive: true });
 
-tetrisScreenEl.addEventListener('touchmove', (e) => {
+block_dropScreenEl.addEventListener('touchmove', (e) => {
   if (isGameOver) return;
   const currentX = e.touches[0].clientX;
   const currentY = e.touches[0].clientY;
@@ -626,22 +630,27 @@ tetrisScreenEl.addEventListener('touchmove', (e) => {
   if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
     const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
     if (steps !== 0) {
-      moveTetris(steps > 0 ? 1 : -1);
+      moveBlock_drop(steps > 0 ? 1 : -1);
       lastTouchX += steps * TILE_SENSITIVITY;
     }
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
-    cancelHold();
-    dropTetris();
-    lastTouchY = currentY;
+    const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
+    if (stepsY > 0) {
+      cancelHold();
+      for (let i = 0; i < stepsY; i++) {
+        dropBlock_drop();
+      }
+      lastTouchY += stepsY * TILE_SENSITIVITY;
+    }
   } else if (deltaY <= -TILE_SENSITIVITY) { 
-    actionHold(false); // スマホ等のタッチ操作上スワイプは従来通り誤動作防止ディレイあり
+    actionHold(false); 
     lastTouchY = currentY; 
   }
 }, { passive: true });
 
-tetrisScreenEl.addEventListener('touchend', (e) => {
+block_dropScreenEl.addEventListener('touchend', (e) => {
   if (isGameOver) return;
   cancelHold();
   lastTouchEndTime = new Date().getTime();
@@ -658,12 +667,12 @@ tetrisScreenEl.addEventListener('touchend', (e) => {
     if (tapInterval < 180 && tapInterval > 0) {
       clearTapTimer();
       lastTapTime = 0;
-      hardDropTetris();
+      hardDropBlock_drop();
     } else {
       lastTapTime = currentTime;
       clearTapTimer();
       tapTimeout = setTimeout(() => {
-        rotateTetris();
+        rotateBlock_drop();
         tapTimeout = null;
       }, 190);
     }
@@ -672,16 +681,16 @@ tetrisScreenEl.addEventListener('touchend', (e) => {
 
 // キーボード操作
 document.addEventListener('keydown', event => {
-  if (tetrisScreenEl.classList.contains('active') && !isGameOver) {
-    switch(event.keyCode) {
-      case 37: moveTetris(-1); break;
-      case 39: moveTetris(1); break;
-      case 40: cancelHold(); dropTetris(); break;
-      case 38: rotateTetris(); break;
-      case 32: cancelHold(); hardDropTetris(); break;
+  if (block_dropScreenEl.classList.contains('active') && !isGameOver) {
+    switch (event.keyCode) {
+      case 37: moveBlock_drop(-1); break;
+      case 39: moveBlock_drop(1); break;
+      case 40: cancelHold(); dropBlock_drop(); break;
+      case 38: rotateBlock_drop(); break;
+      case 32: cancelHold(); hardDropBlock_drop(); break;
       case 67: 
       case 16: 
-        actionHold(true); // ★ C / Shift キーによるHOLDは即時実行 (immediate = true)
+        actionHold(true); 
         break;
     }
   }

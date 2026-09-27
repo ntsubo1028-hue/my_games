@@ -14,7 +14,7 @@ const boardEl = document.getElementById('board');
 const turnText = document.getElementById('turn-text');
 const scoreBlack = document.getElementById('score-black');
 const scoreWhite = document.getElementById('score-white');
-const btnRematch = document.getElementById('btn-rematch-othello'); // 再戦ボタン
+const btnRematch = document.getElementById('btn-rematch-reversi'); // 再戦ボタン
 
 export function initGame(isHost) {
   isHostPlayer = isHost;
@@ -258,6 +258,6 @@ export function requestRematch() {
     initGame(true);
     syncStateToGuest();
   } else {
-    sendData({ type: "ACTION_REMATCH_OTHELLO" });
+    sendData({ type: "ACTION_REMATCH_REVERSI" });
   }
 }
