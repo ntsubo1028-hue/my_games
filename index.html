@@ -220,14 +220,18 @@
     
     <div class="game-board-container">
       <div class="tetris-wrapper">
-        <div class="tetris-next-container">
-          <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 4px; color: #555;">HOLD</span>
-          <canvas id="tetris-hold" width="70" height="70"></canvas>
-        </div>
         <canvas id="tetris-board" width="180" height="360"></canvas>
-        <div class="tetris-next-container">
-          <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 4px; color: #555;">NEXT</span>
-          <canvas id="tetris-next" width="70" height="70"></canvas>
+        
+        <!-- ▼ HOLDとNEXTを縦に並べるサイドパネル ▼ -->
+        <div class="tetris-side-panel">
+          <div class="tetris-sub-box">
+            <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 2px; color: #555;">NEXT</span>
+            <canvas id="tetris-next" width="60" height="60"></canvas>
+          </div>
+          <div class="tetris-sub-box">
+            <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 2px; color: #555;">HOLD</span>
+            <canvas id="tetris-hold" width="60" height="60"></canvas>
+          </div>
         </div>
       </div>
     </div>
