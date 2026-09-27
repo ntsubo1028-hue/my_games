@@ -5,11 +5,14 @@ const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('tetris-next');
 const nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
 
-// ホールド用変数と1ターン1回の制限フラグ ▼
+// ホールド用変数と1ターン1回の制限フラグ
 const holdCanvas = document.getElementById('tetris-hold');
 const holdCtx = holdCanvas ? holdCanvas.getContext('2d') : null;
 let holdPiece = null;
 let canHold = true;
+
+// HOLD操作の継続判定用タイマー
+let holdTimer = null;
 
 const scoreEl = document.getElementById('tetris-score');
 const linesEl = document.getElementById('tetris-lines');
@@ -17,7 +20,7 @@ const btnRematch = document.getElementById('btn-rematch-tetris');
 
 const ROWS = 20;
 const COLS = 10;
-const BLOCK_SIZE = 18; // 1画面収容のため少しコンパクト化
+const BLOCK_SIZE = 18;
 
 const COLORS = [
   null,
@@ -52,6 +55,9 @@ let lines = 0;
 let animationId = null;
 let isGameOver = false;
 
+// 7-Bag（7種1巡）用変数
+let tetrisBag = [];
+
 // --- 演出用変数 ---
 let particles = [];
 let floatingTexts = [];
@@ -73,8 +79,22 @@ function createBoard() {
   return Array.from({length: ROWS}, () => Array(COLS).fill(0));
 }
 
+// 7-Bagの袋を生成・シャッフルする関数
+function generateBag() {
+  let newBag = [1, 2, 3, 4, 5, 6, 7];
+  for (let i = newBag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newBag[i], newBag[j]] = [newBag[j], newBag[i]];
+  }
+  return newBag;
+}
+
+// 7-Bagからミノを取り出す関数
 function getRandomPiece() {
-  const typeId = Math.floor(Math.random() * 7) + 1;
+  if (tetrisBag.length === 0) {
+    tetrisBag = generateBag();
+  }
+  const typeId = tetrisBag.pop();
   return {
     matrix: SHAPES[typeId],
     typeId: typeId
@@ -83,7 +103,8 @@ function getRandomPiece() {
 
 function spawnPiece() {
   clearTapTimer();
-  canHold = true; // ▼追加: ブロック生成時にホールド権を復活させる
+  cancelHold(); // スポーン時にもタイマーをクリア
+  canHold = true; // ブロック生成時にホールド権を復活させる
   if (!nextPiece) {
     nextPiece = getRandomPiece();
   }
@@ -240,6 +261,7 @@ export function rotateTetris() {
 export function hardDropTetris() {
   if (isGameOver) return;
   clearTapTimer();
+  cancelHold();
   while (!collide(board, piece)) {
     piece.pos.y++;
   }
@@ -267,36 +289,48 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// ▼ 追加: ホールド実行処理 ▼
+// ▼ 変更: 100ms継続したときのみ発動する仕様のホールド処理 ▼
 export function actionHold() {
-  // ゲームオーバー時、または既にこのターンでホールドを使用済みの場合は無効
   if (isGameOver || !canHold) return;
-
-  if (holdPiece === null) {
-    // 初回ホールド（現在操作中のブロックを格納して次をスポーン）
-    holdPiece = piece.typeId;
-    spawnPiece();
-  } else {
-    // 既存ホールドブロックとの入れ替え
-    const temp = piece.typeId;
-    piece = {
-      pos: { x: Math.floor(COLS / 2) - Math.floor(SHAPES[holdPiece][0].length / 2), y: 0 },
-      matrix: SHAPES[holdPiece],
-      typeId: holdPiece
-    };
-    holdPiece = temp;
-    
-    // 入れ替え時にブロックが重なる場合のフェイルセーフ
-    if (collide(board, piece)) {
-      piece.pos.y--;
-    }
-  }
   
-  canHold = false; // ホールド使用済みとしてロックする（設置するまで解除不可）
-  drawHold();
+  // すでにタイマーが動いている場合は重複してセットしない
+  if (holdTimer) return;
+
+  // 100msの継続判定を開始（途中で指が離れるなどして cancelHold が呼ばれると破棄されます）
+  holdTimer = setTimeout(() => {
+    holdTimer = null;
+    if (isGameOver || !canHold) return;
+
+    if (holdPiece === null) {
+      holdPiece = piece.typeId;
+      spawnPiece();
+    } else {
+      const temp = piece.typeId;
+      piece = {
+        pos: { x: Math.floor(COLS / 2) - Math.floor(SHAPES[holdPiece][0].length / 2), y: 0 },
+        matrix: SHAPES[holdPiece],
+        typeId: holdPiece
+      };
+      holdPiece = temp;
+      
+      if (collide(board, piece)) {
+        piece.pos.y--;
+      }
+    }
+    
+    canHold = false;
+    drawHold();
+  }, 100);
 }
 
-// ▼ 追加: ホールド領域への描画処理 ▼
+// ▼ 追加: 継続判定をキャンセルする関数 ▼
+export function cancelHold() {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+}
+
 function drawHold() {
   if (!holdCtx) return;
   holdCtx.fillStyle = '#111';
@@ -371,6 +405,18 @@ function drawNext() {
   });
 }
 
+// ゴースト（落下予測位置）のY座標を計算する関数
+function getGhostY() {
+  let ghost = {
+    pos: { x: piece.pos.x, y: piece.pos.y },
+    matrix: piece.matrix
+  };
+  while (!collide(board, ghost)) {
+    ghost.pos.y++;
+  }
+  return ghost.pos.y - 1;
+}
+
 function updateAndDrawEffects() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -413,7 +459,17 @@ function draw() {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawMatrix(board, {x: 0, y: 0});
-  if (piece) drawMatrix(piece.matrix, piece.pos);
+  
+  if (piece) {
+    // 1. ゴーストの描画（半透明）
+    const ghostY = getGhostY();
+    ctx.globalAlpha = 0.25;
+    drawMatrix(piece.matrix, { x: piece.pos.x, y: ghostY });
+    
+    // 2. 現在のブロックの描画（不透明）
+    ctx.globalAlpha = 1.0;
+    drawMatrix(piece.matrix, piece.pos);
+  }
 
   updateAndDrawEffects();
   ctx.restore();
@@ -445,11 +501,12 @@ export function initTetris() {
   board = createBoard();
   holdPiece = null;
   canHold = true;
+  tetrisBag = []; 
+  cancelHold();
   if (holdCtx) {
     holdCtx.fillStyle = '#111';
     holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
   }
-  score = 0;
   score = 0;
   lines = 0;
   dropInterval = 1000;
@@ -470,6 +527,7 @@ export function initTetris() {
 
 export function stopTetris() {
   clearTapTimer();
+  cancelHold();
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
@@ -477,15 +535,12 @@ export function stopTetris() {
 }
 
 // ==========================================
-// ④ PC & スマホ統合操作システムの実装
+// PC & スマホ統合操作システムの実装
 // ==========================================
-const TILE_SENSITIVITY = 20; // 1マス移動に必要な感度（px）
+const TILE_SENSITIVITY = 20; 
 const tetrisScreenEl = document.getElementById('tetris-game-screen');
 
-// スマホタッチ直後のマウスイベント誤爆を防ぐためのタイマー変数
 let lastTouchEndTime = 0;
-
-// 1. PC用マウス操作
 let lastMouseX = null;
 let lastMouseY = null;
 
@@ -497,6 +552,7 @@ tetrisScreenEl.addEventListener('mouseenter', (e) => {
 tetrisScreenEl.addEventListener('mouseleave', () => {
   lastMouseX = null;
   lastMouseY = null;
+  cancelHold(); // マウスが盤面外に出たらホールド判定をキャンセル
 });
 
 tetrisScreenEl.addEventListener('mousemove', (e) => {
@@ -514,25 +570,29 @@ tetrisScreenEl.addEventListener('mousemove', (e) => {
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
+    cancelHold(); // 下移動時はホールド判定をキャンセル
     dropTetris();
     lastMouseY += TILE_SENSITIVITY;
-  } else if (deltaY <= -TILE_SENSITIVITY) { // ▼ 修正: 上方向への移動でホールド
-    actionHold();
-    lastMouseY = e.clientY; // 連続発火を防止
+  } else if (deltaY <= -TILE_SENSITIVITY) { 
+    actionHold(); // 上移動（HOLD要求）
+    lastMouseY = e.clientY; 
   }
 });
 
 tetrisScreenEl.addEventListener('mousedown', (e) => {
   if (!tetrisScreenEl.classList.contains('active') || isGameOver) return;
-
-  // ★ スマホのタッチ直後に発生するマウスイベント（エミュレーション）は無視するガード
   if (new Date().getTime() - lastTouchEndTime < 500) return;
 
   if (e.button === 0) {
+    cancelHold();
     hardDropTetris();
   } else if (e.button === 2) {
     rotateTetris();
   }
+});
+
+tetrisScreenEl.addEventListener('mouseup', () => {
+  cancelHold(); // マウスボタンを離したらキャンセル
 });
 
 tetrisScreenEl.addEventListener('contextmenu', (e) => {
@@ -541,7 +601,6 @@ tetrisScreenEl.addEventListener('contextmenu', (e) => {
   }
 });
 
-// 2. スマホ用タッチ・ドラッグ＆タップ判定操作（シングルタップ＝回転、ダブルタップ＝ハードドロップ）
 let dragStartX = 0;
 let dragStartY = 0;
 let lastTouchX = 0;
@@ -571,18 +630,18 @@ tetrisScreenEl.addEventListener('touchmove', (e) => {
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
+    cancelHold(); // 下スワイプ時はキャンセル
     dropTetris();
     lastTouchY = currentY;
-  } else if (deltaY <= -TILE_SENSITIVITY) { // ▼ 修正: 上スワイプでホールド
-    actionHold();
-    lastTouchY = currentY; // 連続発火を防止
+  } else if (deltaY <= -TILE_SENSITIVITY) { 
+    actionHold(); // 上スワイプ（HOLD要求）
+    lastTouchY = currentY; 
   }
 }, { passive: true });
 
 tetrisScreenEl.addEventListener('touchend', (e) => {
   if (isGameOver) return;
-  
-  // タッチ終了時間を記録して、マウスイベントの誤爆を防ぐ
+  cancelHold(); // 指を離したらホールド判定をキャンセル
   lastTouchEndTime = new Date().getTime();
 
   const touchEndX = e.changedTouches[0].clientX;
@@ -590,19 +649,15 @@ tetrisScreenEl.addEventListener('touchend', (e) => {
   const totalDx = touchEndX - dragStartX;
   const totalDy = touchEndY - dragStartY;
 
-  // 移動距離が極小の場合はタップとみなす
   if (Math.abs(totalDx) < 10 && Math.abs(totalDy) < 10) {
     const currentTime = new Date().getTime();
-    // 直前のタップからの経過時間（初回タップ時は大きく空くため問題なし）
     const tapInterval = lastTapTime ? (currentTime - lastTapTime) : 999;
 
-    // 120ミリ秒以内に2回目のタップが来た場合：ダブルタップ（ハードドロップ）
     if (tapInterval < 180 && tapInterval > 0) {
       clearTapTimer();
       lastTapTime = 0;
       hardDropTetris();
     } else {
-      // 1回目のタップ：130ミリ秒待ってから回転を実行する（ダブルタップが来たらキャンセルされる）
       lastTapTime = currentTime;
       clearTapTimer();
       tapTimeout = setTimeout(() => {
@@ -613,18 +668,26 @@ tetrisScreenEl.addEventListener('touchend', (e) => {
   }
 });
 
-// キーボード操作（予備用）
+// キーボード操作
 document.addEventListener('keydown', event => {
   if (tetrisScreenEl.classList.contains('active') && !isGameOver) {
     switch(event.keyCode) {
       case 37: moveTetris(-1); break;
       case 39: moveTetris(1); break;
-      case 40: dropTetris(); break;
+      case 40: cancelHold(); dropTetris(); break;
       case 38: rotateTetris(); break;
-      case 32: hardDropTetris(); break;
-      case 67: // Cキー (追加)
-      case 16: // Shiftキー (追加)
-      actionHold(); break;
+      case 32: cancelHold(); hardDropTetris(); break;
+      case 67: 
+      case 16: 
+        actionHold(); // C / Shift キーによるHOLD要求
+        break;
     }
+  }
+});
+
+// キーを離したときにHOLD判定をキャンセル
+document.addEventListener('keyup', event => {
+  if (event.keyCode === 67 || event.keyCode === 16) {
+    cancelHold();
   }
 });
