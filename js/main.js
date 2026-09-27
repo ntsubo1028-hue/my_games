@@ -29,6 +29,111 @@ let selectedGame = 'othello';
 let localConnectionDataStr = ""; 
 let isConnected = false; 
 
+// ==========================================
+// ★ スタンプ・コミュニケーション機能 ★
+// ==========================================
+const STAMPS = {
+  greeting: { icon: '🤝', text: 'よろしく！' },
+  thanks: { icon: '☕', text: 'お疲れ様！' },
+  nice: { icon: '👍', text: 'ナイス！' },
+  brilliant: { icon: '✨', text: 'お見事！' },
+  danger: { icon: '💦', text: 'あぶない！' },
+  omg: { icon: '😲', text: 'まじか…' },
+  thinking: { icon: '⏳', text: '熟考中…' },
+  surrender: { icon: '🏳️', text: '参りました' }
+};
+
+let selectedStampId = null;
+
+function initStampSystem() {
+  const modalHTML = `
+    <div id="stamp-modal" class="stamp-modal" style="display: none;">
+      <div class="stamp-modal-content">
+        <h3 style="margin-top: 0; margin-bottom: 15px;">スタンプを送る</h3>
+        <div class="stamp-grid">
+          ${Object.keys(STAMPS).map(key => `
+            <div class="stamp-option" data-stamp-id="${key}">
+              <div class="stamp-icon">${STAMPS[key].icon}</div>
+              <div class="stamp-text">${STAMPS[key].text}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="stamp-modal-actions">
+          <button id="btn-send-stamp" class="btn-action" style="background-color: #00bcd4;" disabled>送信する</button>
+          <button id="btn-close-stamp" class="btn-action secondary-btn">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+  const modal = document.getElementById('stamp-modal');
+  const btnSend = document.getElementById('btn-send-stamp');
+  const options = document.querySelectorAll('.stamp-option');
+
+  options.forEach(opt => {
+    opt.addEventListener('click', () => {
+      options.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedStampId = opt.getAttribute('data-stamp-id');
+      btnSend.disabled = false;
+    });
+  });
+
+  document.getElementById('btn-close-stamp').onclick = () => { modal.style.display = 'none'; };
+
+  btnSend.onclick = () => {
+    if (selectedStampId && isConnected) {
+      try {
+        sendData({ type: "STAMP", payload: { stampId: selectedStampId } });
+        showStampPopup(true, selectedStampId);
+      } catch (err) {
+        console.error("スタンプの送信に失敗しました:", err);
+      }
+      
+      modal.style.display = 'none';
+      btnSend.disabled = true;
+      options.forEach(o => o.classList.remove('selected'));
+      selectedStampId = null;
+    }
+  };
+
+  document.querySelectorAll('.btn-open-stamp').forEach(btn => {
+    btn.onclick = () => {
+      selectedStampId = null;
+      options.forEach(o => o.classList.remove('selected'));
+      btnSend.disabled = true;
+      modal.style.display = 'flex';
+    };
+  });
+}
+
+function showStampPopup(isMe, stampId) {
+  const stamp = STAMPS[stampId];
+  if (!stamp) return;
+
+  const popup = document.createElement('div');
+  popup.className = `stamp-popup ${isMe ? 'stamp-popup-me' : 'stamp-popup-opponent'}`;
+  popup.innerHTML = `
+    <div class="stamp-popup-icon">${stamp.icon}</div>
+    <div class="stamp-popup-text">${stamp.text}</div>
+  `;
+  document.body.appendChild(popup);
+
+  setTimeout(() => { if (popup.parentNode) popup.remove(); }, 2500);
+}
+
+function setStampButtonVisible(visible) {
+  document.querySelectorAll('.btn-open-stamp').forEach(btn => {
+    btn.style.display = visible ? 'block' : 'none';
+  });
+}
+
+// 実行
+initStampSystem();
+// ==========================================
+
+
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
@@ -41,7 +146,11 @@ document.getElementById('btn-goto-host-select').onclick = () => {
 };
 document.getElementById('btn-back-main').onclick = () => { showScreen('menu-screen'); };
 document.getElementById('btn-guest').onclick = () => { isHost = false; startGuestScanFlow(); };
-document.getElementById('btn-play-solo-mine').onclick = () => { showScreen('minesweeper-game-screen'); initSoloGame(); };
+document.getElementById('btn-play-solo-mine').onclick = () => { 
+  setStampButtonVisible(false); // 一人用はスタンプ非表示
+  showScreen('minesweeper-game-screen'); 
+  initSoloGame(); 
+};
 
 document.getElementById('btn-select-othello').onclick = () => { selectGameFlow('othello'); };
 document.getElementById('btn-select-dots').onclick = () => { selectGameFlow('dots'); };
@@ -61,6 +170,9 @@ function selectGameFlow(game) {
 }
 
 function showGameScreenForHost(game) {
+  // ★ 修正箇所：メニューから戻ってきた際など、ホストがゲームに入る時は必ず表示をONにする
+  setStampButtonVisible(true);
+
   if (game === 'othello') { showScreen('game-screen'); initGame(true); syncStateToGuest(); }
   else if (game === 'dots') { showScreen('dots-game-screen'); initDotsGame(true); syncDotsStateToGuest(); }
   else if (game === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(true); syncConcentrationStateToGuest(); }
@@ -92,15 +204,12 @@ async function startHostConnectionFlow() {
     });
     localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
 
-    // 文言を修正
     document.getElementById('conn-status').innerText = "自分の情報をどうやって相手に伝えますか？";
 
     const hostChooseOutput = document.getElementById('step-host-choose-output');
     hostChooseOutput.style.display = 'block';
 
-    const showDoneButton = () => {
-      document.getElementById('step-host-done-container').style.display = 'block';
-    };
+    const showDoneButton = () => { document.getElementById('step-host-done-container').style.display = 'block'; };
 
     document.getElementById('btn-host-output-qr').onclick = () => {
       hostChooseOutput.style.display = 'none';
@@ -198,6 +307,7 @@ function startGuestScanFlow() {
 
       const localDesc = await setupGuestConnection(offerObj, () => {
         isConnected = true;
+        setStampButtonVisible(true);
         if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
         else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
         else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
@@ -274,11 +384,6 @@ function startGuestScanFlow() {
   };
 }
 
-// ==========================================
-// ★ キャンセル（選び直し）処理の統合 ★
-// ==========================================
-
-// 1. カメラ読み取りのキャンセル
 document.getElementById('btn-cancel-scan').onclick = () => {
   cancelScan(() => {
     showScreen('connection-screen');
@@ -292,7 +397,6 @@ document.getElementById('btn-cancel-scan').onclick = () => {
   });
 };
 
-// 2. テキスト入力のキャンセル
 document.getElementById('btn-cancel-text-input').onclick = () => {
   document.getElementById('step-text-input-area').style.display = 'none';
   if (isHost) {
@@ -304,7 +408,6 @@ document.getElementById('btn-cancel-text-input').onclick = () => {
   }
 };
 
-// 3. 出力方法（QR / テキスト）のキャンセル
 function cancelOutputSelection() {
   document.getElementById('qr-container').style.display = 'none';
   document.getElementById('text-copy-container').style.display = 'none';
@@ -319,8 +422,6 @@ function cancelOutputSelection() {
 }
 document.getElementById('btn-cancel-output-qr').onclick = cancelOutputSelection;
 document.getElementById('btn-cancel-output-text').onclick = cancelOutputSelection;
-// ==========================================
-
 
 document.getElementById('btn-back-select').onclick = () => {
   initConnection();
@@ -329,10 +430,9 @@ document.getElementById('btn-back-select').onclick = () => {
 };
 
 function disconnectConnection() {
-  if (isConnected) {
-    sendData({ type: "DISCONNECT" });
-  }
+  if (isConnected) sendData({ type: "DISCONNECT" });
   isConnected = false;
+  setStampButtonVisible(false);
   setTimeout(() => {
     initConnection();
     showScreen('menu-screen');
@@ -340,15 +440,14 @@ function disconnectConnection() {
 }
 
 const handleDisconnectClick = () => {
-  if (confirm("通信を切断してメインメニューに戻りますか？")) {
-    disconnectConnection();
-  }
+  if (confirm("通信を切断してメインメニューに戻りますか？")) disconnectConnection();
 };
 document.getElementById('btn-disconnect-host').onclick = handleDisconnectClick;
 document.getElementById('btn-disconnect-guest').onclick = handleDisconnectClick;
 
 const handleQuitGame = () => {
   if (!confirm("ゲームを終了してメニューに戻りますか？")) return;
+  setStampButtonVisible(false);
 
   if (isHost) {
     if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
@@ -377,15 +476,22 @@ document.getElementById('btn-rematch-concentration').onclick = () => requestConc
 document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ type: 'start_airhockey' }); startAirHockey(); };
 
 setOnMessage((data) => {
+  if (data.type === "STAMP") {
+    showStampPopup(false, data.payload.stampId);
+    return;
+  }
+
   if (data.type === "DISCONNECT") {
     alert("相手が通信を切断しました。");
     isConnected = false;
+    setStampButtonVisible(false);
     initConnection();
     showScreen('menu-screen');
     return;
   }
 
   if (data.type === "HOST_QUIT_TO_MENU") {
+    setStampButtonVisible(false);
     showScreen('connection-screen');
     document.getElementById('conn-title').innerText = "ホストの選択待ち";
     document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
@@ -398,6 +504,7 @@ setOnMessage((data) => {
   if (data.type === "GUEST_QUIT_TO_MENU") {
     if (isHost) {
       alert("ゲストがゲームを終了しました。");
+      setStampButtonVisible(false);
       showScreen('host-game-select-screen');
       document.getElementById('btn-back-main').style.display = 'none';
       document.getElementById('btn-disconnect-host').style.display = 'inline-block';
@@ -407,6 +514,7 @@ setOnMessage((data) => {
 
   if (data.type === "CHANGE_GAME") {
     selectedGame = data.payload.game;
+    setStampButtonVisible(true);
     if (selectedGame === 'othello') { showScreen('game-screen'); initGame(false); }
     else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
     else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
@@ -440,7 +548,11 @@ setOnMessage((data) => {
   }
 });
 
-document.getElementById('btn-play-tetris').onclick = () => { showScreen('tetris-game-screen'); initTetris(); };
+document.getElementById('btn-play-tetris').onclick = () => { 
+  setStampButtonVisible(false);
+  showScreen('tetris-game-screen'); 
+  initTetris(); 
+};
 document.getElementById('btn-quit-tetris').onclick = () => { 
   if (confirm("ゲームを終了してメニューに戻りますか？")) {
     stopTetris(); 
@@ -457,9 +569,7 @@ document.getElementById('btn-quit-mine').onclick = () => {
   if (isConnected) {
     handleQuitGame(); 
   } else {
-    if (confirm("ゲームを終了してメニューに戻りますか？")) {
-      showScreen('menu-screen');
-    }
+    if (confirm("ゲームを終了してメニューに戻りますか？")) showScreen('menu-screen');
   }
 };
 document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
@@ -473,24 +583,17 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 history.pushState(null, null, location.href);
-
 window.addEventListener('popstate', (e) => {
   history.pushState(null, null, location.href);
-
   if (isConnected) {
-    if (confirm("通信が切断されます。メインメニューに戻りますか？")) {
-      disconnectConnection();
-    }
+    if (confirm("通信が切断されます。メインメニューに戻りますか？")) disconnectConnection();
   } else {
     if (!document.getElementById('menu-screen').classList.contains('active')) {
-      if (confirm("メインメニューに戻りますか？")) {
-        showScreen('menu-screen');
-      }
+      if (confirm("メインメニューに戻りますか？")) showScreen('menu-screen');
     }
   }
 });
 
-// 画面読み込み時にバージョン表記を自動設定
 if (document.getElementById('app-version-text') && window.APP_VERSION) {
   document.getElementById('app-version-text').innerText = `Ver ${window.APP_VERSION}`;
 }

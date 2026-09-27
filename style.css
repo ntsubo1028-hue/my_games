@@ -279,3 +279,56 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   #menu-screen h2 { font-size: 1.2rem; margin: 4px 0; }
   .button-group-col .btn-action { padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 }
+
+/* ==================================
+   ★ スタンプ機能 ★
+================================== */
+.stamp-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000;
+}
+.stamp-modal-content {
+  background: #fff; width: 90%; max-width: 320px;
+  border-radius: 12px; padding: 20px 15px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3); text-align: center;
+}
+.stamp-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0;
+}
+.stamp-option {
+  border: 2px solid #e0e0e0; border-radius: 8px; padding: 12px 5px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  transition: all 0.2s; user-select: none; background: #f9f9f9;
+}
+.stamp-option.selected {
+  border-color: #00bcd4; background: #e0f7fa; transform: scale(1.03); box-shadow: 0 2px 8px rgba(0,188,212,0.3);
+}
+.stamp-icon { font-size: 28px; margin-bottom: 5px; }
+.stamp-text { font-size: 14px; font-weight: bold; color: #333; }
+.stamp-modal-actions { display: flex; gap: 10px; }
+.stamp-modal-actions button { margin: 0; }
+
+/* ポップアップ吹き出し */
+.stamp-popup {
+  position: fixed; top: 30%; /* 盤面と被らないよう上部に配置 */
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 30px; padding: 10px 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  display: flex; align-items: center; gap: 10px;
+  z-index: 1500; animation: stamp-fade 2.5s forwards;
+  pointer-events: none;
+}
+.stamp-popup-me { right: 15px; border: 2px solid #00bcd4; }
+.stamp-popup-opponent { left: 15px; border: 2px solid #ff9800; }
+.stamp-popup-icon { font-size: 28px; }
+.stamp-popup-text { font-size: 15px; font-weight: bold; color: #2c3e50; }
+
+@keyframes stamp-fade {
+  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+  10% { opacity: 1; transform: translateY(0) scale(1.1); }
+  15% { transform: translateY(0) scale(1); }
+  80% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+}

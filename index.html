@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    window.APP_VERSION = '1.1.4'; // キャッシュクリアのため更新
+    window.APP_VERSION = '1.1.7'; // スタンプ機能追加
 
     const cssLink = document.createElement('link');
     cssLink.rel = 'stylesheet';
@@ -24,17 +24,15 @@
 <body>
 
   <!-- ==================================
-       メインメニュー画面（ここから）
+       メインメニュー画面
   ================================== -->
   <div id="menu-screen" class="screen active">
-    
     <div class="hero-header">
       <div class="secret-badge">🎮 P2P Arcade</div>
       <h1>ボクらの<br>デジタル秘密基地</h1>
       <p class="subtitle">my_games</p>
     </div>
 
-    <!-- ★ 必ずここ（menu-screenの中）に配置します ★ -->
     <div class="hero-image-container">
       <img src="secret_base.png" alt="昭和後期の秘密基地" class="hero-image">
     </div>
@@ -47,10 +45,8 @@
       <button id="btn-play-tetris" class="btn-action secondary-btn">テトリス</button>
       <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
       
-      <!-- バージョン情報 -->
       <div class="version-info" id="app-version-text"></div>
     </div>
-    
   </div>
 
   <!-- ホスト用：ゲーム選択画面 -->
@@ -173,6 +169,7 @@
       <div id="board"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-othello" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-game" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -189,6 +186,7 @@
       <div id="dots-board-container"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-dots" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -205,6 +203,7 @@
       <div id="concentration-board"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-concentration" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -221,8 +220,6 @@
     <div class="game-board-container">
       <div class="tetris-wrapper">
         <canvas id="tetris-board" width="180" height="360"></canvas>
-        
-        <!-- ▼ HOLDとNEXTを縦に並べるサイドパネル ▼ -->
         <div class="tetris-side-panel">
           <div class="tetris-sub-box">
             <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 2px; color: #555;">NEXT</span>
@@ -272,6 +269,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -292,6 +290,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-airhockey" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-airhockey" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
