@@ -1,3 +1,6 @@
+/**
+ * Tetris Game Module - Version 1.1.9
+ */
 import { playSound } from './sounds.js';
 
 const canvas = document.getElementById('tetris-board');
@@ -289,16 +292,11 @@ function updateScore() {
   linesEl.innerText = `ライン: ${lines}`;
 }
 
-// ▼ 変更: 100ms継続したときのみ発動する仕様のホールド処理 ▼
-export function actionHold() {
+// ▼ 変更: immediate引数によりPC操作時は即時反応、タッチ操作時は100ms遅延で誤動作防止 ▼
+export function actionHold(immediate = false) {
   if (isGameOver || !canHold) return;
-  
-  // すでにタイマーが動いている場合は重複してセットしない
-  if (holdTimer) return;
 
-  // 100msの継続判定を開始（途中で指が離れるなどして cancelHold が呼ばれると破棄されます）
-  holdTimer = setTimeout(() => {
-    holdTimer = null;
+  const executeHold = () => {
     if (isGameOver || !canHold) return;
 
     if (holdPiece === null) {
@@ -320,10 +318,20 @@ export function actionHold() {
     
     canHold = false;
     drawHold();
-  }, 100);
+  };
+
+  if (immediate) {
+    cancelHold();
+    executeHold();
+  } else {
+    if (holdTimer) return;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      executeHold();
+    }, 100);
+  }
 }
 
-// ▼ 追加: 継続判定をキャンセルする関数 ▼
 export function cancelHold() {
   if (holdTimer) {
     clearTimeout(holdTimer);
@@ -405,7 +413,6 @@ function drawNext() {
   });
 }
 
-// ゴースト（落下予測位置）のY座標を計算する関数
 function getGhostY() {
   let ghost = {
     pos: { x: piece.pos.x, y: piece.pos.y },
@@ -461,12 +468,10 @@ function draw() {
   drawMatrix(board, {x: 0, y: 0});
   
   if (piece) {
-    // 1. ゴーストの描画（半透明）
     const ghostY = getGhostY();
     ctx.globalAlpha = 0.25;
     drawMatrix(piece.matrix, { x: piece.pos.x, y: ghostY });
     
-    // 2. 現在のブロックの描画（不透明）
     ctx.globalAlpha = 1.0;
     drawMatrix(piece.matrix, piece.pos);
   }
@@ -501,7 +506,7 @@ export function initTetris() {
   board = createBoard();
   holdPiece = null;
   canHold = true;
-  tetrisBag = []; 
+  tetrisBag = [];
   cancelHold();
   if (holdCtx) {
     holdCtx.fillStyle = '#111';
@@ -537,7 +542,7 @@ export function stopTetris() {
 // ==========================================
 // PC & スマホ統合操作システムの実装
 // ==========================================
-const TILE_SENSITIVITY = 20; 
+const TILE_SENSITIVITY = 20;
 const tetrisScreenEl = document.getElementById('tetris-game-screen');
 
 let lastTouchEndTime = 0;
@@ -552,7 +557,7 @@ tetrisScreenEl.addEventListener('mouseenter', (e) => {
 tetrisScreenEl.addEventListener('mouseleave', () => {
   lastMouseX = null;
   lastMouseY = null;
-  cancelHold(); // マウスが盤面外に出たらホールド判定をキャンセル
+  cancelHold();
 });
 
 tetrisScreenEl.addEventListener('mousemove', (e) => {
@@ -570,12 +575,9 @@ tetrisScreenEl.addEventListener('mousemove', (e) => {
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
-    cancelHold(); // 下移動時はホールド判定をキャンセル
+    cancelHold();
     dropTetris();
     lastMouseY += TILE_SENSITIVITY;
-  } else if (deltaY <= -TILE_SENSITIVITY) { 
-    actionHold(); // 上移動（HOLD要求）
-    lastMouseY = e.clientY; 
   }
 });
 
@@ -592,7 +594,7 @@ tetrisScreenEl.addEventListener('mousedown', (e) => {
 });
 
 tetrisScreenEl.addEventListener('mouseup', () => {
-  cancelHold(); // マウスボタンを離したらキャンセル
+  cancelHold();
 });
 
 tetrisScreenEl.addEventListener('contextmenu', (e) => {
@@ -630,18 +632,18 @@ tetrisScreenEl.addEventListener('touchmove', (e) => {
   }
 
   if (deltaY >= TILE_SENSITIVITY) {
-    cancelHold(); // 下スワイプ時はキャンセル
+    cancelHold();
     dropTetris();
     lastTouchY = currentY;
   } else if (deltaY <= -TILE_SENSITIVITY) { 
-    actionHold(); // 上スワイプ（HOLD要求）
+    actionHold(false); // スマホ等のタッチ操作上スワイプは従来通り誤動作防止ディレイあり
     lastTouchY = currentY; 
   }
 }, { passive: true });
 
 tetrisScreenEl.addEventListener('touchend', (e) => {
   if (isGameOver) return;
-  cancelHold(); // 指を離したらホールド判定をキャンセル
+  cancelHold();
   lastTouchEndTime = new Date().getTime();
 
   const touchEndX = e.changedTouches[0].clientX;
@@ -679,13 +681,12 @@ document.addEventListener('keydown', event => {
       case 32: cancelHold(); hardDropTetris(); break;
       case 67: 
       case 16: 
-        actionHold(); // C / Shift キーによるHOLD要求
+        actionHold(true); // ★ C / Shift キーによるHOLDは即時実行 (immediate = true)
         break;
     }
   }
 });
 
-// キーを離したときにHOLD判定をキャンセル
 document.addEventListener('keyup', event => {
   if (event.keyCode === 67 || event.keyCode === 16) {
     cancelHold();

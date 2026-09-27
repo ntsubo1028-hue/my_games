@@ -3,6 +3,7 @@ import { playSound } from './sounds.js'; // 音声モジュールをインポー
 
 let isHostPlayer = false;
 let isMyTurn = false;
+let currentTurn = 'host'; // 全体でどちらのターンか ('host' または 'guest')
 let lines = [];
 let boxes = [];
 let hostScore = 0;
@@ -18,7 +19,9 @@ const btnRematch = document.getElementById('btn-rematch-dots'); // 再戦ボタ�
 
 export function initDotsGame(isHost) {
   isHostPlayer = isHost;
-  isMyTurn = isHost; // ホスト先手
+  currentTurn = 'host'; // ホスト先手
+  updateTurnState();
+  
   lines = new Array(24).fill(null); // 横線12本、縦線12本
   boxes = new Array(9).fill(null);  // 3x3ボックス
   hostScore = 0;
@@ -29,6 +32,12 @@ export function initDotsGame(isHost) {
   
   renderBoard();
   updateUI();
+}
+
+// 自分のターンかどうかの判定を同期するヘルパー
+function updateTurnState() {
+  const myRole = isHostPlayer ? 'host' : 'guest';
+  isMyTurn = (currentTurn === myRole);
 }
 
 function renderBoard() {
@@ -107,22 +116,33 @@ function updateUI() {
 function handleLineClick(index) {
   if (!isMyTurn || gameOver || lines[index] !== null) return;
   
-  const moveData = {
-    type: "ACTION_DRAW_LINE",
-    payload: { index: index, player: isHostPlayer ? 'host' : 'guest' }
-  };
-  
-  applyMove(moveData.payload);
-  sendData(moveData); // 相手に自分の操作を送信
+  const player = isHostPlayer ? 'host' : 'guest';
+
+  if (isHostPlayer) {
+    // ホストなら自分で直接適用してゲストに同期
+    applyMove({ index, player });
+    syncDotsStateToGuest();
+  } else {
+    // ゲストならホストにアクションを送信する
+    sendData({
+      type: "ACTION_DRAW_LINE",
+      payload: { index: index, player: player }
+    });
+  }
 }
 
-// 相手から操作データを受け取った時に実行される
+// 相手（ゲスト）から操作データを受け取った時（ホスト側で実行される）
 export function processDotsAction(data) {
-  if(data.type === "ACTION_DRAW_LINE") applyMove(data.payload);
+  if (data.type === "ACTION_DRAW_LINE" && isHostPlayer) {
+    applyMove(data.payload);
+    syncDotsStateToGuest();
+  }
 }
 
-// 線を引くコア処理（音もここで鳴らします）
+// 線を引くコア処理（ホスト側がマスターとして計算）
 function applyMove({index, player}) {
+  if (lines[index] !== null) return;
+
   lines[index] = player;
   playSound('line'); // 線を引いた音
   
@@ -159,18 +179,16 @@ function applyMove({index, player}) {
       playSound('win'); // 勝敗決定のファンファーレ
     }
   } else {
-    // 陣地が取れなかった場合のみ、相手にターンを譲る (取れたら連続ターン)
+    // 陣地が取れた場合は、現在のプレイヤーのまま（連続ターン）
+    // 取れなかった場合は、ターンを交代する
     if (!scored) {
-      isMyTurn = (player === (isHostPlayer ? 'host' : 'guest')) ? false : true;
-    } else {
-      isMyTurn = (player === (isHostPlayer ? 'host' : 'guest')) ? true : false;
+      currentTurn = (player === 'host') ? 'guest' : 'host';
     }
+    // scored が true の場合は currentTurn を変更しないので同じ人の連続ターンになる
   }
   
+  updateTurnState();
   updateUI();
-  
-  // ホストなら念のため最新状態全体をゲストに同期
-  if (isHostPlayer) syncDotsStateToGuest();
 }
 
 export function syncDotsStateToGuest() {
@@ -179,7 +197,7 @@ export function syncDotsStateToGuest() {
       type: "STATE_SYNC_DOTS",
       payload: {
         lines, boxes, hostScore, guestScore,
-        turn: isMyTurn ? 'host' : 'guest',
+        currentTurn,
         gameOver
       }
     });
@@ -193,7 +211,9 @@ export function updateDotsGameState(payload) {
     hostScore = payload.hostScore;
     guestScore = payload.guestScore;
     gameOver = payload.gameOver;
-    isMyTurn = payload.turn === 'guest';
+    currentTurn = payload.currentTurn; // ホストから現在のターンをそのまま受け取る
+    
+    updateTurnState();
     
     // 再戦でリセットされた時用
     if (!gameOver) {
@@ -207,11 +227,9 @@ export function updateDotsGameState(payload) {
 // --- 再戦リクエストの処理 ---
 export function requestRematchDots() {
   if (isHostPlayer) {
-    // ホストが押した場合は即初期化して同期
     initDotsGame(true);
     syncDotsStateToGuest();
   } else {
-    // ゲストが押した場合はホストに依頼を送る
     sendData({ type: "ACTION_REMATCH_DOTS" });
   }
 }
