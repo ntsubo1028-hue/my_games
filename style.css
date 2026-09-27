@@ -1,7 +1,7 @@
 :root {
   --board-color: #2e7d32;
   --primary-bg: #f0f4f8;
-  --card-bg: #ffffff;
+  --card-bg: #ffffff; /* 不透明に戻す */
 }
 
 /* 画面全体のスクロールを完全に禁止し、100dvhに固定 */
@@ -14,7 +14,7 @@ html, body {
   flex-direction: column; 
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%); /* 元のグラデーションに戻す */
   color: #333;
   overflow: hidden; 
   box-sizing: border-box;
@@ -28,7 +28,6 @@ p, span { font-size: clamp(12px, 2.5vw, 16px); }
 /* ==================================
    共通レイアウト（コンテナ）
 ================================== */
-/* スクリーンは100dvh内で収まるようにフレックスで上下を管理 */
 .screen { 
   display: none; 
   width: 100%; 
@@ -44,7 +43,8 @@ p, span { font-size: clamp(12px, 2.5vw, 16px); }
   box-sizing: border-box;
   margin: 0 auto;
 }
-.screen.active { display: flex; }
+.screen.active { display: flex !important; }
+.screen:not(.active) { display: none !important; }
 
 /* 共通ボタンデザイン */
 button, .btn-action {
@@ -89,11 +89,10 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 
 /* ==================================
    ★ 動的リサイズ用コンテナ ★
-   この設定により、画面の中央で盤面が自動的に縮小します
 ================================== */
 .game-board-container {
-  flex: 1;           /* 上下の余った空間をすべて陣取る */
-  min-height: 0;     /* これが必須！空間が足りない時に要素を縮小させる魔法のコード */
+  flex: 1;
+  min-height: 0; 
   width: 100%;
   display: flex;
   justify-content: center;
@@ -104,36 +103,27 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    メニュー＆通信画面用
 ================================== */
-.hero-header { text-align: center; margin-bottom: 15px; }
+.hero-header { text-align: center; margin-bottom: 5px; }
 .secret-badge { display: inline-block; background: #fffae6; color: #f57c00; border: 1px solid #ffe082; padding: 4px 12px; border-radius: 20px; font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 10px; }
 .hero-header h1 { font-size: clamp(24px, 5vw, 32px); line-height: 1.2; margin: 0; font-weight: 800; }
+.subtitle { margin: 5px 0 0 0; }
 .menu-container { display: flex; flex-direction: column; width: 100%; max-width: 400px; margin: 0 auto; align-items: center; gap: 12px; }
 .host-btn { background: linear-gradient(135deg, #e53935 0%, #c62828 100%); }
 .guest-btn { background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%); }
 .secondary-btn { background-color: #78909c !important; }
 
-/* QR画面など、どうしても内容が多い画面だけ縦スクロールを許可 */
 .screen.scrollable-screen { overflow-y: auto; justify-content: flex-start; }
 .qr-box { border: 3px solid; padding: 10px; border-radius: 8px; text-align: center; background: #fff; width: 100%; max-width: 320px; box-sizing: border-box; margin: 0 auto; }
 .red-box { border-color: #f44336; } .blue-box { border-color: #2196f3; }
-.yellow-box { border-color: #ffeb3b; }
-.green-box { border-color: #4caf50; }
+.yellow-box { border-color: #ffeb3b; } .green-box { border-color: #4caf50; }
 .qr-title { font-weight: bold; margin-bottom: 6px; font-size: 14px; }
 .qr-img { width: 100% !important; height: auto !important; max-width: 260px; aspect-ratio: 1 / 1; border: 2px solid #f0f0f0; background: white; margin: 0 auto; display: block; border-radius: 8px; image-rendering: pixelated; }
 #reader { width: 100%; max-width: 320px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
 #reader video { object-fit: cover !important; width: 100%; }
-
-/* バージョン情報 */
-.version-info {
-  text-align: center;
-  font-size: 11px;
-  color: #888;
-  margin-top: 15px;
-  letter-spacing: 1px;
-}
+.version-info { text-align: center; font-size: 11px; color: #888; margin-top: 15px; letter-spacing: 1px; }
 
 /* ==================================
-   ★ メインメニュー画面（画像はみ出し防止の可変レイアウト） ★
+   ★ メインメニュー画面 ★
 ================================== */
 #menu-screen {
   display: flex;
@@ -147,28 +137,25 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   overflow: hidden; 
 }
 
-#menu-screen h2,
-#menu-screen .button-group-col,
-#menu-screen .version-info {
+/* タイトルとボタン群は縮まないように固定 */
+#menu-screen .hero-header,
+#menu-screen .menu-container {
   flex-shrink: 0; 
 }
 
-/* イメージイラストの枠（余剰スペースに合わせて柔軟に伸縮） */
+/* ★ タイトル下の画像コンテナ（自動縮小の要） ★ */
 .hero-image-container {
-  flex: 1 1 auto;        
-  min-height: 60px;       
-  max-height: 180px;      
+  flex: 1 1 0;
+  min-height: 0;
   width: 100%;
   max-width: 320px;
-  margin: 8px auto;
+  /* 強制的に画面の高さの30%を上限とし、ボタンを絶対に押し出さない */
+  max-height: 30vh; 
+  margin: 5px auto;
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 3px solid #555;
-  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-  background-color: #000;
 }
 
 .hero-image {
@@ -176,27 +163,19 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: contain;
+  object-fit: contain; /* 縦横比を崩さない */
   display: block;
-  /* 少しだけコントラストを強調してレトロな雰囲気に */
-  filter: contrast(1.05) saturate(1.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 /* ==================================
    ゲーム盤面 (オセロ)
 ================================== */
 #board {
-  width: 100%;
-  height: auto;
-  max-width: 400px;
-  max-height: 100%;
-  aspect-ratio: 1 / 1; /* 縦横比を正方形に固定して縮小 */
-  display: grid; 
-  grid-template-columns: repeat(8, 1fr); /* 固定サイズ(vw)を廃止し、空間を8等分 */
-  gap: 2px;
-  background-color: #111; 
-  border: 3px solid #111; 
-  border-radius: 6px;
+  width: 100%; height: auto; max-width: 400px; max-height: 100%;
+  aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(8, 1fr); 
+  gap: 2px; background-color: #111; border: 3px solid #111; border-radius: 6px;
 }
 .cell { width: 100%; height: 100%; background-color: var(--board-color); perspective: 800px; padding: 2px; box-sizing: border-box; cursor: pointer; }
 .disc { width: 100%; height: 100%; border-radius: 50%; position: relative; transform-style: preserve-3d; transition: transform 0.5s, opacity 0.3s; }
@@ -211,19 +190,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
    ゲーム盤面 (ドット＆ボックス)
 ================================== */
 #dots-board-container {
-  width: 100%;
-  height: auto;
-  max-width: 400px;
-  max-height: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  /* ドット(3)と線(12)の比率で構成し、自動縮小に対応 */
-  grid-template-columns: 3fr 12fr 3fr 12fr 3fr 12fr 3fr;
-  grid-template-rows: 3fr 12fr 3fr 12fr 3fr 12fr 3fr;
-  background-color: #fff;
-  padding: 2%;
-  border-radius: 10px;
-  box-sizing: border-box;
+  width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 1 / 1; display: grid;
+  grid-template-columns: 3fr 12fr 3fr 12fr 3fr 12fr 3fr; grid-template-rows: 3fr 12fr 3fr 12fr 3fr 12fr 3fr;
+  background-color: #fff; padding: 2%; border-radius: 10px; box-sizing: border-box;
 }
 .dot { background-color: #455a64; border-radius: 50%; width: 100%; height: 100%; }
 .line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
@@ -236,16 +205,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    ゲーム盤面 (神経衰弱)
 ================================== */
-#concentration-board {
-  width: 100%;
-  height: auto;
-  max-width: 360px;
-  max-height: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
+#concentration-board { width: 100%; height: auto; max-width: 360px; max-height: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .concentration-card { width: 100%; height: 100%; background: #3f51b5; color: white; font-size: clamp(16px, 5vw, 24px); display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; user-select: none; transition: transform 0.2s, background 0.2s; }
 .concentration-card.flipped { background: #fff; color: #333; border: 2px solid #3f51b5; box-sizing: border-box; }
 .concentration-card.matched { background: #e8f5e9; color: #333; border: 2px solid #4caf50; opacity: 0.7; }
@@ -253,96 +213,29 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    ゲーム盤面 (テトリス)
 ================================== */
-.tetris-wrapper {
-  display: flex;
-  gap: 15px;
-  align-items: flex-start;
-  height: 100%;       /* コンテナの高さいっぱいに広がる */
-  max-height: 100%;
-}
-#tetris-board {
-  height: 100%;       /* 縦幅を100%にし、横幅は比率に合わせる */
-  max-height: 100%;
-  width: auto;
-  aspect-ratio: 180 / 360; 
-  background: #111;
-  border: 2px solid #333;
-  border-radius: 4px;
-}
-.tetris-next-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-}
-#tetris-next {
-  height: auto;
-  width: 100%;
-  max-width: 80px;
-  aspect-ratio: 1 / 1;
-  background: #111;
-  border: 2px solid #333;
-  border-radius: 4px;
-}
+.tetris-wrapper { display: flex; gap: 15px; align-items: flex-start; height: 100%; max-height: 100%; }
+#tetris-board { height: 100%; max-height: 100%; width: auto; aspect-ratio: 180 / 360; background: #111; border: 2px solid #333; border-radius: 4px; }
+.tetris-next-container { display: flex; flex-direction: column; align-items: center; height: 100%; }
+#tetris-next { height: auto; width: 100%; max-width: 80px; aspect-ratio: 1 / 1; background: #111; border: 2px solid #333; border-radius: 4px; }
 
 /* ==================================
    ゲーム盤面 (マインスイーパー)
 ================================== */
-#mine-board {
-  width: 100%;
-  height: auto;
-  max-width: 400px;
-  max-height: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  gap: 3px;
-  background: #bbb;
-  padding: 5px;
-  border-radius: 8px;
-  box-sizing: border-box;
-}
-
-/* ==================================
-   ゲーム盤面 (エアホッケー)
-================================== */
-
-#airhockey-board {
-  width: 100%;
-  height: auto;
-  max-width: 400px;
-  max-height: 100%;
-  aspect-ratio: 3 / 5; /* AH_WIDTH(300) と AH_HEIGHT(500) の比率を指定 */
-  background: #111;
-  border: 4px solid #333;
-  border-radius: 8px;
-  box-sizing: border-box;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-}
-
+#mine-board { width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); gap: 3px; background: #bbb; padding: 5px; border-radius: 8px; box-sizing: border-box; }
 .mine-cell { width: 100%; height: 100%; background-color: #e0e0e0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: clamp(12px, 3vw, 18px); user-select: none; cursor: pointer; box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7); }
 .mine-cell.opened { background-color: #ffffff; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2); }
 .mine-cell.bomb { background-color: #ffcdd2; }
 .mine-num-1 { color: #1976d2; } .mine-num-2 { color: #388e3c; } .mine-num-3 { color: #d32f2f; } .mine-num-4 { color: #7b1fa2; }
 
 /* ==================================
-   ★ レスポンシブ対応 (縦幅が極端に狭い画面用) ★
+   ゲーム盤面 (エアホッケー)
+================================== */
+#airhockey-board { width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 3 / 5; background: #111; border: 4px solid #333; border-radius: 8px; box-sizing: border-box; object-fit: contain; display: block; margin: 0 auto; }
+
+/* ==================================
+   レスポンシブ対応
 ================================== */
 @media (max-height: 600px) {
-  #menu-screen h2 {
-    font-size: 1.2rem;
-    margin: 4px 0;
-  }
-  .hero-image-container {
-    max-height: 90px;   /* 縦幅が狭い端末では画像をさらに小さく */
-    margin: 4px auto;
-  }
-  .button-group-col .btn-action {
-    padding: 8px 12px;
-    margin-bottom: 6px;
-    font-size: 13px;
-  }
+  #menu-screen h2 { font-size: 1.2rem; margin: 4px 0; }
+  .button-group-col .btn-action { padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 }

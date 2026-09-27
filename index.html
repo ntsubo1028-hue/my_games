@@ -4,11 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <!-- ★ バージョン管理（ここだけ変更すればOKです） ★ -->
+  <!-- ★ バージョン管理 ★ -->
   <script>
-    window.APP_VERSION = '1.1.0';
+    window.APP_VERSION = '1.1.4'; // キャッシュクリアのため更新
 
-    // CSSのキャッシュバスター（?v=1.1.0）を自動付与して読み込む
     const cssLink = document.createElement('link');
     cssLink.rel = 'stylesheet';
     cssLink.href = `style.css?v=${window.APP_VERSION}`;
@@ -24,15 +23,18 @@
 </head>
 <body>
 
-  <!-- メインメニュー -->
+  <!-- ==================================
+       メインメニュー画面（ここから）
+  ================================== -->
   <div id="menu-screen" class="screen active">
+    
     <div class="hero-header">
       <div class="secret-badge">🎮 P2P Arcade</div>
       <h1>ボクらの<br>デジタル秘密基地</h1>
       <p class="subtitle">my_games</p>
     </div>
 
-    <!-- 秘密基地のメインビジュアル -->
+    <!-- ★ 必ずここ（menu-screenの中）に配置します ★ -->
     <div class="hero-image-container">
       <img src="secret_base.png" alt="昭和後期の秘密基地" class="hero-image">
     </div>
@@ -44,9 +46,11 @@
       <h2>一人で遊ぶ</h2>
       <button id="btn-play-tetris" class="btn-action secondary-btn">テトリス</button>
       <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
+      
       <!-- バージョン情報 -->
       <div class="version-info" id="app-version-text"></div>
     </div>
+    
   </div>
 
   <!-- ホスト用：ゲーム選択画面 -->
@@ -65,7 +69,7 @@
     </div>
   </div>
 
-  <!-- 通信確立画面（※ここだけは内容が多いのでスクロールを許可） -->
+  <!-- 通信確立画面 -->
   <div id="connection-screen" class="screen scrollable-screen">
     <h3 id="conn-title">接続の準備</h3>
     <p id="conn-status" class="loading-text">準備中...</p>
