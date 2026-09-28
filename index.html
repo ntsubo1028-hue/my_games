@@ -68,6 +68,8 @@
   <!-- 通信確立画面 -->
   <div id="connection-screen" class="screen scrollable-screen">
     <h3 id="conn-title">接続の準備</h3>
+    <button type="button" onclick="openHelp('help-connection.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 15px auto; width: auto;">❓ 接続のヘルプ</button>
+    
     <p id="conn-status" class="loading-text">準備中...</p>
     
     <div id="step-guest-choose-input" class="step-container" style="display: none;">
@@ -160,6 +162,7 @@
 
   <!-- ゲーム本体画面 (リバーシ) -->
   <div id="game-screen" class="screen">
+    <button type="button" onclick="openHelp('help-reversi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h2 id="turn-text">通信待機中...</h2>
     <div id="score-board" class="info-board" style="background: #e8f5e9;">
       <span id="score-black">黒: 2</span>
@@ -177,7 +180,7 @@
 
   <!-- ゲーム本体画面 (ドット＆ボックス) -->
   <div id="dots-game-screen" class="screen">
-    <h2 id="dots-turn-text">通信待機中...</h2>
+    <button type="button" onclick="openHelp('help-dots.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>    <h2 id="dots-turn-text">通信待機中...</h2>
     <div id="dots-score-board" class="info-board">
       <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
@@ -194,6 +197,7 @@
 
   <!-- ゲーム本体画面（神経衰弱） -->
   <div id="concentration-game-screen" class="screen">
+    <button type="button" onclick="openHelp('help-concentration.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h2 id="concentration-turn-text">通信待機中...</h2>
     <div id="concentration-score-board" class="info-board">
       <span id="concentration-score-host" style="color: #d32f2f;">ホスト: 0</span>
@@ -212,6 +216,8 @@
   <!-- ゲーム本体画面: ブロックドロップ (一人用) -->
   <div id="block_drop-game-screen" class="screen">
     <h2>ブロックドロップ</h2>
+    <button type="button" onclick="openHelp('help-block_drop.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 操作方法ヘルプ</button>
+
     <div class="info-board block_drop-info" style="margin-bottom: 5px;">
       <span id="block_drop-score">スコア: 0</span>
       <span id="block_drop-lines">ライン: 0</span>
@@ -247,6 +253,8 @@
   <!-- ゲーム本体画面（マインスイーパー） -->
   <div id="minesweeper-game-screen" class="screen">
     <h2>マインスイーパー</h2>
+    <button type="button" onclick="openHelp('help-minesweeper.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
+
     <h3 id="mine-turn-text">通信待機中...</h3>
 
     <div id="mine-count-board" class="info-board" style="background: #e0e0e0; justify-content: space-around;">
@@ -278,6 +286,7 @@
   <!-- ゲーム本体画面（エアホッケー） -->
   <div id="airhockey-game-screen" class="screen">
     <h2>エアホッケー</h2>
+    <button type="button" onclick="openHelp('help-airhockey.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h3 id="airhockey-status-text">通信待機中...</h3>
 
     <div id="airhockey-score-board" class="info-board">
@@ -295,6 +304,51 @@
       <button id="btn-quit-airhockey" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
+
+  <!-- ==================================
+       ヘルプ表示用モーダル（共通）
+  ================================== -->
+  <div id="help-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <button type="button" class="modal-close-btn" onclick="closeHelp()">✕ 閉じる</button>
+      <div id="help-body">読み込み中...</div>
+    </div>
+  </div>
+
+  <script>
+    // ヘルプファイル読み込み処理
+    async function openHelp(filename) {
+      const modal = document.getElementById('help-modal');
+      const helpBody = document.getElementById('help-body');
+      
+      modal.style.display = 'flex';
+      helpBody.innerHTML = '読み込み中...';
+
+      try {
+        const response = await fetch(filename);
+        if (!response.ok) throw new Error('ファイルの読み込みに失敗しました');
+        const htmlText = await response.text();
+        helpBody.innerHTML = htmlText;
+      } catch (error) {
+        helpBody.innerHTML = '<p style="color: #ff6b6b; padding: 20px; text-align: center;">ヘルプの読み込みに失敗しました。<br>(' + filename + ')</p>';
+        console.error(error);
+      }
+    }
+
+    // ヘルプモーダルを閉じる処理
+    function closeHelp() {
+      document.getElementById('help-modal').style.display = 'none';
+    }
+
+    // 背景の黒い部分をクリックした際にも閉じるようにする
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('help-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'help-modal') {
+          closeHelp();
+        }
+      });
+    });
+  </script>
 
   <script type="module" src="js/main.js"></script>
 </body>
