@@ -14,8 +14,23 @@ const GOAL_WIDTH = 100;
 const PUCK_RADIUS = 12;
 const MALLET_RADIUS = 20;
 
-// 通信頻度の調整（過去の指定に基づく定数化）
-const SYNC_RATE = 3;
+// 通信頻度の調整（可変にするため let に変更）
+let currentSyncRate = 3;
+
+// UI要素の取得とイベントリスナー（ホストが設定を変えたら即時送信）
+const ahHostSettings = document.getElementById('ah-host-settings');
+const ahSyncRateSelect = document.getElementById('ah-sync-rate-select');
+
+if (ahSyncRateSelect) {
+  ahSyncRateSelect.addEventListener('change', (e) => {
+    if (isHost) {
+      currentSyncRate = parseInt(e.target.value, 10);
+      if (sendData) {
+        sendDataWrapper({ type: 'ah_config', rate: currentSyncRate });
+      }
+    }
+  });
+}
 
 // タッチ座標の差分計算用変数
 let lastTouchX = 0;
@@ -92,6 +107,16 @@ export function startAirHockey() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   airhockeyScreen.classList.add('active');
   
+  if (isHost) {
+    ahHostSettings.style.display = 'block';
+    currentSyncRate = parseInt(ahSyncRateSelect.value, 10);
+    if (sendData) {
+      sendDataWrapper({ type: 'ah_config', rate: currentSyncRate });
+    }
+  } else {
+    ahHostSettings.style.display = 'none';
+  }
+
   ahState.hostScore = 0;
   ahState.guestScore = 0;
   ahState.isPlaying = true;

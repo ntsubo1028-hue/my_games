@@ -287,6 +287,18 @@
   <div id="airhockey-game-screen" class="screen">
     <h2>エアホッケー</h2>
     <button type="button" onclick="openHelp('help-airhockey.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
+    
+    //フレームレートの選択
+    <div id="ah-host-settings" style="display: none; text-align: center; margin-bottom: 10px;">
+      <label style="color: #ccc; font-size: 13px;">📡 通信フレームレート:</label>
+      <select id="ah-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
+        <option value="1">最高 (毎フレーム同期 / Wi-Fi推奨)</option>
+        <option value="2">高 (2フレームごと)</option>
+        <option value="3" selected>中 (3フレームごと / 標準)</option>
+        <option value="5">低 (5フレームごと / 節約)</option>
+      </select>
+    </div>
+
     <h3 id="airhockey-status-text">通信待機中...</h3>
 
     <div id="airhockey-score-board" class="info-board">
