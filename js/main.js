@@ -15,7 +15,7 @@ import { initDotsGame, processDotsAction, updateDotsGameState, syncDotsStateToGu
 import { initBlock_drop, stopBlock_drop } from './block_drop.js';
 import { initGame as initConcentrationGame, processAction as processConcentrationAction, updateGameState as updateConcentrationGameState, syncStateToGuest as syncConcentrationStateToGuest, requestRematch as requestConcentrationRematch, handleScreenTap as handleConcentrationScreenTap } from './concentration.js';
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
-import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey } from './airhockey.js';
+import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
 
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
@@ -468,7 +468,36 @@ const handleQuitGame = () => {
 document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
-document.getElementById('btn-quit-airhockey').onclick = () => { stopAirHockey(); handleQuitGame(); };
+document.getElementById('btn-quit-airhockey').onclick = () => { 
+  // 1. ゲームループを一旦停止
+  stopAirHockey();
+
+  // 2. ほんの少し遅延させて confirm ダイアログを表示
+  setTimeout(() => {
+    if (confirm("ゲームを終了してメニューに戻りますか？")) {
+      // 「OK」の場合：メニューへ戻る処理を実行
+      setStampButtonVisible(false);
+
+      if (isHost) {
+        if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
+        showScreen('host-game-select-screen');
+        document.getElementById('btn-back-main').style.display = 'none';
+        document.getElementById('btn-disconnect-host').style.display = 'inline-block';
+      } else {
+        if (isConnected) sendData({ type: "GUEST_QUIT_TO_MENU" });
+        showScreen('connection-screen');
+        document.getElementById('conn-title').innerText = "ホストの選択待ち";
+        document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
+        resetConnectionUI();
+        document.getElementById('btn-back-select').style.display = 'none';
+        document.getElementById('btn-disconnect-guest').style.display = 'block';
+      }
+    } else {
+      // 「キャンセル」の場合：エアホッケーを確実に再開
+      resumeAirHockey();
+    }
+  }, 50);
+};
 
 document.getElementById('btn-rematch-reversi').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();

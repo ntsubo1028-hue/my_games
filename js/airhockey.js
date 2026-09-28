@@ -148,6 +148,25 @@ export function stopAirHockey() {
   }
 }
 
+// 修正版：確認画面からキャンセルして復帰する処理
+export function resumeAirHockey() {
+  // 1. 停止・演出フラグを強制クリアしてプレイ状態に戻す
+  ahState.isPlaying = true;
+  ahState.isGoalEffect = false;
+
+  // 2. 既存のアニメーションフレームを確実に破棄
+  if (ahAnimId) {
+    cancelAnimationFrame(ahAnimId);
+    ahAnimId = null;
+  }
+
+  // 3. デバッグログ（ブラウザのコンソールで動作確認用）
+  console.log("AirHockey Resumed! ahAnimId cleared. Starting loop...");
+
+  // 4. 描画・物理演算ループを再開
+  ahLoop();
+}
+
 function resetPuck(placeAtHost) {
   ahState.puck.x = AH_WIDTH / 2;
   ahState.puck.y = placeAtHost ? AH_HEIGHT * 0.75 : AH_HEIGHT * 0.25;
