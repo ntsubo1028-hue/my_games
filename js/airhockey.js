@@ -17,6 +17,11 @@ const MALLET_RADIUS = 20;
 // 通信頻度の調整（過去の指定に基づく定数化）
 const SYNC_RATE = 3;
 
+// タッチ座標の差分計算用変数
+let lastTouchX = 0;
+let lastTouchY = 0;
+let isTouching = false;
+
 let ahState = {
   hostScore: 0,
   guestScore: 0,
@@ -413,46 +418,105 @@ function drawAHBoard() {
   }
 }
 
-function handleAHInput(e) {
-  // 演出中は操作を受け付けない
+// タッチ開始
+canvasAH.addEventListener('touchstart', (e) => {
   if (!ahState.isPlaying || ahState.isGoalEffect) return;
   e.preventDefault();
   
   let rect = canvasAH.getBoundingClientRect();
-  let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  let touch = e.touches[0];
+  
+  lastTouchX = touch.clientX - rect.left;
+  lastTouchY = touch.clientY - rect.top;
+  isTouching = true;
+}, { passive: false });
+
+// タッチ移動 (相対移動)
+canvasAH.addEventListener('touchmove', (e) => {
+  if (!ahState.isPlaying || ahState.isGoalEffect || !isTouching) return;
+  e.preventDefault();
+  
+  let rect = canvasAH.getBoundingClientRect();
+  let touch = e.touches[0];
+  
+  let currentTouchX = touch.clientX - rect.left;
+  let currentTouchY = touch.clientY - rect.top;
   
   let scaleX = AH_WIDTH / rect.width;
   let scaleY = AH_HEIGHT / rect.height;
-  let x = (clientX - rect.left) * scaleX;
-  let y = (clientY - rect.top) * scaleY;
+  
+  let deltaX = (currentTouchX - lastTouchX) * scaleX;
+  let deltaY = (currentTouchY - lastTouchY) * scaleY;
 
+  // ゲスト(青)の場合は、画面が反転しているため移動方向も反転させる
   if (!isHost) {
-    x = AH_WIDTH - x;
-    y = AH_HEIGHT - y;
+    deltaX = -deltaX;
+    deltaY = -deltaY;
   }
-
-  x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, x));
-
+  
+  let mallet = isHost ? ahState.hostMallet : ahState.guestMallet;
+  
+  mallet.x += deltaX;
+  mallet.y += deltaY;
+  
+  // 移動範囲の制限
+  mallet.x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, mallet.x));
+  
   if (isHost) {
     let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
     let maxY = AH_HEIGHT - MALLET_RADIUS;
-    y = Math.max(minY, Math.min(maxY, y));
-
-    ahState.hostMallet.x = x;
-    ahState.hostMallet.y = y;
+    mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
   } else {
     let minY = MALLET_RADIUS;
     let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
-    y = Math.max(minY, Math.min(maxY, y));
-
-    ahState.guestMallet.x = x;
-    ahState.guestMallet.y = y; 
+    mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
   }
-}
+  
+  lastTouchX = currentTouchX;
+  lastTouchY = currentTouchY;
+}, { passive: false });
 
-canvasAH.addEventListener('touchmove', handleAHInput, { passive: false });
-canvasAH.addEventListener('mousemove', handleAHInput);
+// タッチ終了
+canvasAH.addEventListener('touchend', () => { isTouching = false; });
+canvasAH.addEventListener('touchcancel', () => { isTouching = false; });
+
+
+// マウス移動 (こちらは既存の絶対座標移動のままにします。マウスは通常ワープしません。)
+canvasAH.addEventListener('mousemove', (e) => {
+    if (!ahState.isPlaying || ahState.isGoalEffect) return;
+    
+    let rect = canvasAH.getBoundingClientRect();
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+    
+    let scaleX = AH_WIDTH / rect.width;
+    let scaleY = AH_HEIGHT / rect.height;
+    let x = (clientX - rect.left) * scaleX;
+    let y = (clientY - rect.top) * scaleY;
+
+    if (!isHost) {
+      x = AH_WIDTH - x;
+      y = AH_HEIGHT - y;
+    }
+
+    x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, x));
+
+    if (isHost) {
+      let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
+      let maxY = AH_HEIGHT - MALLET_RADIUS;
+      y = Math.max(minY, Math.min(maxY, y));
+
+      ahState.hostMallet.x = x;
+      ahState.hostMallet.y = y;
+    } else {
+      let minY = MALLET_RADIUS;
+      let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
+      y = Math.max(minY, Math.min(maxY, y));
+
+      ahState.guestMallet.x = x;
+      ahState.guestMallet.y = y; 
+    }
+});
 
 // 受信処理（短縮配列対応 ＆ ゴール同期）
 export function processAirHockeyData(data) {
