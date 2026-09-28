@@ -201,7 +201,7 @@ function ahLoop() {
 
   // 通信量の極限削減処理（圧縮配列＆送信頻度の調整）
   ahFrameCount++;
-  if (ahFrameCount % SYNC_RATE === 0 && sendData) {
+  if (ahFrameCount % currentSyncRate === 0 && sendData) {
     if (isHost) {
       sendDataWrapper({
         type: 'ah_sync_host',
