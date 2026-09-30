@@ -58,6 +58,7 @@
       <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (1対1)</button> 
       <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (1対1)</button>
       <button id="btn-select-airhockey" class="btn-action" style="background-color: #9c27b0;">🏑 エアホッケー (1対1)</button>
+      <button id="btn-select-shogi" class="btn-action" style="background-color: #795548;">☖ 将棋 (1対1)</button>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
       <button id="btn-back-main" class="btn-action secondary-btn">◀ メニューに戻る</button>
@@ -314,6 +315,32 @@
       <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
       <button id="btn-rematch-airhockey" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-airhockey" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ゲーム本体画面 (将棋) -->
+  <div id="shogi-game-screen" class="screen">
+    <button type="button" onclick="openHelp('help-shogi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
+    <h2 id="shogi-turn-text">通信待機中...</h2>
+    
+    <!-- 相手の持ち駒（上） -->
+    <div id="shogi-captured-top" class="info-board" style="background: #fdf5e6; margin-bottom: 4px; font-size: 13px; color: #333;">
+      相手持ち駒: なし
+    </div>
+
+    <div class="game-board-container">
+      <div id="shogi-board"></div>
+    </div>
+
+    <!-- 自分の持ち駒（下） -->
+    <div id="shogi-captured-bottom" class="info-board" style="background: #fdf5e6; margin-top: 4px; font-size: 13px; color: #333;">
+      自分持ち駒: なし
+    </div>
+
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button id="btn-rematch-shogi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-shogi" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
 

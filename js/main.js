@@ -16,6 +16,7 @@ import { initBlock_drop, stopBlock_drop } from './block_drop.js';
 import { initGame as initConcentrationGame, processAction as processConcentrationAction, updateGameState as updateConcentrationGameState, syncStateToGuest as syncConcentrationStateToGuest, requestRematch as requestConcentrationRematch, handleScreenTap as handleConcentrationScreenTap } from './concentration.js';
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
+import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
 
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
@@ -157,6 +158,7 @@ document.getElementById('btn-select-dots').onclick = () => { selectGameFlow('dot
 document.getElementById('btn-select-concentration').onclick = () => { selectGameFlow('concentration'); };
 document.getElementById('btn-select-minesweeper').onclick = () => { selectGameFlow('minesweeper'); };
 document.getElementById('btn-select-airhockey').onclick = () => { selectGameFlow('airhockey'); };
+document.getElementById('btn-select-shogi').onclick = () => { selectGameFlow('shogi'); };
 
 function selectGameFlow(game) {
   selectedGame = game;
@@ -178,6 +180,7 @@ function showGameScreenForHost(game) {
   else if (game === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(true); syncConcentrationStateToGuest(); }
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
+  else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
 }
 
 function resetConnectionUI() {
@@ -313,6 +316,7 @@ function startGuestScanFlow() {
         else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
         else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
         else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey();}
+        else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
       });
 
       localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
@@ -468,6 +472,7 @@ const handleQuitGame = () => {
 document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
+document.getElementById('btn-quit-shogi').onclick = handleQuitGame;
 document.getElementById('btn-quit-airhockey').onclick = () => { 
   // 1. ゲームループを一旦停止
   stopAirHockey();
@@ -499,10 +504,13 @@ document.getElementById('btn-quit-airhockey').onclick = () => {
   }, 50);
 };
 
+
+
 document.getElementById('btn-rematch-reversi').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
 document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
 document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ type: 'start_airhockey' }); startAirHockey(); };
+document.getElementById('btn-rematch-shogi').onclick = () => requestShogiRematch();
 
 setOnMessage((data) => {
   if (data.type === "STAMP") {
@@ -549,6 +557,7 @@ setOnMessage((data) => {
     else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
     else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
     else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
+    else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
     return;
   }
 
@@ -574,7 +583,12 @@ setOnMessage((data) => {
     } else if (data.type === "start_airhockey") {
       startAirHockey();
     }
+  } else if (selectedGame === 'shogi') {
+    if (data.type === "ACTION_SHOGI_MOVE") processShogiAction(data);
+    else if (isHost && data.type === "ACTION_REMATCH_SHOGI") { initShogiGame(true); syncShogiStateToGuest(); }
+    else if (!isHost && data.type === "STATE_SYNC_SHOGI") updateShogiGameState(data.payload);
   }
+  
 });
 
 document.getElementById('btn-play-block_drop').onclick = () => { 
