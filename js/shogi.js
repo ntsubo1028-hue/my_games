@@ -12,6 +12,7 @@ let validMoves = [];
 let gameOver = false;
 let myRole = 'sente'; // ホスト＝先手(sente)、ゲスト＝後手(gote)
 let currentTurn = 'sente';
+let checkStatusText = ""; // 王手表示用テキスト
 
 const boardEl = document.getElementById('shogi-board');
 const turnText = document.getElementById('shogi-turn-text');
@@ -44,12 +45,14 @@ export function initGame(isHost) {
   currentTurn = 'sente';
   isMyTurn = isHost;
   gameOver = false;
+  checkStatusText = "";
   btnRematch.style.display = 'none';
 
   setupInitialBoard();
   updateBoard();
   updateUI();
 }
+
 export function initShogiGame(isHost) {
   initGame(isHost);
 }
@@ -57,14 +60,14 @@ export function initShogiGame(isHost) {
 function setupInitialBoard() {
   const goteInitial = [
     [0, 'KYO'], [1, 'KEI'], [2, 'GIN'], [3, 'KIN'], [4, 'GYOKU'], [5, 'KIN'], [6, 'GIN'], [7, 'KEI'], [8, 'KYO'],
-    [10, 'HISHA'], [16, 'KAKU'], // 後手側の飛車・角の正しい位置
+    [10, 'HISHA'], [16, 'KAKU'],
     [18, 'FU'], [19, 'FU'], [20, 'FU'], [21, 'FU'], [22, 'FU'], [23, 'FU'], [24, 'FU'], [25, 'FU'], [26, 'FU']
   ];
   goteInitial.forEach(([pos, type]) => { board[pos] = { type, player: 'gote', promoted: false }; });
 
   const senteInitial = [
     [54, 'FU'], [55, 'FU'], [56, 'FU'], [57, 'FU'], [58, 'FU'], [59, 'FU'], [60, 'FU'], [61, 'FU'], [62, 'FU'],
-    [64, 'KAKU'], [70, 'HISHA'], // 先手側：角は左から2マス目、飛車は右から2マス目
+    [64, 'KAKU'], [70, 'HISHA'],
     [72, 'KYO'], [73, 'KEI'], [74, 'GIN'], [75, 'KIN'], [76, 'GYOKU'], [77, 'KIN'], [78, 'GIN'], [79, 'KEI'], [80, 'KYO']
   ];
   senteInitial.forEach(([pos, type]) => { board[pos] = { type, player: 'sente', promoted: false }; });
@@ -121,10 +124,8 @@ function updateUI() {
   const topName = isHostPlayer ? "後手（相手）" : "先手（相手）";
   const bottomName = isHostPlayer ? "先手（自分）" : "後手（自分）";
 
-  // 相手の持ち駒はテキスト表示
   topCapturedEl.innerText = `${topName} 持ち駒: ${formatCapturedPieces(topCaptured)}`;
 
-  // 自分の持ち駒はクリックして選択できるように要素で構築
   bottomCapturedEl.innerHTML = `${bottomName} 持ち駒: `;
   if (bottomCaptured.length === 0) {
     bottomCapturedEl.append("なし");
@@ -139,7 +140,7 @@ function updateUI() {
         const countStr = counts[type] > 1 ? `${counts[type]}` : '';
         span.innerText = `${PIECES[type].val}${countStr}`;
         if (selectedCapturedPiece === type) {
-          span.style.backgroundColor = '#ffd700'; // 選択中ハイライト
+          span.style.backgroundColor = '#ffd700';
         }
         span.onclick = () => {
           if (!isMyTurn || gameOver) return;
@@ -148,7 +149,7 @@ function updateUI() {
             validMoves = [];
           } else {
             selectedCapturedPiece = type;
-            selectedIndex = null; // 盤面の選択は解除
+            selectedIndex = null;
             validMoves = getDropMoves(type);
           }
           updateBoard();
@@ -163,7 +164,8 @@ function updateUI() {
     btnRematch.style.display = 'inline-block';
     turnText.innerText = "🏆 ゲーム終了";
   } else {
-    turnText.innerText = isMyTurn ? "🟢 あなたのターン" : "🔴 相手のターン";
+    const turnStr = isMyTurn ? "🟢 あなたのターン" : "🔴 相手のターン";
+    turnText.innerText = turnStr + checkStatusText;
   }
 }
 
@@ -172,7 +174,6 @@ function handleCellClick(index) {
 
   const piece = board[index];
 
-  // 持ち駒を選択している状態でのクリック（駒を打つ）
   if (selectedCapturedPiece !== null) {
     if (validMoves.includes(index)) {
       executeDrop(selectedCapturedPiece, index);
@@ -185,7 +186,6 @@ function handleCellClick(index) {
     return;
   }
 
-  // 通常の盤上での駒選択・移動
   if (selectedIndex === null) {
     if (piece && piece.player === myRole) {
       selectedIndex = index;
@@ -210,18 +210,157 @@ function handleCellClick(index) {
   }
 }
 
-// 持ち駒を打てるマスの計算（今回はルールを無視して空きマスならどこでもOK）
-function getDropMoves(pieceType) {
-  let moves = [];
-  for (let i = 0; i < 81; i++) {
-    if (board[i] === null) {
-      moves.push(i);
+// ==========================================
+// 1. 局面判定（王手・詰み判定）
+// ==========================================
+function checkGameState() {
+  if (gameOver) return;
+
+  const inCheck = isKingInCheck(currentTurn, board);
+  const canMove = hasAnyLegalMove(currentTurn, board);
+
+  if (inCheck) {
+    if (!canMove) {
+      gameOver = true;
+      checkStatusText = " 【詰み！】";
+      const winnerRole = currentTurn === 'sente' ? 'gote' : 'sente';
+      const winnerName = winnerRole === 'sente' ? '先手' : '後手';
+      const loserName = currentTurn === 'sente' ? '先手' : '後手';
+      setTimeout(() => alert(`【詰み】${loserName}の玉が詰みました。${winnerName}の勝ちです！`), 100);
+    } else {
+      checkStatusText = " ⚠️【王手！】";
+    }
+  } else {
+    if (!canMove) {
+      gameOver = true;
+      checkStatusText = " 【詰み！】";
+      const winnerRole = currentTurn === 'sente' ? 'gote' : 'sente';
+      const winnerName = winnerRole === 'sente' ? '先手' : '後手';
+      const loserName = currentTurn === 'sente' ? '先手' : '後手';
+      setTimeout(() => alert(`${loserName}は指せる手がありません。${winnerName}の勝ちです！`), 100);
+    } else {
+      checkStatusText = "";
     }
   }
-  return moves;
 }
 
-function getValidMoves(index, piece) {
+// ==========================================
+// 2. 禁じ手判定関数（打ち歩詰め対応）
+// ==========================================
+function isKinjite(piece, from, to, player, currentBoard, checkUchifu = true) {
+  const toR = Math.floor(to / 9);
+  const toC = to % 9;
+  const isDrop = (from === null);
+
+  // ① 行きどころのない駒
+  if (isDrop) {
+    if (piece.type === 'FU' || piece.type === 'KYO') {
+      if (player === 'sente' && toR === 0) return true;
+      if (player === 'gote' && toR === 8) return true;
+    }
+    if (piece.type === 'KEI') {
+      if (player === 'sente' && toR <= 1) return true;
+      if (player === 'gote' && toR >= 7) return true;
+    }
+  }
+
+  // ② 二歩
+  if (isDrop && piece.type === 'FU') {
+    for (let r = 0; r < 9; r++) {
+      const checkIdx = r * 9 + toC;
+      const p = currentBoard[checkIdx];
+      if (p && p.player === player && p.type === 'FU' && !p.promoted) {
+        return true;
+      }
+    }
+  }
+
+  // 仮想盤面の作成
+  const tempBoard = [...currentBoard]; 
+  if (!isDrop) tempBoard[from] = null;
+  tempBoard[to] = piece;
+
+  // ③ 王手放置・自殺手
+  if (isKingInCheck(player, tempBoard)) {
+    return true;
+  }
+
+  // ④ 打ち歩詰め
+  if (checkUchifu && isDrop && piece.type === 'FU') {
+    const opponent = player === 'sente' ? 'gote' : 'sente';
+    if (isKingInCheck(opponent, tempBoard)) {
+      if (!hasAnyLegalMove(opponent, tempBoard, false)) {
+        return true; // 打ち歩詰めのため反則
+      }
+    }
+  }
+
+  return false;
+}
+
+// ==========================================
+// 3. 合法手存在判定関数
+// ==========================================
+function hasAnyLegalMove(player, currentBoard, checkUchifu = true) {
+  // 盤上の駒の移動
+  for (let i = 0; i < 81; i++) {
+    const p = currentBoard[i];
+    if (p && p.player === player) {
+      const rawMoves = calculateRawMoves(i, p, currentBoard);
+      for (const to of rawMoves) {
+        if (!isKinjite(p, i, to, player, currentBoard, checkUchifu)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // 持ち駒を打つ移動
+  const hand = player === 'sente' ? capturedHost : capturedGuest;
+  const uniqueTypes = [...new Set(hand)];
+  for (const type of uniqueTypes) {
+    const tempPiece = { type: type, player: player, promoted: false };
+    for (let to = 0; to < 81; to++) {
+      if (currentBoard[to] === null) {
+        if (!isKinjite(tempPiece, null, to, player, currentBoard, checkUchifu)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+// ==========================================
+// 4. 王手判定の補助関数
+// ==========================================
+function isKingInCheck(targetPlayer, currentBoard) {
+  let kingPos = -1;
+  for (let i = 0; i < 81; i++) {
+    const p = currentBoard[i];
+    if (p && p.player === targetPlayer && p.type === 'GYOKU') {
+      kingPos = i;
+      break;
+    }
+  }
+  if (kingPos === -1) return false;
+
+  const opponent = targetPlayer === 'sente' ? 'gote' : 'sente';
+  for (let i = 0; i < 81; i++) {
+    const p = currentBoard[i];
+    if (p && p.player === opponent) {
+      const attackMoves = calculateRawMoves(i, p, currentBoard);
+      if (attackMoves.includes(kingPos)) return true;
+    }
+  }
+  return false;
+}
+
+// ==========================================
+// 5. 駒の純粋な動き（ルール無視）を計算する関数
+// ==========================================
+function calculateRawMoves(index, piece, currentBoard) {
   let moves = [];
   const r = Math.floor(index / 9);
   const c = index % 9;
@@ -232,10 +371,8 @@ function getValidMoves(index, piece) {
       const nr = r + dr * dir;
       const nc = c + dc;
       if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
-        const target = board[nr * 9 + nc];
-        if (!target || target.player !== piece.player) {
-          moves.push(nr * 9 + nc);
-        }
+        const target = currentBoard[nr * 9 + nc];
+        if (!target || target.player !== piece.player) moves.push(nr * 9 + nc);
       }
     });
   };
@@ -248,13 +385,11 @@ function getValidMoves(index, piece) {
         const nc = c + dc * step;
         if (nr < 0 || nr >= 9 || nc < 0 || nc >= 9) break;
         const targetIdx = nr * 9 + nc;
-        const target = board[targetIdx];
+        const target = currentBoard[targetIdx];
         if (!target) {
           moves.push(targetIdx);
         } else {
-          if (target.player !== piece.player) {
-            moves.push(targetIdx);
-          }
+          if (target.player !== piece.player) moves.push(targetIdx);
           break;
         }
         step++;
@@ -271,43 +406,43 @@ function getValidMoves(index, piece) {
       case 'KIN': addSteps([[1, 0], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0]]); break;
       case 'KAKU': addLines([[-1, -1], [-1, 1], [1, -1], [1, 1]]); break;
       case 'HISHA': addLines([[-1, 0], [1, 0], [0, -1], [0, 1]]); break;
-      case 'GYOKU':
-        const kingDirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
-        kingDirs.forEach(([dr, dc]) => {
-          const nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
-            const target = board[nr * 9 + nc];
-            if (!target || target.player !== piece.player) moves.push(nr * 9 + nc);
-          }
-        });
-        break;
+      case 'GYOKU': addSteps([[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]); break;
     }
   } else {
     if (piece.type === 'KAKU') {
       addLines([[-1, -1], [-1, 1], [1, -1], [1, 1]]);
-      const umaExtra = [[-1,0],[1,0],[0,-1],[0,1]];
-      umaExtra.forEach(([dr, dc]) => {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
-          const target = board[nr * 9 + nc];
-          if (!target || target.player !== piece.player) moves.push(nr * 9 + nc);
-        }
-      });
+      addSteps([[1,0],[-1,0],[0,1],[0,-1]]);
     } else if (piece.type === 'HISHA') {
       addLines([[-1, 0], [1, 0], [0, -1], [0, 1]]);
-      const ryuExtra = [[-1,-1],[-1,1],[1,-1],[1,1]];
-      ryuExtra.forEach(([dr, dc]) => {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
-          const target = board[nr * 9 + nc];
-          if (!target || target.player !== piece.player) moves.push(nr * 9 + nc);
-        }
-      });
+      addSteps([[-1,-1],[-1,1],[1,-1],[1,1]]);
     } else {
       addSteps([[1, 0], [1, -1], [1, 1], [0, -1], [0, 1], [-1, 0]]);
     }
   }
+  return moves;
+}
 
+// ==========================================
+// 6. 盤上の駒の合法手を返す
+// ==========================================
+function getValidMoves(index, piece) {
+  const rawMoves = calculateRawMoves(index, piece, board);
+  return rawMoves.filter(to => !isKinjite(piece, index, to, piece.player, board));
+}
+
+// ==========================================
+// 7. 持ち駒を打てるマスを返す
+// ==========================================
+function getDropMoves(pieceType) {
+  let moves = [];
+  const tempPiece = { type: pieceType, player: myRole, promoted: false };
+  for (let to = 0; to < 81; to++) {
+    if (board[to] === null) {
+      if (!isKinjite(tempPiece, null, to, myRole, board)) {
+        moves.push(to);
+      }
+    }
+  }
   return moves;
 }
 
@@ -325,7 +460,6 @@ function canPromote(piece, from, to) {
   }
 }
 
-// 持ち駒を打つ処理
 function executeDrop(pieceType, to) {
   let myCaptured = isHostPlayer ? capturedHost : capturedGuest;
   const idx = myCaptured.indexOf(pieceType);
@@ -408,10 +542,11 @@ export function processAction(data) {
     board = data.payload.board;
     capturedHost = data.payload.capturedHost;
     capturedGuest = data.payload.capturedGuest;
-    gameOver = data.payload.gameOver;
+    if (data.payload.gameOver) gameOver = true;
     currentTurn = data.payload.nextTurn;
     isMyTurn = (currentTurn === myRole);
 
+    checkGameState();
     updateBoard();
     updateUI();
     if (isHostPlayer) syncStateToGuest();
@@ -433,10 +568,11 @@ export function updateGameState(payload) {
     capturedHost = payload.capturedHost;
     capturedGuest = payload.capturedGuest;
     currentTurn = payload.currentTurn;
-    gameOver = payload.gameOver;
+    if (payload.gameOver) gameOver = true;
     isMyTurn = (currentTurn === myRole);
 
     playSound('put');
+    checkGameState();
     updateBoard();
     updateUI();
   }
