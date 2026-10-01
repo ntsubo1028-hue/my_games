@@ -48,6 +48,12 @@ export function initGame(isHost) {
   checkStatusText = "";
   btnRematch.style.display = 'none';
 
+  // 前回のテロップ（王手・勝敗）表示をクリア
+  const overlay = document.getElementById('shogi-effect-overlay');
+  const textElem = document.getElementById('shogi-effect-text');
+  if (overlay) overlay.style.display = 'none';
+  if (textElem) textElem.textContent = '';
+
   setupInitialBoard();
   updateBoard();
   updateUI();
@@ -211,11 +217,42 @@ function handleCellClick(index) {
 }
 
 // ==========================================
-// 1. 局面判定（王手・詰み判定）
+// 1. 局面判定（王手・詰み・勝敗判定）
 // ==========================================
 function checkGameState() {
+  let myKingExists = false;
+  let opponentKingExists = false;
+  const opponentRole = myRole === 'sente' ? 'gote' : 'sente';
+
+  for (let i = 0; i < 81; i++) {
+    const p = board[i];
+    if (p && p.type === 'GYOKU') {
+      if (p.player === myRole) myKingExists = true;
+      if (p.player === opponentRole) opponentKingExists = true;
+    }
+  }
+
+  // 玉が直接取られた場合の処理
+  if (!myKingExists) {
+    if (!gameOver) {
+      gameOver = true;
+      checkStatusText = " 【敗北】";
+      showShogiEffect('lose');
+    }
+    return;
+  }
+  if (!opponentKingExists) {
+    if (!gameOver) {
+      gameOver = true;
+      checkStatusText = " 【勝利】";
+      showShogiEffect('win');
+    }
+    return;
+  }
+
   if (gameOver) return;
 
+  // 詰み・王手判定
   const inCheck = isKingInCheck(currentTurn, board);
   const canMove = hasAnyLegalMove(currentTurn, board);
 
@@ -224,20 +261,24 @@ function checkGameState() {
       gameOver = true;
       checkStatusText = " 【詰み！】";
       const winnerRole = currentTurn === 'sente' ? 'gote' : 'sente';
-      const winnerName = winnerRole === 'sente' ? '先手' : '後手';
-      const loserName = currentTurn === 'sente' ? '先手' : '後手';
-      setTimeout(() => alert(`【詰み】${loserName}の玉が詰みました。${winnerName}の勝ちです！`), 100);
+      if (myRole === winnerRole) {
+        showShogiEffect('win');
+      } else {
+        showShogiEffect('lose');
+      }
     } else {
-      checkStatusText = " ⚠️【王手！】";
+      showShogiEffect('oute');
     }
   } else {
     if (!canMove) {
       gameOver = true;
       checkStatusText = " 【詰み！】";
       const winnerRole = currentTurn === 'sente' ? 'gote' : 'sente';
-      const winnerName = winnerRole === 'sente' ? '先手' : '後手';
-      const loserName = currentTurn === 'sente' ? '先手' : '後手';
-      setTimeout(() => alert(`${loserName}は指せる手がありません。${winnerName}の勝ちです！`), 100);
+      if (myRole === winnerRole) {
+        showShogiEffect('win');
+      } else {
+        showShogiEffect('lose');
+      }
     } else {
       checkStatusText = "";
     }
@@ -474,7 +515,7 @@ function executeDrop(pieceType, to) {
 
   const moveData = {
     type: "ACTION_SHOGI_MOVE",
-    payload: { from: -1, to, board, capturedHost, capturedGuest, gameOver, nextTurn: currentTurn === 'sente' ? 'gote' : 'sente' }
+    payload: { from: -1, to, board, capturedHost, capturedGuest, nextTurn: currentTurn === 'sente' ? 'gote' : 'sente' }
   };
 
   playSound('put');
@@ -516,7 +557,6 @@ function executeMove(from, to) {
     } else {
       capturedHost.push(capturedType);
     }
-    if (target.type === 'GYOKU') gameOver = true;
   }
 
   board[to] = { ...piece, promoted: isPromoted };
@@ -526,7 +566,7 @@ function executeMove(from, to) {
 
   const moveData = {
     type: "ACTION_SHOGI_MOVE",
-    payload: { from, to, board, capturedHost, capturedGuest, gameOver, nextTurn: currentTurn === 'sente' ? 'gote' : 'sente' }
+    payload: { from, to, board, capturedHost, capturedGuest, nextTurn: currentTurn === 'sente' ? 'gote' : 'sente' }
   };
 
   playSound('put');
@@ -542,9 +582,12 @@ export function processAction(data) {
     board = data.payload.board;
     capturedHost = data.payload.capturedHost;
     capturedGuest = data.payload.capturedGuest;
-    if (data.payload.gameOver) gameOver = true;
     currentTurn = data.payload.nextTurn;
     isMyTurn = (currentTurn === myRole);
+
+    selectedIndex = null;
+    selectedCapturedPiece = null;
+    validMoves = [];
 
     checkGameState();
     updateBoard();
@@ -568,8 +611,11 @@ export function updateGameState(payload) {
     capturedHost = payload.capturedHost;
     capturedGuest = payload.capturedGuest;
     currentTurn = payload.currentTurn;
-    if (payload.gameOver) gameOver = true;
     isMyTurn = (currentTurn === myRole);
+
+    selectedIndex = null;
+    selectedCapturedPiece = null;
+    validMoves = [];
 
     playSound('put');
     checkGameState();
@@ -584,5 +630,46 @@ export function requestRematch() {
     syncStateToGuest();
   } else {
     sendData({ type: "ACTION_REMATCH_SHOGI" });
+  }
+}
+
+// 王手や勝敗のタイミングで呼び出す関数
+export function showShogiEffect(type) {
+  const overlay = document.getElementById('shogi-effect-overlay');
+  const textElem = document.getElementById('shogi-effect-text');
+  
+  if (!overlay || !textElem) return;
+
+  // アニメーションを再起動するためのリセット処理
+  textElem.className = '';
+  void textElem.offsetWidth; 
+
+  if (type === 'oute') {
+    textElem.textContent = '王手！';
+    textElem.style.color = '#e53935';
+    textElem.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 5px 5px 15px rgba(0,0,0,0.5)';
+  } else if (type === 'win') {
+    textElem.textContent = '勝 利';
+    textElem.style.color = '#ffb300';
+    textElem.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 5px 5px 15px rgba(0,0,0,0.5)';
+    // 紙吹雪を表示
+    if (window.confetti) {
+      window.confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, zIndex: 10000 });
+    }
+  } else if (type === 'lose') {
+    textElem.textContent = '敗 北';
+    textElem.style.color = '#1e88e5';
+    textElem.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 5px 5px 15px rgba(0,0,0,0.5)';
+  }
+
+  overlay.style.display = 'flex';
+  textElem.classList.add('effect-pop');
+
+  // 王手の場合は2秒後に自動消去
+  if (type === 'oute') {
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      textElem.textContent = '';
+    }, 2000);
   }
 }

@@ -14,8 +14,16 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
+  <!-- 将棋用和風フォント（しっぽり明朝：極太） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@800&display=swap" rel="stylesheet">
+  
+  <!-- 吹雪ライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
   <!-- キャッシュ対策付きの CSS 読み込み -->
-  <link rel="stylesheet" href="style.css?v=1.3.0">
+  <link rel="stylesheet" href="style.css?v=1.3.1">
 </head>
 <body>
 
@@ -314,23 +322,29 @@
     </div>
   </div>
 
-  <!-- ゲーム本体画面 (将棋) -->
+<!-- ゲーム本体画面 (将棋) -->
   <div id="shogi-game-screen" class="screen">
     <button type="button" onclick="openHelp('help-shogi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h2 id="shogi-turn-text">通信待機中...</h2>
     
-    <!-- 相手の持ち駒（上） -->
-    <div id="shogi-captured-top" class="info-board" style="background: #fdf5e6; margin-bottom: 4px; font-size: 13px; color: #333;">
-      相手持ち駒: なし
-    </div>
+    <!-- ★ 持ち駒と盤面を左右に並べるラッパー ★ -->
+    <div class="shogi-layout-wrapper">
+      
+      <!-- 左：相手の持ち駒 -->
+      <div id="shogi-captured-top" class="shogi-captured-side">
+        相手持ち駒: なし
+      </div>
 
-    <div class="game-board-container">
-      <div id="shogi-board"></div>
-    </div>
+      <!-- 中央：盤面 -->
+      <div class="game-board-container shogi-board-container">
+        <div id="shogi-board"></div>
+      </div>
 
-    <!-- 自分の持ち駒（下） -->
-    <div id="shogi-captured-bottom" class="info-board" style="background: #fdf5e6; margin-top: 4px; font-size: 13px; color: #333;">
-      自分持ち駒: なし
+      <!-- 右：自分の持ち駒 -->
+      <div id="shogi-captured-bottom" class="shogi-captured-side">
+        自分持ち駒: なし
+      </div>
+
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
@@ -338,8 +352,13 @@
       <button id="btn-rematch-shogi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-shogi" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
-  </div>
 
+    <!-- ★ 演出用テロップ（王手・勝敗） ★ -->
+    <div id="shogi-effect-overlay" style="display: none;">
+      <div id="shogi-effect-text"></div>
+    </div>
+  </div>
+  
   <!-- ==================================
        ヘルプ表示用モーダル（共通）
   ================================== -->

@@ -309,6 +309,83 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   color: red !important;
 }
 
+/* =====================================
+   将棋：レイアウトとデザイン
+===================================== */
+/* 盤面と持ち駒を左右に並べる */
+.shogi-layout-wrapper {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* 盤面の幅調整 */
+.shogi-board-container {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+}
+
+/* 持ち駒を縦書き＆細長い枠にする */
+.shogi-captured-side {
+  background: #fdf5e6;
+  border: 2px solid #d7ccc8;
+  border-radius: 4px;
+  padding: 10px 5px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  writing-mode: vertical-rl; /* ★ここで縦書きにしています★ */
+  text-orientation: upright;
+  display: flex;
+  align-items: center;
+  width: 35px;
+  box-sizing: border-box;
+}
+
+/* 駒のフォントを太字の和風にする */
+/* ※JSで生成している駒要素のクラスやタグに合わせて適用されます */
+#shogi-board, .shogi-captured-side {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 800;
+}
+
+/* =====================================
+   将棋：テロップ演出
+===================================== */
+#shogi-effect-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none; /* タップを邪魔しない */
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#shogi-effect-text {
+  font-size: 5rem;
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 900;
+  transform: scale(0);
+  opacity: 0;
+}
+
+/* ドン！と飛び出すアニメーション */
+.effect-pop {
+  animation: popInScale 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes popInScale {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* ==================================
    レスポンシブ対応
 ================================== */
