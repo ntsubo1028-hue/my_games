@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    window.APP_VERSION = '1.3.0';
+    window.APP_VERSION = '1.4.0';
   </script>
 
   <title>ボクらのデジタル秘密基地 - my_games</title>
@@ -45,10 +45,10 @@
       <button id="btn-goto-host-select" class="btn-action host-btn">ホストとして部屋を作る</button>
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
 
-      <h2>一人で遊ぶ</h2>
+      <h2>一人で遊ぶ / ローカル対戦</h2>
       <button id="btn-play-block_drop" class="btn-action secondary-btn">ブロックドロップ</button>
       <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
-      
+      <button id="btn-play-mawari" class="btn-action secondary-btn" style="background-color: #8d6e63;">🎲 回り将棋 (ローカル対戦)</button>
       <div class="version-info" id="app-version-text"></div>
     </div>
   </div>
@@ -322,7 +322,7 @@
     </div>
   </div>
 
-<!-- ゲーム本体画面 (将棋) -->
+  <!-- ゲーム本体画面 (将棋) -->
   <div id="shogi-game-screen" class="screen">
     <button type="button" onclick="openHelp('help-shogi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h2 id="shogi-turn-text">通信待機中...</h2>
@@ -358,7 +358,85 @@
       <div id="shogi-effect-text"></div>
     </div>
   </div>
-  
+
+<!-- ==================================
+       ゲーム本体画面 (回り将棋)
+  ================================== -->
+  <div id="mawari-game-screen" class="screen" style="background: #f0e6d2; box-sizing: border-box; padding-bottom: 30px; overflow-y: auto;">
+    
+    <!-- ヘッダー（タイトル ＆ メニューへボタン） -->
+    <div style="max-width: 480px; margin: 0 auto; padding: 15px 10px 5px 10px; display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="margin: 0 auto; color: #333; font-size: clamp(20px, 5vw, 24px); text-align: center; text-shadow: 1px 1px 0 rgba(255,255,255,0.6);">🎲 回り将棋</h2>
+    </div>
+
+    <!-- 設定パネル -->
+    <div id="mawari-config-panel" class="mawari-panel" style="margin-top: 10px;">
+      <h3>プレイヤー設定</h3>
+      <div class="mawari-player-select">1P (赤 / 左下): <strong>人間</strong></div>
+      <div class="mawari-player-select">
+        2P (青 / 左上): 
+        <select id="mawari-p2-type">
+          <option value="com" selected>COM</option>
+          <option value="human">人間</option>
+          <option value="none">なし</option>
+        </select>
+      </div>
+      <div class="mawari-player-select">
+        3P (緑 / 右上): 
+        <select id="mawari-p3-type">
+          <option value="com">COM</option>
+          <option value="human">人間</option>
+          <option value="none" selected>なし</option>
+        </select>
+      </div>
+      <div class="mawari-player-select">
+        4P (黄 / 右下): 
+        <select id="mawari-p4-type">
+          <option value="com">COM</option>
+          <option value="human">人間</option>
+          <option value="none" selected>なし</option>
+        </select>
+      </div>
+      <button id="mawari-btn-start" class="mawari-btn">ゲーム開始</button>
+    </div>
+
+    <!-- ゲーム領域 -->
+    <div id="mawari-game-container" style="display: none; flex-direction: column; align-items: center; position: relative; width: 100%; margin-top: 5px;">
+      <!-- 昇格演出用テロップ -->
+      <div id="mawari-shokaku-overlay">
+        <div id="mawari-shokaku-text">昇 級 ！</div>
+        <div id="mawari-shokaku-detail">歩 ➔ 香</div>
+      </div>
+
+      <div id="mawari-board">
+        <!-- 中央パネル -->
+        <div id="mawari-center-panel">
+          <div id="mawari-turn-badge">1P (赤) の番です</div>
+
+          <div id="mawari-koma-area">
+            <div class="mawari-koma">金</div>
+            <div class="mawari-koma">金</div>
+            <div class="mawari-koma">金</div>
+            <div class="mawari-koma">金</div>
+          </div>
+
+          <div id="mawari-log-text">「金を振る」を押してください</div>
+
+          <button id="btn-mawari-dice" class="mawari-btn">金を振る！</button>
+        </div>
+        <!-- 32マスはJSで動的生成 -->
+      </div>
+
+      <!-- プレイヤー状態一覧 -->
+      <div id="mawari-player-list"></div>
+    </div>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button id="btn-rematch-mawari" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-mawari" class="btn-action secondary-btn" onclick="showScreen('menu-screen')">メニューに戻る</button>
+    </div>
+  </div>
+
   <!-- ==================================
        ヘルプ表示用モーダル（共通）
   ================================== -->

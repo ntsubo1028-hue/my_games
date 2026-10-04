@@ -17,6 +17,7 @@ import { initGame as initConcentrationGame, processAction as processConcentratio
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
 import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
+import { initMawariShogi, stopMawariShogi, rollMawariDice } from './mawari_shogi.js';
 
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
@@ -511,6 +512,7 @@ document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots()
 document.getElementById('btn-rematch-concentration').onclick = () => requestConcentrationRematch();
 document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ type: 'start_airhockey' }); startAirHockey(); };
 document.getElementById('btn-rematch-shogi').onclick = () => requestShogiRematch();
+document.getElementById('btn-rematch-mawari').onclick = () => initMawariShogi();
 
 setOnMessage((data) => {
   if (data.type === "STAMP") {
@@ -616,6 +618,23 @@ document.getElementById('btn-quit-mine').onclick = () => {
   }
 };
 document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
+
+document.getElementById('btn-play-mawari').onclick = () => {
+  setStampButtonVisible(false);
+  showScreen('mawari-game-screen');
+  initMawariShogi();
+};
+
+document.getElementById('btn-quit-mawari').onclick = () => {
+  if (confirm("ゲームを終了してメニューに戻りますか？")) {
+    stopMawariShogi();
+    showScreen('menu-screen');
+  }
+};
+
+document.getElementById('btn-mawari-dice').onclick = () => {
+  rollMawariDice();
+};
 
 window.addEventListener('beforeunload', (e) => {
   if (isConnected) {
