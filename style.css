@@ -391,15 +391,18 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 ================================== */
 #mawari-game-screen {
   background-color: #f0e6d2 !important;
-  justify-content: flex-start !important; /* 画面全体を上寄せにする */
-  gap: 15px;                              /* 要素同士の縦の間隔 */
-  padding-top: 20px;                      * 上部の余白 */
+  justify-content: center !important; /* 中央寄せで均等配置 */
+  gap: 12px !important;               /* 少し隙間を詰める */
+  padding: 15px !important;
+  overflow: hidden !important;        /* スクロール絶対禁止 */
+  box-sizing: border-box;
 }
 
 .mawari-panel {
-  background: #fff; padding: 15px 20px; border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15); margin: 0 auto 15px auto; text-align: center;
-  width: min(95vw, 480px); box-sizing: border-box;
+  background: #fff; padding: 12px 15px; border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15); margin: 0 auto; text-align: center;
+  width: 100%; max-width: 480px; box-sizing: border-box;
+  flex-shrink: 0; /* 潰れ防止 */
 }
 .mawari-player-select { margin: 8px 0; font-size: 14px; }
 .mawari-btn {
@@ -412,10 +415,18 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 
 #mawari-board {
   display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
-  width: min(95vw, 480px); height: min(95vw, 480px); gap: 2px;
+  
+  /* ★ここがポイント：画面幅いっぱい、または画面高から上下パネル分(約260px)を引いた限界値の「小さい方」を採用する */
+  width: min(100%, 100dvh - 260px);
+  max-width: 480px;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  
+  gap: 2px;
   background: #8b5a2b; padding: 4px; border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.3); position: relative; margin: 0 auto;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 #mawari-center-panel {
   grid-column: 2 / 9; grid-row: 2 / 9; background: #e0c090; border-radius: 4px;
@@ -483,7 +494,8 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1.2;
 }
 #mawari-player-list {
-  margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: min(95vw, 480px); box-sizing: border-box;
+  margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; max-width: 480px; box-sizing: border-box;
+  flex-shrink: 0; /* 潰れ防止 */
 }
 .mawari-player-card {
   background: white; padding: 6px 10px; border-radius: 4px; font-size: clamp(11px, 2.8vw, 13px);
