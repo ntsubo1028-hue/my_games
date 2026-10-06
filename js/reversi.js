@@ -135,37 +135,33 @@ function applyMove(index, player, flipped) {
 function checkGameOverAndNextTurn(lastPlayer) {
   const nextPlayer = lastPlayer === 'black' ? 'white' : 'black';
   const nextValidMoves = getValidMoves(nextPlayer);
+  let passedPlayer = null; // パスしたプレイヤーを保持する変数
   
   if (nextValidMoves.length > 0) {
     currentTurnColor = nextPlayer;
   } else {
-    // 相手が置けない（＝パス）場合
     const lastPlayerValidMoves = getValidMoves(lastPlayer);
     if (lastPlayerValidMoves.length === 0) {
-      // 両者置けない場合はゲーム終了
       gameOver = true;
       playSound('win');
     } else {
-      // ★ ここでパスが発生！一時的に画面にメッセージを出す
       currentTurnColor = lastPlayer;
-      
-      // パスをプレイヤーに知らせるための演出
+      passedPlayer = nextPlayer; // パスを記録
       turnText.innerText = `${nextPlayer === 'black' ? '黒' : '白'}は置ける場所がないためパスです！`;
-      
-      // 少し待ってから通常のターン表示や同期処理に進む場合は、
-      // 処理を分けるか、setTimeout等で少しウェイトを入れると親切です。
     }
   }
 
   isMyTurn = (currentTurnColor === myColor);
   
-  if (!gameOver && nextValidMoves.length === 0 && getValidMoves(lastPlayer).length > 0) {
-    // パスの場合、メッセージを少し見せるために1秒ほど遅らせてからUIを更新するのもアリです
+  if (passedPlayer) {
+    // パスの場合、待機する前に即座にゲストへ同期する
+    if (isHostPlayer) syncStateToGuest(passedPlayer);
+    
+    // 2秒間メッセージを見せてから盤面を更新
     setTimeout(() => {
       updateBoard();
       updateUI();
-      if (isHostPlayer) syncStateToGuest();
-    }, 1000);
+    }, 2000); 
     return;
   }
 
@@ -177,12 +173,13 @@ function checkGameOverAndNextTurn(lastPlayer) {
   }
 }
 
-export function syncStateToGuest() {
+
+export function syncStateToGuest(passedPlayer = null) {
   if (isHostPlayer) {
     sendData({
       type: "STATE_SYNC",
       payload: {
-        board, currentTurnColor, gameOver, turn: currentTurnColor
+        board, currentTurnColor, gameOver, turn: currentTurnColor, passedPlayer
       }
     });
   }
@@ -190,7 +187,6 @@ export function syncStateToGuest() {
 
 export function updateGameState(payload) {
   if (!isHostPlayer) {
-    // ゲスト側：盤面の石が増えていれば、擬似的に音を鳴らす
     const oldStoneCount = board.filter(c => c !== null).length;
     const newStoneCount = payload.board.filter(c => c !== null).length;
     
@@ -203,6 +199,22 @@ export function updateGameState(payload) {
     currentTurnColor = payload.currentTurnColor;
     gameOver = payload.gameOver;
     isMyTurn = payload.turn === myColor;
+    
+    // ホストからパスの通知を受け取った場合の演出
+    if (payload.passedPlayer) {
+       const passedName = payload.passedPlayer === 'black' ? '黒' : '白';
+       turnText.innerText = `${passedName}は置ける場所がないためパスです！`;
+       
+       setTimeout(() => {
+         updateBoard();
+         updateUI();
+         if (gameOver) {
+           playSound('win');
+           btnRematch.style.display = 'inline-block';
+         }
+       }, 2000);
+       return;
+    }
     
     if (gameOver) {
        playSound('win');
