@@ -1,3 +1,7 @@
+// mawari_shogi.js
+import { sendData } from './connection.js';
+import { currentGameState } from './lobby.js';
+
 const RANKS = [
     { name: '歩', key: 'FU' },
     { name: '香', key: 'KYO' },
@@ -17,7 +21,8 @@ const BOARD_CELLS = [
 ];
 
 const START_POSITIONS = [0, 24, 16, 8]; 
-const PLAYER_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00'];
+// 統一カラー: 1P赤, 2P青, 3P緑, 4P黄
+const PLAYER_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fbc02d'];
 
 let players = [];
 let turnIndex = 0;
@@ -29,52 +34,78 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function initMawariShogi() {
     if (!isEventsRegistered) {
-        document.getElementById('mawari-btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-mawari-dice').addEventListener('click', onDiceClick);
         isEventsRegistered = true;
     }
 
-    // 初期状態にリセット
-    document.getElementById('mawari-config-panel').style.display = 'block';
-    document.getElementById('mawari-game-container').style.display = 'none';
+    const configPanel = document.getElementById('mawari-config-panel');
+    if (configPanel) configPanel.style.display = 'none';
+
+    document.getElementById('mawari-game-container').style.display = 'flex';
     document.getElementById('btn-rematch-mawari').style.display = 'none';
+    
     const boardEl = document.getElementById('mawari-board');
     boardEl.querySelectorAll('.mawari-cell').forEach(c => c.remove());
     document.getElementById('mawari-player-list').innerHTML = '';
+
+    if (currentGameState.isHost) {
+        setupGameFromLobby();
+    }
 }
 
-function startGame() {
-    const p2 = document.getElementById('mawari-p2-type').value;
-    const p3 = document.getElementById('mawari-p3-type').value;
-    const p4 = document.getElementById('mawari-p4-type').value;
-
-    const configs = [
-        { type: 'human', name: '1P' },
-        { type: p2, name: '2P' },
-        { type: p3, name: '3P' },
-        { type: p4, name: '4P' }
-    ];
-
+function setupGameFromLobby() {
     players = [];
-    configs.forEach((cfg, idx) => {
-        if (cfg.type !== 'none') {
+    currentGameState.slots.forEach((slot, idx) => {
+        if (slot.type !== 'none') {
             players.push({
-                id: idx, name: cfg.name, type: cfg.type,
-                pos: START_POSITIONS[idx], startPos: START_POSITIONS[idx],
-                rankIdx: 0, color: PLAYER_COLORS[idx]
+                id: idx,
+                slotId: slot.slotId,
+                name: `${slot.slotId + 1}P (${slot.name})`,
+                type: slot.type,
+                connId: slot.connId,
+                pos: START_POSITIONS[idx],
+                startPos: START_POSITIONS[idx],
+                rankIdx: 0,
+                color: PLAYER_COLORS[idx]
             });
         }
     });
-
-    document.getElementById('mawari-config-panel').style.display = 'none';
-    document.getElementById('mawari-game-container').style.display = 'flex';
 
     buildBoardUI();
     turnIndex = 0;
     gameOver = false;
     isRolling = false;
-    updateUI();
 
+    syncStateToAll();
+    updateUI();
     checkComTurn();
+}
+
+export function syncStateToAll() {
+    if (!currentGameState.isHost) return;
+    sendData({
+        type: "MAWARI_STATE_SYNC",
+        payload: {
+            players: players,
+            turnIndex: turnIndex,
+            gameOver: gameOver,
+            isRolling: isRolling
+        }
+    });
+}
+
+export function updateMawariGameState(payload) {
+    players = payload.players;
+    turnIndex = payload.turnIndex;
+    gameOver = payload.gameOver;
+    isRolling = payload.isRolling;
+
+    const boardEl = document.getElementById('mawari-board');
+    if (boardEl.querySelectorAll('.mawari-cell').length === 0) {
+        buildBoardUI();
+    }
+    renderPieces();
+    updateUI();
 }
 
 function buildBoardUI() {
@@ -143,9 +174,23 @@ function renderPieces() {
         const card = document.createElement('div');
         card.className = 'mawari-player-card' + (idx === turnIndex ? ' active' : '');
         card.style.borderLeftColor = p.color;
-        card.innerText = `${p.name} (${p.type.toUpperCase()}): ${RANKS[p.rankIdx].name}`;
+        card.innerText = `${p.name}: ${RANKS[p.rankIdx].name}`;
         listEl.appendChild(card);
     });
+}
+
+function onDiceClick() {
+    if (currentGameState.isHost) {
+        handleRoll();
+    } else {
+        sendData({ type: "MAWARI_ACTION_ROLL" });
+    }
+}
+
+export function processMawariAction(data) {
+    if (data.type === "MAWARI_ACTION_ROLL" && currentGameState.isHost) {
+        handleRoll();
+    }
 }
 
 function rollKomaLogic() {
@@ -184,6 +229,8 @@ async function handleRoll() {
     if (isRolling || gameOver) return;
     const p = players[turnIndex];
     isRolling = true;
+    if (currentGameState.isHost) syncStateToAll();
+
     document.getElementById('btn-mawari-dice').disabled = true;
 
     const komaEls = document.querySelectorAll('.mawari-koma');
@@ -206,11 +253,11 @@ async function handleRoll() {
     if (hasWon) {
         gameOver = true;
         document.getElementById('mawari-turn-badge').innerText = `🏆 ${p.name} の勝利！`;
-        // ★ここで「もう一度遊ぶ」ボタンを表示する
         const rematchBtn = document.getElementById('btn-rematch-mawari');
-        if (rematchBtn) {
+        if (rematchBtn && currentGameState.isHost) {
             rematchBtn.style.display = 'block';
         }        
+        if (currentGameState.isHost) syncStateToAll();
         await sleep(200); 
         alert(`🎉 おめでとうございます！${p.name} が上がり達成で勝利しました！`);
         return;
@@ -221,6 +268,7 @@ async function handleRoll() {
 
     if (result.extraTurn && !gameOver) {
         document.getElementById('mawari-log-text').innerText += " ⭐もう一度！";
+        if (currentGameState.isHost) syncStateToAll();
         updateUI();
         checkComTurn();
     } else {
@@ -274,10 +322,12 @@ async function movePlayerStepByStep(player, steps) {
 async function showShokakuEffect(oldRank, newRank, reason = "昇級達成") {
     const overlay = document.getElementById('mawari-shokaku-overlay');
     const detail = document.getElementById('mawari-shokaku-detail');
-    detail.innerText = `${reason} (${oldRank} ➔ ${newRank})`;
-    overlay.style.display = 'block';
-    await sleep(1200);
-    overlay.style.display = 'none';
+    if (overlay && detail) {
+        detail.innerText = `${reason} (${oldRank} ➔ ${newRank})`;
+        overlay.style.display = 'block';
+        await sleep(1200);
+        overlay.style.display = 'none';
+    }
 }
 
 async function checkOverlap(currentPlayer) {
@@ -296,20 +346,26 @@ async function checkOverlap(currentPlayer) {
 
 function nextTurn() {
     turnIndex = (turnIndex + 1) % players.length;
+    if (currentGameState.isHost) syncStateToAll();
     updateUI();
     checkComTurn();
 }
 
 function updateUI() {
+    if (players.length === 0) return;
     const p = players[turnIndex];
     const badge = document.getElementById('mawari-turn-badge');
     badge.innerText = `ターン: ${p.name} (${RANKS[p.rankIdx].name})`;
     badge.style.backgroundColor = p.color;
-    document.getElementById('btn-mawari-dice').disabled = (p.type === 'com' || isRolling || gameOver);
+
+    const isMyTurn = (p.connId === currentGameState.myConnId) || (p.type === 'host' && currentGameState.isHost);
+    document.getElementById('btn-mawari-dice').disabled = (!isMyTurn || isRolling || gameOver || p.type === 'com');
+    
     renderPieces();
 }
 
 function checkComTurn() {
+    if (!currentGameState.isHost) return;
     const p = players[turnIndex];
     if (p && p.type === 'com' && !gameOver) {
         setTimeout(() => handleRoll(), 1200);
@@ -320,5 +376,4 @@ export function stopMawariShogi() {
     gameOver = true; 
 }
 
-// main.js から呼び出せるようにエクスポート
 export const rollMawariDice = handleRoll;

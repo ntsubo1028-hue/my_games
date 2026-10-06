@@ -351,8 +351,11 @@ export function removeGuestConnection(guestId) {
 // ロビーの状態を初期化する関数
 export function resetLobby() {
   currentGameState.gameKey = null;
+  currentGameState.isHost = false;
+  currentGameState.myConnId = 'host';
   currentGameState.slots = [];
   currentGameState.targetSlotCount = 2;
+  
   // ゲスト接続状態をリセット
   for (let key in guestConnections) {
     delete guestConnections[key];

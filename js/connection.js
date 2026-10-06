@@ -90,8 +90,8 @@ function runScanner(onCameraStart, onScanDone) {
       indicator.style.display = (i <= QR_PARTS_COUNT) ? 'inline' : 'none';
       if (i === 1) indicator.innerText = "⬜ 🔴赤";
       if (i === 2) indicator.innerText = "⬜ 🔵青";
-      if (i === 3) indicator.innerText = "⬜ 🟡黄";
-      if (i === 4) indicator.innerText = "⬜ 🟢緑";
+      if (i === 3) indicator.innerText = "⬜ 🟢緑";
+      if (i === 4) indicator.innerText = "⬜ 🟡黄";
     }
   }
 
@@ -123,8 +123,8 @@ function processScannedData(text, onScanDone) {
           const indicator = document.getElementById(`indicator-${partNum}`);
           if (partNum === 1) indicator.innerText = "✅ 🔴赤";
           if (partNum === 2) indicator.innerText = "✅ 🔵青";
-          if (partNum === 3) indicator.innerText = "✅ 🟡黄";
-          if (partNum === 4) indicator.innerText = "✅ 🟢緑";
+          if (partNum === 3) indicator.innerText = "✅ 🟢緑";
+          if (partNum === 4) indicator.innerText = "✅ 🟡黄";
 
           let allScanned = true;
           for (let i = 1; i <= QR_PARTS_COUNT; i++) if (!scannedParts[i]) allScanned = false;

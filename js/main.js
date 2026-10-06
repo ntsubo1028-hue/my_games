@@ -18,8 +18,8 @@ import { initGame as initConcentrationGame, processAction as processConcentratio
 import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as processMineAction, updateGameState as updateMineGameState, syncStateToGuest as syncMineStateToGuest, requestRematch as requestMineRematch } from './minesweeper.js';
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
 import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
-import { initMawariShogi, stopMawariShogi, rollMawariDice } from './mawari_shogi.js';
-import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby } from './lobby.js';
+import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, updateMawariGameState } from './mawari_shogi.js';
+import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI} from './lobby.js';
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
 }
@@ -134,17 +134,14 @@ document.getElementById('btn-lobby-add-guest').onclick = () => {
 document.getElementById('btn-quit-lobby').onclick = () => {
   const msg = isHost ? "ロビーを解散して通信を切断し、メニューに戻りますか？" : "ロビーから退出してメニューに戻りますか？";
   if (confirm(msg)) {
-    // 既存の通信切断処理があれば呼び出す
-    if (typeof disconnectConnection === 'function') {
-      disconnectConnection(); 
-    }
-    
-    // ★ ゲスト残留バグの修正：ロビー状態を完全にリセット
     resetLobby();
-    isConnected = false;
     currentGuestCount = 0;
     
-    showScreen('menu-screen'); 
+    if (isConnected) {
+      disconnectConnection(); // disconnectConnection 内で showScreen('menu-screen') が実行されます
+    } else {
+      showScreen('menu-screen');
+    }
   }
 };
 
@@ -226,7 +223,7 @@ function showGameScreenForHost(game) {
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
   else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
-  else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(); }
+  else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(true); }
 }
 
 function resetConnectionUI() {
@@ -562,6 +559,24 @@ setOnMessage((data, sourceId) => {
     return;
   }
 
+  if (data.type === "DISCONNECT") {
+    if (!isHost) {
+      // ゲストの場合：ホストがロビーを解散した
+      alert("ホストによってロビーが解散されました。");
+      resetLobby();
+      isConnected = false;
+      setStampButtonVisible(false);
+      initConnection();
+      showScreen('menu-screen');
+    } else {
+      // ホストの場合：ゲストが自主退出した
+      if (sourceId) {
+        removeGuestConnection(sourceId);
+      }
+    }
+    return;
+  }
+
   // 枠削減による退出通知
   if (data.type === "KICKED_FROM_LOBBY") {
     if (!isHost && currentGameState.myConnId === data.payload.targetConnId) {
@@ -571,12 +586,12 @@ setOnMessage((data, sourceId) => {
     return;
   }
 
-  // ★【追加】どちらかがゲームを終了してロビーに戻ったときの共通処理（ここに一本化）
+  // ★どちらかがゲームを終了してロビーに戻ったときの共通処理
   if (data.type === "QUIT_TO_LOBBY") {
     setStampButtonVisible(false);
     showScreen('lobby-screen');
     if (isHost) {
-      // ★修正：ホストが通知を受け取ったら、他のゲスト全員にも転送し、ロビー状態を同期する
+      // ★ホストが通知を受け取ったら、他のゲスト全員にも転送し、ロビー状態を同期する
       sendData({ type: "QUIT_TO_LOBBY" });
       broadcastLobbyState();
     }
@@ -584,6 +599,7 @@ setOnMessage((data, sourceId) => {
   }  
 
   if (data.type === "LOBBY_GAME_START") {
+    setStampButtonVisible(true); 
     selectedGame = data.payload.game;
     alert("ホストがゲームを開始しました！");
     if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
@@ -592,7 +608,7 @@ setOnMessage((data, sourceId) => {
     else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
     else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
     else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
-    else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(); }
+    else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
     return;
   }
 
@@ -628,6 +644,13 @@ setOnMessage((data, sourceId) => {
     else if (isHost && data.type === "ACTION_REMATCH_SHOGI") { initShogiGame(true); syncShogiStateToGuest(); }
     else if (!isHost && data.type === "STATE_SYNC_SHOGI") updateShogiGameState(data.payload);
   }
+  if (selectedGame === 'mawari') {
+    if (data.type === "MAWARI_ACTION_ROLL") {
+      processMawariAction(data);
+    } else if (data.type === "MAWARI_STATE_SYNC") {
+      updateMawariGameState(data.payload);
+    }
+  }
 });
 
 document.getElementById('btn-play-block_drop').onclick = () => { 
@@ -656,16 +679,21 @@ document.getElementById('btn-quit-mine').onclick = () => {
 };
 document.getElementById('btn-rematch-mine').onclick = () => requestMineRematch();
 
-document.getElementById('btn-play-mawari').onclick = () => {
-  setStampButtonVisible(false);
-  showScreen('mawari-game-screen');
-  initMawariShogi();
-};
-
 document.getElementById('btn-quit-mawari').onclick = () => {
-  if (confirm("ゲームを終了してメニューに戻りますか？")) {
+  if (confirm("ゲームを終了してロビーに戻りますか？")) {
     stopMawariShogi();
-    showScreen('menu-screen');
+    setStampButtonVisible(false);
+    
+    // 相手にもロビーに戻るよう通知する
+    if (isConnected) {
+      sendData({ type: "QUIT_TO_LOBBY" });
+    }
+    
+    showScreen('lobby-screen');
+    
+    if (isHost) {
+      broadcastLobbyState();
+    }
   }
 };
 
