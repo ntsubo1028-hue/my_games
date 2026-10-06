@@ -7,7 +7,8 @@ import {
   cancelScan, 
   initConnection, 
   setOnMessage,
-  sendData
+  sendData,
+  removeConnection
 } from './connection.js';
 
 import { initGame, processAction, updateGameState, syncStateToGuest, requestRematch } from './reversi.js';
@@ -18,12 +19,25 @@ import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as p
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
 import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
 import { initMawariShogi, stopMawariShogi, rollMawariDice } from './mawari_shogi.js';
-
+import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby } from './lobby.js';
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
 }
+
 function decodeSdp(str) {
-  return JSON.parse(LZString.decompressFromBase64(str));
+  if (!str) return {};
+  try {
+    const decompressed = LZString.decompressFromBase64(str);
+    if (decompressed) {
+      return JSON.parse(decompressed);
+    }
+  } catch (e) {}
+  
+  try {
+    return JSON.parse(str);
+  } catch (e) {}
+
+  return { sdp: str, type: 'answer' };
 }
 
 let isHost = false;
@@ -31,9 +45,9 @@ let selectedGame = 'reversi';
 let localConnectionDataStr = ""; 
 let isConnected = false; 
 
-// ==========================================
-// ★ スタンプ・コミュニケーション機能 ★
-// ==========================================
+let currentGuestCount = 0;
+let pendingGuestId = null;
+
 const STAMPS = {
   greeting: { icon: '🤝', text: 'よろしく！' },
   thanks: { icon: '☕', text: 'お疲れ様！' },
@@ -110,6 +124,43 @@ function initStampSystem() {
   });
 }
 
+document.getElementById('btn-lobby-add-guest').onclick = () => {
+  currentGuestCount++;
+  pendingGuestId = `guest-${currentGuestCount}`;
+  startHostConnectionFlow(pendingGuestId);
+};
+
+// 【修正】解散・退出ボタンの処理（通信切断と状態リセット）
+document.getElementById('btn-quit-lobby').onclick = () => {
+  const msg = isHost ? "ロビーを解散して通信を切断し、メニューに戻りますか？" : "ロビーから退出してメニューに戻りますか？";
+  if (confirm(msg)) {
+    // 既存の通信切断処理があれば呼び出す
+    if (typeof disconnectConnection === 'function') {
+      disconnectConnection(); 
+    }
+    
+    // ★ ゲスト残留バグの修正：ロビー状態を完全にリセット
+    resetLobby();
+    isConnected = false;
+    currentGuestCount = 0;
+    
+    showScreen('menu-screen'); 
+  }
+};
+
+// ★ 【追加】ゲームを変更するボタンの処理
+document.getElementById('btn-lobby-change-game').onclick = () => {
+  // 通信とゲスト状態を維持したまま、ホストのゲーム選択画面へ戻る
+  showScreen('host-game-select-screen');
+};
+
+document.getElementById('btn-lobby-start').onclick = () => {
+  if (isConnected) {
+    sendData({ type: "LOBBY_GAME_START", payload: { game: selectedGame } });
+  }
+  showGameScreenForHost(selectedGame);
+};
+
 function showStampPopup(isMe, stampId) {
   const stamp = STAMPS[stampId];
   if (!stamp) return;
@@ -131,10 +182,7 @@ function setStampButtonVisible(visible) {
   });
 }
 
-// 実行
 initStampSystem();
-// ==========================================
-
 
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
@@ -149,7 +197,7 @@ document.getElementById('btn-goto-host-select').onclick = () => {
 document.getElementById('btn-back-main').onclick = () => { showScreen('menu-screen'); };
 document.getElementById('btn-guest').onclick = () => { isHost = false; startGuestScanFlow(); };
 document.getElementById('btn-play-solo-mine').onclick = () => { 
-  setStampButtonVisible(false); // 一人用はスタンプ非表示
+  setStampButtonVisible(false); 
   showScreen('minesweeper-game-screen'); 
   initSoloGame(); 
 };
@@ -160,20 +208,16 @@ document.getElementById('btn-select-concentration').onclick = () => { selectGame
 document.getElementById('btn-select-minesweeper').onclick = () => { selectGameFlow('minesweeper'); };
 document.getElementById('btn-select-airhockey').onclick = () => { selectGameFlow('airhockey'); };
 document.getElementById('btn-select-shogi').onclick = () => { selectGameFlow('shogi'); };
+document.getElementById('btn-select-mawari').onclick = () => { selectGameFlow('mawari'); };
 
 function selectGameFlow(game) {
   selectedGame = game;
-  if (isConnected) { 
-    sendData({ type: "CHANGE_GAME", payload: { game: game } });
-    showGameScreenForHost(game);
-  } else {
-    isHost = true;
-    startHostConnectionFlow();
-  }
+  isHost = true;
+  showScreen('lobby-screen');
+  initLobby(game, true); 
 }
 
 function showGameScreenForHost(game) {
-  // ★ 修正箇所：メニューから戻ってきた際など、ホストがゲームに入る時は必ず表示をONにする
   setStampButtonVisible(true);
 
   if (game === 'reversi') { showScreen('game-screen'); initGame(true); syncStateToGuest(); }
@@ -182,6 +226,7 @@ function showGameScreenForHost(game) {
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
   else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
+  else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(); }
 }
 
 function resetConnectionUI() {
@@ -195,18 +240,21 @@ function resetConnectionUI() {
   document.getElementById('step-text-input-area').style.display = 'none';
 }
 
-async function startHostConnectionFlow() {
+async function startHostConnectionFlow(guestId) {
   showScreen('connection-screen');
-  document.getElementById('conn-title').innerText = "ホスト接続の準備";
+  document.getElementById('conn-title').innerText = "ゲスト接続の準備";
   document.getElementById('conn-status').innerText = "接続情報を準備しています...";
   resetConnectionUI();
 
   try {
-    const localDesc = await setupHostConnection(() => {
+    const localDesc = await setupHostConnection(guestId, (connectedId) => {
       isConnected = true; 
-      showGameScreenForHost(selectedGame);
+      alert(`ゲストと接続しました！`);
+      showScreen('lobby-screen');
+      addGuestConnection(connectedId, `ゲスト ${currentGuestCount}`);
     });
-    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
+
+    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame, targetId: guestId });
 
     document.getElementById('conn-status').innerText = "自分の情報をどうやって相手に伝えますか？";
 
@@ -218,7 +266,7 @@ async function startHostConnectionFlow() {
     document.getElementById('btn-host-output-qr').onclick = () => {
       hostChooseOutput.style.display = 'none';
       document.getElementById('qr-container').style.display = 'flex';
-      generateMultiPartQR('conn-status', localDesc, selectedGame);
+      generateMultiPartQR('conn-status', localDesc, selectedGame, guestId);
       showDoneButton();
     };
 
@@ -248,8 +296,8 @@ async function startHostConnectionFlow() {
         hostChooseInput.style.display = 'none';
         startMultiPartScan(
           async (answerObj) => { 
-            await handleGuestAnswer(answerObj); 
-            document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+            await handleGuestAnswer(guestId, answerObj); 
+            document.getElementById('conn-status').innerText = "接続完了！ロビーに戻ります...";
           },
           () => showScreen('camera-screen'),
           () => showScreen('connection-screen')
@@ -275,10 +323,11 @@ async function startHostConnectionFlow() {
       setTimeout(async () => {
         try {
           const answerObj = decodeSdp(pasted);
-          await handleGuestAnswer(answerObj);
-          document.getElementById('conn-status').innerText = "接続完了！ゲームを開始します...";
+          await handleGuestAnswer(guestId, answerObj);
+          document.getElementById('conn-status').innerText = "接続完了！ロビーに戻ります...";
         } catch (e) {
-          alert("無効なテキストです。");
+          console.error("ホスト側テキスト接続エラー:", e);
+          alert("エラーが発生しました！\n詳細: " + e.message);
           document.getElementById('step-text-input-area').style.display = 'block';
           document.getElementById('conn-status').innerText = "相手からの返信情報を入力してください";
         }
@@ -305,19 +354,19 @@ function startGuestScanFlow() {
 
   const processHostOffer = async (scanResult) => {
     try {
-      const offerObj = { type: scanResult.type, sdp: scanResult.sdp };
-      selectedGame = scanResult.gameType;
+      const offerObj = { type: scanResult.type || scanResult.t, sdp: scanResult.sdp || scanResult.s };
+      selectedGame = scanResult.gameType || scanResult.g;
+      const targetGuestId = scanResult.targetId || scanResult.id || 'guest-1';
+      
+      setMyConnId(targetGuestId); // ゲスト側で自身のIDを設定
+
       document.getElementById('conn-status').innerText = "ホストへの返信を生成中...";
 
       const localDesc = await setupGuestConnection(offerObj, () => {
         isConnected = true;
         setStampButtonVisible(true);
-        if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
-        else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
-        else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
-        else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
-        else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey();}
-        else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
+        initLobby(selectedGame, false);
+        showScreen('lobby-screen');
       });
 
       localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
@@ -381,7 +430,8 @@ function startGuestScanFlow() {
         const scanResult = decodeSdp(pasted);
         await processHostOffer(scanResult);
       } catch (e) {
-        alert("無効なテキストです。");
+        console.error("ゲスト側テキスト接続エラー:", e);
+        alert("エラーが発生しました！\n詳細: " + e.message);
         document.getElementById('step-text-input-area').style.display = 'block';
         document.getElementById('conn-status').innerText = "ホストの情報をどうやって入力するか選んでください";
       }
@@ -429,9 +479,13 @@ document.getElementById('btn-cancel-output-qr').onclick = cancelOutputSelection;
 document.getElementById('btn-cancel-output-text').onclick = cancelOutputSelection;
 
 document.getElementById('btn-back-select').onclick = () => {
-  initConnection();
-  if (isHost) showScreen('host-game-select-screen');
-  else showScreen('menu-screen');
+  if (isHost) {
+    if (pendingGuestId) removeConnection(pendingGuestId);
+    showScreen('lobby-screen');
+  } else {
+    initConnection();
+    showScreen('menu-screen');
+  }
 };
 
 function disconnectConnection() {
@@ -450,23 +504,22 @@ const handleDisconnectClick = () => {
 document.getElementById('btn-disconnect-host').onclick = handleDisconnectClick;
 document.getElementById('btn-disconnect-guest').onclick = handleDisconnectClick;
 
+// 【修正】どちらかが抜けたら全員ロビーに戻る共通処理
 const handleQuitGame = () => {
-  if (!confirm("ゲームを終了してメニューに戻りますか？")) return;
+  if (!confirm("ゲームを終了してロビーに戻りますか？")) return;
   setStampButtonVisible(false);
 
+  // 接続中であれば相手（または全員）にロビーへ戻る通知を送る
+  if (isConnected) {
+    sendData({ type: "QUIT_TO_LOBBY" });
+  }
+
+  showScreen('lobby-screen');
+  
+  // ホストの場合はロビーの表示を更新して再ブロードキャスト
   if (isHost) {
-    if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
-    showScreen('host-game-select-screen');
-    document.getElementById('btn-back-main').style.display = 'none';
-    document.getElementById('btn-disconnect-host').style.display = 'inline-block';
-  } else {
-    if (isConnected) sendData({ type: "GUEST_QUIT_TO_MENU" });
-    showScreen('connection-screen');
-    document.getElementById('conn-title').innerText = "ホストの選択待ち";
-    document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    resetConnectionUI();
-    document.getElementById('btn-back-select').style.display = 'none';
-    document.getElementById('btn-disconnect-guest').style.display = 'block';
+    renderLobbyUI();
+    broadcastLobbyState();
   }
 };
 
@@ -474,38 +527,26 @@ document.getElementById('btn-quit-game').onclick = handleQuitGame;
 document.getElementById('btn-quit-dots').onclick = handleQuitGame;
 document.getElementById('btn-quit-concentration').onclick = handleQuitGame;
 document.getElementById('btn-quit-shogi').onclick = handleQuitGame;
+
+// エアホッケーの独自終了処理も同様に共通化
 document.getElementById('btn-quit-airhockey').onclick = () => { 
-  // 1. ゲームループを一旦停止
   stopAirHockey();
-
-  // 2. ほんの少し遅延させて confirm ダイアログを表示
   setTimeout(() => {
-    if (confirm("ゲームを終了してメニューに戻りますか？")) {
-      // 「OK」の場合：メニューへ戻る処理を実行
+    if (confirm("ゲームを終了してロビーに戻りますか？")) {
       setStampButtonVisible(false);
-
+      if (isConnected) {
+        sendData({ type: "QUIT_TO_LOBBY" });
+      }
+      showScreen('lobby-screen');
       if (isHost) {
-        if (isConnected) sendData({ type: "HOST_QUIT_TO_MENU" });
-        showScreen('host-game-select-screen');
-        document.getElementById('btn-back-main').style.display = 'none';
-        document.getElementById('btn-disconnect-host').style.display = 'inline-block';
-      } else {
-        if (isConnected) sendData({ type: "GUEST_QUIT_TO_MENU" });
-        showScreen('connection-screen');
-        document.getElementById('conn-title').innerText = "ホストの選択待ち";
-        document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-        resetConnectionUI();
-        document.getElementById('btn-back-select').style.display = 'none';
-        document.getElementById('btn-disconnect-guest').style.display = 'block';
+        renderLobbyUI();
+        broadcastLobbyState();
       }
     } else {
-      // 「キャンセル」の場合：エアホッケーを確実に再開
       resumeAirHockey();
     }
   }, 50);
 };
-
-
 
 document.getElementById('btn-rematch-reversi').onclick = () => requestRematch();
 document.getElementById('btn-rematch-dots').onclick = () => requestRematchDots();
@@ -514,52 +555,49 @@ document.getElementById('btn-rematch-airhockey').onclick = () => { sendData({ ty
 document.getElementById('btn-rematch-shogi').onclick = () => requestShogiRematch();
 document.getElementById('btn-rematch-mawari').onclick = () => initMawariShogi();
 
-setOnMessage((data) => {
-  if (data.type === "STAMP") {
-    showStampPopup(false, data.payload.stampId);
+// メッセージ受信ハンドラ
+setOnMessage((data, sourceId) => {
+  if (data.type === "LOBBY_STATE_SYNC") {
+    updateLobbyStateFromHost(data.payload);
     return;
   }
 
-  if (data.type === "DISCONNECT") {
-    alert("相手が通信を切断しました。");
-    isConnected = false;
-    setStampButtonVisible(false);
-    initConnection();
-    showScreen('menu-screen');
-    return;
-  }
-
-  if (data.type === "HOST_QUIT_TO_MENU") {
-    setStampButtonVisible(false);
-    showScreen('connection-screen');
-    document.getElementById('conn-title').innerText = "ホストの選択待ち";
-    document.getElementById('conn-status').innerText = "ホストが次のゲームを選んでいます...";
-    resetConnectionUI();
-    document.getElementById('btn-back-select').style.display = 'none';
-    document.getElementById('btn-disconnect-guest').style.display = 'block';
-    return;
-  }
-
-  if (data.type === "GUEST_QUIT_TO_MENU") {
-    if (isHost) {
-      alert("ゲストがゲームを終了しました。");
-      setStampButtonVisible(false);
-      showScreen('host-game-select-screen');
-      document.getElementById('btn-back-main').style.display = 'none';
-      document.getElementById('btn-disconnect-host').style.display = 'inline-block';
+  // 枠削減による退出通知
+  if (data.type === "KICKED_FROM_LOBBY") {
+    if (!isHost && currentGameState.myConnId === data.payload.targetConnId) {
+      alert("参加枠が減らされたため、ロビーから退出しました。");
+      disconnectConnection();
     }
     return;
   }
 
-  if (data.type === "CHANGE_GAME") {
+  // ★【追加】どちらかがゲームを終了してロビーに戻ったときの共通処理（ここに一本化）
+  if (data.type === "QUIT_TO_LOBBY") {
+    setStampButtonVisible(false);
+    showScreen('lobby-screen');
+    if (isHost) {
+      // ★修正：ホストが通知を受け取ったら、他のゲスト全員にも転送し、ロビー状態を同期する
+      sendData({ type: "QUIT_TO_LOBBY" });
+      broadcastLobbyState();
+    }
+    return;
+  }  
+
+  if (data.type === "LOBBY_GAME_START") {
     selectedGame = data.payload.game;
-    setStampButtonVisible(true);
+    alert("ホストがゲームを開始しました！");
     if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
     else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
     else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
     else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
     else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
     else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
+    else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(); }
+    return;
+  }
+
+  if (data.type === "STAMP") {
+    showStampPopup(false, data.payload.stampId);
     return;
   }
 
@@ -590,7 +628,6 @@ setOnMessage((data) => {
     else if (isHost && data.type === "ACTION_REMATCH_SHOGI") { initShogiGame(true); syncShogiStateToGuest(); }
     else if (!isHost && data.type === "STATE_SYNC_SHOGI") updateShogiGameState(data.payload);
   }
-  
 });
 
 document.getElementById('btn-play-block_drop').onclick = () => { 

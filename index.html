@@ -73,10 +73,44 @@
       <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (1対1)</button>
       <button id="btn-select-airhockey" class="btn-action" style="background-color: #9c27b0;">🏑 エアホッケー (1対1)</button>
       <button id="btn-select-shogi" class="btn-action" style="background-color: #795548;">☖ 将棋 (1対1)</button>
+      <button id="btn-select-mawari" class="btn-action" style="background-color: #8d6e63;">🎲 回り将棋 (2〜4人)</button>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
       <button id="btn-back-main" class="btn-action secondary-btn">◀ メニューに戻る</button>
       <button id="btn-disconnect-host" class="btn-action" style="background-color: #d32f2f; display: none;">🛑 通信を切断してメニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ==================================
+       ロビー画面
+  ================================== -->
+  <div id="lobby-screen" class="screen scrollable-screen">
+    <div class="secret-badge">Lobby</div>
+    <h2 id="lobby-game-title">ゲーム名</h2>
+    
+    <div class="info-board" style="background: #e3f2fd; color: #0d47a1; margin-bottom: 15px; font-size: 14px; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 15px;">
+      <div id="lobby-player-count-display" style="font-weight: bold;">現在の参加人数: 1人</div>
+      <div id="lobby-my-id-display" style="font-weight: bold; color: #2e7d32;">あなたの順番: 1P (ホスト)</div>
+      <div style="font-size: 12px; color: #555; margin-top: 4px;">メンバーが集まったら開始できます。空いている席にはCOMを入れることができます。</div>
+    </div>
+
+    <!-- プレイヤースロット -->
+    <div id="lobby-slots-container" style="width: 100%; max-width: 400px; margin: 0 auto;">
+      <!-- JSで動的生成 -->
+    </div>
+
+    <!-- 観戦者リスト -->
+    <div id="lobby-spectators-container" style="display:none; width: 100%; max-width: 400px; margin: 10px auto; background: #fff3e0; padding: 10px; border-radius: 6px; box-sizing: border-box;">
+      <h3 style="margin-top: 0; font-size: 14px; color: #e65100;">👀 観戦者 (順番待ち)</h3>
+      <ul id="lobby-spectators-list" style="margin: 0; padding-left: 20px; font-size: 14px; color: #333;"></ul>
+    </div>
+
+    <div class="button-group-col" style="margin-top: 25px;">
+      <button id="btn-lobby-add-guest" class="btn-action" style="background-color: #2196f3;">📡 通信してゲストを呼ぶ</button>
+      <button id="btn-lobby-start" class="btn-action" style="background-color: #4caf50;">🎮 ゲームスタート</button>
+      <!-- ★ 追加：ゲーム変更ボタン（初期状態は非表示） -->
+      <button id="btn-lobby-change-game" class="btn-action" style="background-color: #ff9800; display: none;">🔄 ゲームを変更する</button>
+      <button id="btn-quit-lobby" class="btn-action secondary-btn">解散してメニューに戻る</button>
     </div>
   </div>
 
@@ -195,7 +229,8 @@
 
   <!-- ゲーム本体画面 (ドット＆ボックス) -->
   <div id="dots-game-screen" class="screen">
-    <button type="button" onclick="openHelp('help-dots.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>    <h2 id="dots-turn-text">通信待機中...</h2>
+    <button type="button" onclick="openHelp('help-dots.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
+    <h2 id="dots-turn-text">通信待機中...</h2>
     <div id="dots-score-board" class="info-board">
       <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
@@ -255,7 +290,7 @@
     </div>
     
     <div class="block_drop-guide step-container" style="padding: 10px; font-size: clamp(10px, 2vw, 12px); color: #333; margin-bottom: 10px;">
-      <p style="margin: 2px 0;">🖱️ <b>PC:</b> 左右/下キー, <b>C/Shiftキー(HOLD)</b>, クリック:落下, 右クリック:回転</p>
+      <p style="margin: 2px 0;">🖱 <b>PC:</b> 左右/下キー, <b>C/Shiftキー(HOLD)</b>, クリック:落下, 右クリック:回転</p>
       <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ, <b>上スワイプ(HOLD)</b>, タップ:回転, Wタップ:落下</p>
     </div>
     
@@ -337,24 +372,18 @@
     <button type="button" onclick="openHelp('help-shogi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <h2 id="shogi-turn-text">通信待機中...</h2>
     
-    <!-- ★ 持ち駒と盤面を左右に並べるラッパー ★ -->
     <div class="shogi-layout-wrapper">
-      
-      <!-- 左：相手の持ち駒 -->
       <div id="shogi-captured-top" class="shogi-captured-side">
         相手持ち駒: なし
       </div>
 
-      <!-- 中央：盤面 -->
       <div class="game-board-container shogi-board-container">
         <div id="shogi-board"></div>
       </div>
 
-      <!-- 右：自分の持ち駒 -->
       <div id="shogi-captured-bottom" class="shogi-captured-side">
         自分持ち駒: なし
       </div>
-
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
@@ -363,23 +392,20 @@
       <button id="btn-quit-shogi" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
 
-    <!-- ★ 演出用テロップ（王手・勝敗） ★ -->
     <div id="shogi-effect-overlay" style="display: none;">
       <div id="shogi-effect-text"></div>
     </div>
   </div>
 
-<!-- ==================================
+  <!-- ==================================
        ゲーム本体画面 (回り将棋)
   ================================== -->
   <div id="mawari-game-screen" class="screen" style="background: #f0e6d2; box-sizing: border-box; padding-bottom: 30px; overflow-y: auto;">
     
-    <!-- ヘッダー（タイトル ＆ メニューへボタン） -->
     <div style="max-width: 480px; margin: 0 auto; padding: 15px 10px 5px 10px; display: flex; justify-content: space-between; align-items: center;">
       <h2 style="margin: 0 auto; color: #333; font-size: clamp(20px, 5vw, 24px); text-align: center; text-shadow: 1px 1px 0 rgba(255,255,255,0.6);">🎲 回り将棋</h2>
     </div>
 
-    <!-- 設定パネル -->
     <div id="mawari-config-panel" class="mawari-panel" style="margin-top: 10px;">
       <h3>プレイヤー設定</h3>
       <div class="mawari-player-select">1P (赤 / 左下): <strong>人間</strong></div>
@@ -410,16 +436,13 @@
       <button id="mawari-btn-start" class="mawari-btn">ゲーム開始</button>
     </div>
 
-    <!-- ゲーム領域 -->
     <div id="mawari-game-container" style="display: none; flex-direction: column; align-items: center; position: relative; width: 100%; margin-top: 5px;">
-      <!-- 昇格演出用テロップ -->
       <div id="mawari-shokaku-overlay">
         <div id="mawari-shokaku-text">昇 級 ！</div>
         <div id="mawari-shokaku-detail">歩 ➔ 香</div>
       </div>
 
       <div id="mawari-board">
-        <!-- 中央パネル -->
         <div id="mawari-center-panel">
           <div id="mawari-turn-badge">1P (赤) の番です</div>
 
@@ -434,10 +457,8 @@
 
           <button id="btn-mawari-dice" class="mawari-btn">金を振る！</button>
         </div>
-        <!-- 32マスはJSで動的生成 -->
       </div>
 
-      <!-- プレイヤー状態一覧 -->
       <div id="mawari-player-list"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
@@ -458,7 +479,6 @@
   </div>
 
   <script>
-    // ヘルプファイル読み込み処理
     async function openHelp(filename) {
       const modal = document.getElementById('help-modal');
       const helpBody = document.getElementById('help-body');
@@ -477,12 +497,10 @@
       }
     }
 
-    // ヘルプモーダルを閉じる処理
     function closeHelp() {
       document.getElementById('help-modal').style.display = 'none';
     }
 
-    // 背景の黒い部分をクリックした際にも閉じるようにする
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('help-modal').addEventListener('click', (e) => {
         if (e.target.id === 'help-modal') {
