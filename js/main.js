@@ -152,6 +152,14 @@ document.getElementById('btn-lobby-change-game').onclick = () => {
 };
 
 document.getElementById('btn-lobby-start').onclick = () => {
+  // 追加：ホスト以外の対戦相手（ゲストまたはCOM）がいるかチェック
+  const hasOpponent = currentGameState.slots.some(slot => slot.type === 'guest' || slot.type === 'com');
+  
+  if (!hasOpponent) {
+    console.log("対戦相手がいないためスタートできません");
+    return; // 相手がいない場合はここで処理を中断し、ゲームを開始しない
+  }
+
   if (isConnected) {
     sendData({ type: "LOBBY_GAME_START", payload: { game: selectedGame } });
   }

@@ -317,7 +317,31 @@ export function renderLobbyUI() {
   }
 
   // ホストのみゲームスタートを表示
-  document.getElementById('btn-lobby-start').style.display = currentGameState.isHost ? 'inline-block' : 'none';
+  const btnStart = document.getElementById('btn-lobby-start');
+  if (currentGameState.isHost) {
+    btnStart.style.display = 'inline-block';
+    
+    // ホスト以外の対戦相手（ゲストまたはCOM）が参加しているかチェック
+    const hasOpponent = currentGameState.slots.some(slot => slot.type === 'guest' || slot.type === 'com');
+    
+    if (hasOpponent) {
+      // 相手がいる場合はスタート可能
+      btnStart.disabled = false;
+      btnStart.style.opacity = '1';
+      btnStart.style.cursor = 'pointer';
+      btnStart.innerText = '🎮 ゲームスタート';
+      
+    } else {
+      // ホストしかいない場合はスタート不可
+      btnStart.disabled = true;
+      btnStart.style.opacity = '0.5';
+      btnStart.style.cursor = 'not-allowed';
+      btnStart.innerText = '🎮 メンバー参加待ち...';
+      
+    }
+  } else {
+    btnStart.style.display = 'none';
+  }
 
   // 退出ボタンの表示をホストとゲストで切り替え
   const btnQuit = document.getElementById('btn-quit-lobby');
