@@ -3,8 +3,8 @@ import { sendData } from './connection.js';
 export const GAME_CONFIG = {
   reversi:       { minPlayers: 2, maxPlayers: 2, name: '🟢 リバーシ',           allowCom: false },
   dots:          { minPlayers: 2, maxPlayers: 4, name: '🟠 ドット＆ボックス',   allowCom: false },
-  concentration: { minPlayers: 2, maxPlayers: 2, name: '🃏 神経衰弱',           allowCom: false },
-  minesweeper:   { minPlayers: 2, maxPlayers: 2, name: '💣 マインスイーパー',   allowCom: false },
+  concentration: { minPlayers: 2, maxPlayers: 4, name: '🃏 神経衰弱',           allowCom: false },
+  minesweeper:   { minPlayers: 2, maxPlayers: 4, name: '💣 マインスイーパー',   allowCom: false },
   airhockey:     { minPlayers: 2, maxPlayers: 2, name: '🏑 エアホッケー',       allowCom: false },
   shogi:         { minPlayers: 2, maxPlayers: 2, name: '☖ 将棋',               allowCom: false },
   mawari:        { minPlayers: 2, maxPlayers: 4, name: '🎲 回り将棋',           allowCom: true }

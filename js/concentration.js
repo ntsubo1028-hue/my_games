@@ -1,33 +1,60 @@
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
+import { currentGameState } from './lobby.js';
 
 let isHostPlayer = false;
-let isMyTurn = false;
-let myRole = 'host'; 
 let board = []; 
 let flippedIndices = []; 
-let scores = { host: 0, guest: 0 };
-let currentTurn = 'host'; 
+let players = []; 
+let currentTurnIndex = 0; 
 let gameOver = false;
 let isProcessing = false; 
 
-// 不一致時の確認待ち（覚えるタイム）用変数
 let isWaitingForConfirmation = false;
 let confirmationTimer = null;
 
 const SYMBOLS = ['🍎', '🍊', '🍇', '🍓', '🍉', '🍒', '🍍', '🥝'];
+const PLAYER_COLORS = ['#d32f2f', '#1976d2', '#388e3c', '#f57c00']; 
 
 export function initGame(isHost) {
   isHostPlayer = isHost;
-  myRole = isHost ? 'host' : 'guest';
   gameOver = false;
-  scores = { host: 0, guest: 0 };
-  currentTurn = 'host';
-  isMyTurn = isHost;
   flippedIndices = [];
   isProcessing = false;
   isWaitingForConfirmation = false;
   clearConfirmationTimer();
+
+  // ロビーの参加スロット情報からプレイヤーリストを生成
+  if (currentGameState && currentGameState.slots) {
+    // 修正: 'empty'（空き枠）以外の全てのスロット（COM等含む）をプレイヤーとして取得
+    const activeSlots = currentGameState.slots.filter(s => s.type !== 'empty');
+    if (activeSlots.length > 0) {
+      players = activeSlots.map((s, idx) => ({
+        slotId: s.slotId,
+        connId: s.connId || `player-${idx}`, 
+        name: s.name || `${idx + 1}P`,
+        score: 0
+      }));
+    } else {
+      // ロビー情報はあるが空の場合のフォールバック
+      players = [
+        { slotId: 0, connId: 'host', name: '1P (ホスト)', score: 0 },
+        { slotId: 1, connId: 'guest-1', name: '2P', score: 0 },
+        { slotId: 2, connId: 'guest-2', name: '3P', score: 0 },
+        { slotId: 3, connId: 'guest-3', name: '4P', score: 0 }
+      ];
+    }
+  } else {
+    // 修正: ロビーを通さず直接起動したテスト時も4人で開始されるように変更
+    players = [
+      { slotId: 0, connId: 'host', name: '1P (ホスト)', score: 0 },
+      { slotId: 1, connId: 'guest-1', name: '2P', score: 0 },
+      { slotId: 2, connId: 'guest-2', name: '3P', score: 0 },
+      { slotId: 3, connId: 'guest-3', name: '4P', score: 0 }
+    ];
+  }
+
+  currentTurnIndex = 0;
 
   const btnRematch = document.getElementById('btn-rematch-concentration');
   if (btnRematch) btnRematch.style.display = 'none';
@@ -53,11 +80,19 @@ export function initGame(isHost) {
   updateUI();
 }
 
+function isMyTurn() {
+  if (!players || players.length === 0) return false;
+  const myConnId = currentGameState ? currentGameState.myConnId : (isHostPlayer ? 'host' : 'guest');
+  return players[currentTurnIndex] && players[currentTurnIndex].connId === myConnId;
+}
+
 function updateBoard() {
   const boardEl = document.getElementById('concentration-board');
   if (!boardEl) return;
 
   boardEl.innerHTML = '';
+  const myTurn = isMyTurn();
+
   board.forEach((card, index) => {
     const cell = document.createElement('div');
     cell.className = 'concentration-card';
@@ -71,7 +106,7 @@ function updateBoard() {
     } else {
       cell.classList.add('hidden');
       cell.innerText = '❓';
-      if (isMyTurn && !gameOver && !isProcessing && !isWaitingForConfirmation) {
+      if (myTurn && !gameOver && !isProcessing && !isWaitingForConfirmation) {
         cell.onclick = (e) => handleCardClick(index, e);
       }
     }
@@ -80,50 +115,67 @@ function updateBoard() {
 }
 
 function updateUI() {
-  const scoreHostEl = document.getElementById('concentration-score-host');
-  const scoreGuestEl = document.getElementById('concentration-score-guest');
+  const scoreBoardEl = document.getElementById('concentration-score-board');
   const turnText = document.getElementById('concentration-turn-text');
   const btnRematch = document.getElementById('btn-rematch-concentration');
 
-  if (scoreHostEl) scoreHostEl.innerText = `ホスト: ${scores.host}`;
-  if (scoreGuestEl) scoreGuestEl.innerText = `ゲスト: ${scores.guest}`;
+  if (scoreBoardEl && players.length > 0) {
+    scoreBoardEl.innerHTML = players.map((p, idx) => {
+      const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+      const isCurrent = (!gameOver && idx === currentTurnIndex);
+      const style = isCurrent 
+        ? `color: ${color}; font-weight: bold; border-bottom: 2px solid ${color}; padding-bottom: 2px;` 
+        : `color: ${color}; opacity: 0.85;`;
+      return `<span style="${style}">${p.name}: ${p.score}</span>`;
+    }).join(' ');
+  }
+
+  const currPlayer = players[currentTurnIndex];
+  const currName = currPlayer ? currPlayer.name : '';
+  const myTurn = isMyTurn();
+  
+  const currentColor = PLAYER_COLORS[currentTurnIndex % PLAYER_COLORS.length];
 
   if (gameOver) {
-    if (btnRematch) btnRematch.style.display = 'inline-block';
+    if (btnRematch) btnRematch.style.display = isHostPlayer ? 'inline-block' : 'none';
     if (turnText) {
-      if (scores.host > scores.guest) {
-        turnText.innerText = "🏆 ホストの勝ち！";
-      } else if (scores.guest > scores.host) {
-        turnText.innerText = "🏆 ゲストの勝ち！";
+      const maxScore = Math.max(...players.map(p => p.score));
+      const winners = players.filter(p => p.score === maxScore);
+      if (winners.length === 1) {
+        turnText.innerHTML = `🏆 ${winners[0].name} の勝ち！`;
       } else {
-        turnText.innerText = "🤝 引き分け！";
+        const winnerNames = winners.map(w => w.name).join('・');
+        turnText.innerHTML = `🤝 引き分け！ (${winnerNames})`;
       }
     }
   } else {
-    const turnName = currentTurn === 'host' ? 'ホスト' : 'ゲスト';
     if (turnText) {
       if (isWaitingForConfirmation) {
-        if (currentTurn === myRole) {
-          turnText.innerText = "👀覚えるタイム(タップ又は5秒で終了)";
+        if (myTurn) {
+          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 覚えるタイム(タップ又は5秒で終了)</span>`;
         } else {
-          turnText.innerText = "👀相手が覚えています...";
+          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 ${currName} が覚えています...</span>`;
         }
       } else {
-        turnText.innerText = isMyTurn ? `🟢 あなたのターン (${turnName})` : `🔴 相手のターン (${turnName})`;
+        turnText.innerHTML = myTurn 
+          ? `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">あなたのターン</span>` 
+          : `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">${currName} のターン</span>`;
       }
     }
   }
 }
 
 function handleCardClick(index, e) {
-  if (e) e.stopPropagation(); // 画面タップイベントへの貫通（バブリング）を防止
+  if (e) e.stopPropagation(); 
   
-  if (!isMyTurn || gameOver || isProcessing || isWaitingForConfirmation) return;
+  if (!isMyTurn() || gameOver || isProcessing || isWaitingForConfirmation) return;
   if (board[index].isFlipped || board[index].isMatched) return;
+
+  const myConnId = currentGameState ? currentGameState.myConnId : (isHostPlayer ? 'host' : 'guest');
 
   const actionData = {
     type: "CONCENTRATION_FLIP",
-    payload: { index, player: myRole }
+    payload: { index, connId: myConnId }
   };
 
   if (isHostPlayer) {
@@ -133,12 +185,11 @@ function handleCardClick(index, e) {
   }
 }
 
-// 覚えるタイム用のタイマー開始処理
 function startConfirmationTimer() {
   clearConfirmationTimer();
   confirmationTimer = setTimeout(() => {
     triggerCloseMismatch();
-  }, 5000); // 5秒後に自動で伏せる
+  }, 5000); 
 }
 
 function clearConfirmationTimer() {
@@ -148,7 +199,6 @@ function clearConfirmationTimer() {
   }
 }
 
-// 5秒経過または画面タップ時の「伏せる要求」の発行
 function triggerCloseMismatch() {
   clearConfirmationTimer();
   if (isHostPlayer) {
@@ -158,15 +208,11 @@ function triggerCloseMismatch() {
   }
 }
 
-// 画面がタップされた時の処理（main_2.jsから呼び出される）
 export function handleScreenTap() {
-  // 不一致確認待ちでない、または「自分のターン」でない場合はタップしても何もしない
-  if (!isWaitingForConfirmation || currentTurn !== myRole) return;
-
+  if (!isWaitingForConfirmation || !isMyTurn()) return;
   triggerCloseMismatch();
 }
 
-// カードを裏返し、次のターンへ進める（ホストのみが実行して全体に同期する）
 function closeMismatchCards() {
   if (!isWaitingForConfirmation) return;
   
@@ -179,8 +225,10 @@ function closeMismatchCards() {
     board[secondIdx].isFlipped = false;
   }
   flippedIndices = [];
-  currentTurn = currentTurn === 'host' ? 'guest' : 'host';
-  isMyTurn = (currentTurn === myRole);
+
+  if (players.length > 0) {
+    currentTurnIndex = (currentTurnIndex + 1) % players.length;
+  }
   isProcessing = false;
 
   syncStateToGuest();
@@ -191,17 +239,17 @@ function closeMismatchCards() {
 export function processAction(data) {
   if (!isHostPlayer) return;
 
-  // ゲストからの不一致確認完了シグナルを受け取った場合
   if (data.type === "CONCENTRATION_CONFIRM") {
-    if (isWaitingForConfirmation && currentTurn === 'guest') {
+    if (isWaitingForConfirmation) {
       closeMismatchCards();
     }
     return;
   }
 
   if (data.type === "CONCENTRATION_FLIP") {
-    const { index, player } = data.payload;
-    if (player !== currentTurn || isWaitingForConfirmation) return;
+    const { index, connId } = data.payload;
+    const currPlayer = players[currentTurnIndex];
+    if (!currPlayer || currPlayer.connId !== connId || isWaitingForConfirmation) return;
     if (board[index].isFlipped || board[index].isMatched) return;
 
     board[index].isFlipped = true;
@@ -217,15 +265,15 @@ export function processAction(data) {
       const [firstIdx, secondIdx] = flippedIndices;
 
       if (board[firstIdx].symbol === board[secondIdx].symbol) {
-        // 一致した場合
         board[firstIdx].isMatched = true;
         board[secondIdx].isMatched = true;
-        scores[currentTurn]++;
+        players[currentTurnIndex].score++;
         playSound('put');
         flippedIndices = [];
         isProcessing = false;
 
-        if (scores.host + scores.guest === 8) {
+        const totalMatched = players.reduce((sum, p) => sum + p.score, 0);
+        if (totalMatched === 8) {
           gameOver = true;
           playSound('win');
         }
@@ -233,14 +281,12 @@ export function processAction(data) {
         updateBoard();
         updateUI();
       } else {
-        // 不一致の場合（覚えるタイム開始）
         isWaitingForConfirmation = true;
         syncStateToGuest();
         updateBoard();
         updateUI();
 
-        // ホストのターンならホスト側でタイマー起動
-        if (currentTurn === 'host') {
+        if (isMyTurn()) {
           startConfirmationTimer();
         }
       }
@@ -253,23 +299,21 @@ export function updateGameState(payload) {
     const wasWaiting = isWaitingForConfirmation;
 
     board = payload.board;
-    scores = payload.scores;
-    currentTurn = payload.currentTurn;
+    players = payload.players || players;
+    currentTurnIndex = payload.currentTurnIndex;
     gameOver = payload.gameOver;
     isWaitingForConfirmation = payload.isWaitingForConfirmation || false;
-    isMyTurn = (currentTurn === myRole);
 
     if (gameOver) {
       playSound('win');
       const btnRematch = document.getElementById('btn-rematch-concentration');
-      if (btnRematch) btnRematch.style.display = 'inline-block';
+      if (btnRematch) btnRematch.style.display = isHostPlayer ? 'inline-block' : 'none';
     }
 
     updateBoard();
     updateUI();
 
-    // ゲストのターンで新たに不一致状態（覚えるタイム）になったらタイマー起動
-    if (!wasWaiting && isWaitingForConfirmation && currentTurn === 'guest') {
+    if (!wasWaiting && isWaitingForConfirmation && isMyTurn()) {
       startConfirmationTimer();
     }
   }
@@ -279,7 +323,7 @@ export function syncStateToGuest() {
   if (isHostPlayer) {
     sendData({
       type: "CONCENTRATION_STATE_SYNC",
-      payload: { board, scores, currentTurn, gameOver, isWaitingForConfirmation }
+      payload: { board, players, currentTurnIndex, gameOver, isWaitingForConfirmation }
     });
   }
 }

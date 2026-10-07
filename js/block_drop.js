@@ -3,23 +3,13 @@
  */
 import { playSound } from './sounds.js';
 
-const canvas = document.getElementById('block_drop-board');
-const ctx = canvas.getContext('2d');
-const nextCanvas = document.getElementById('block_drop-next');
-const nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
+// 変数の宣言のみ先に行う
+let canvas, ctx, nextCanvas, nextCtx, holdCanvas, holdCtx;
+let scoreEl, linesEl, btnRematch, block_dropScreenEl;
 
-// ホールド用変数と1ターン1回の制限フラグ
-const holdCanvas = document.getElementById('block_drop-hold');
-const holdCtx = holdCanvas ? holdCanvas.getContext('2d') : null;
 let holdPiece = null;
 let canHold = true;
-
-// HOLD操作の継続判定用タイマー
 let holdTimer = null;
-
-const scoreEl = document.getElementById('block_drop-score');
-const linesEl = document.getElementById('block_drop-lines');
-const btnRematch = document.getElementById('btn-rematch-block_drop');
 
 const ROWS = 20;
 const COLS = 10;
@@ -502,6 +492,20 @@ function update(time = 0) {
 }
 
 export function initBlock_drop() {
+  // 初期化が実行されるタイミング（＝HTML要素が確実に存在する状態）で要素を取得する
+  canvas = document.getElementById('block_drop-board');
+  ctx = canvas ? canvas.getContext('2d') : null;
+  nextCanvas = document.getElementById('block_drop-next');
+  nextCtx = nextCanvas ? nextCanvas.getContext('2d') : null;
+  holdCanvas = document.getElementById('block_drop-hold');
+  holdCtx = holdCanvas ? holdCanvas.getContext('2d') : null;
+  scoreEl = document.getElementById('block_drop-score');
+  linesEl = document.getElementById('block_drop-lines');
+  btnRematch = document.getElementById('btn-rematch-block_drop');
+  block_dropScreenEl = document.getElementById('block_drop-game-screen');
+
+  setupEventListeners();
+
   board = createBoard();
   holdPiece = null;
   canHold = true;
@@ -542,146 +546,150 @@ export function stopBlock_drop() {
 // PC & スマホ統合操作システムの実装
 // ==========================================
 const TILE_SENSITIVITY = 20;
-const block_dropScreenEl = document.getElementById('block_drop-game-screen');
 
 let lastTouchEndTime = 0;
 let lastMouseX = null;
 let lastMouseY = null;
-
-block_dropScreenEl.addEventListener('mouseenter', (e) => {
-  lastMouseX = e.clientX;
-  lastMouseY = e.clientY;
-});
-
-block_dropScreenEl.addEventListener('mouseleave', () => {
-  lastMouseX = null;
-  lastMouseY = null;
-  cancelHold();
-});
-
-block_dropScreenEl.addEventListener('mousemove', (e) => {
-  if (!block_dropScreenEl.classList.contains('active') || isGameOver || lastMouseX === null || lastMouseY === null) return;
-
-  const deltaX = e.clientX - lastMouseX;
-  const deltaY = e.clientY - lastMouseY;
-
-  if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
-    const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
-    if (steps !== 0) {
-      moveBlock_drop(steps > 0 ? 1 : -1);
-      lastMouseX += steps * TILE_SENSITIVITY;
-    }
-  }
-
-  if (deltaY >= TILE_SENSITIVITY) {
-    const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
-    if (stepsY > 0) {
-      cancelHold();
-      for (let i = 0; i < stepsY; i++) {
-        dropBlock_drop();
-      }
-      lastMouseY += stepsY * TILE_SENSITIVITY;
-    }
-  }
-});
-
-block_dropScreenEl.addEventListener('mousedown', (e) => {
-  if (!block_dropScreenEl.classList.contains('active') || isGameOver) return;
-  if (new Date().getTime() - lastTouchEndTime < 500) return;
-
-  if (e.button === 0) {
-    cancelHold();
-    hardDropBlock_drop();
-  } else if (e.button === 2) {
-    rotateBlock_drop();
-  }
-});
-
-block_dropScreenEl.addEventListener('mouseup', () => {
-  cancelHold();
-});
-
-block_dropScreenEl.addEventListener('contextmenu', (e) => {
-  if (block_dropScreenEl.classList.contains('active')) {
-    e.preventDefault();
-  }
-});
-
 let dragStartX = 0;
 let dragStartY = 0;
 let lastTouchX = 0;
 let lastTouchY = 0;
+let isEventsSetup = false;
 
-block_dropScreenEl.addEventListener('touchstart', (e) => {
-  if (isGameOver) return;
-  dragStartX = e.touches[0].clientX;
-  dragStartY = e.touches[0].clientY;
-  lastTouchX = dragStartX;
-  lastTouchY = dragStartY;
-}, { passive: true });
+function setupEventListeners() {
+  if (isEventsSetup || !block_dropScreenEl) return;
+  isEventsSetup = true;
 
-block_dropScreenEl.addEventListener('touchmove', (e) => {
-  if (isGameOver) return;
-  const currentX = e.touches[0].clientX;
-  const currentY = e.touches[0].clientY;
-  const deltaX = currentX - lastTouchX;
-  const deltaY = currentY - lastTouchY;
+  block_dropScreenEl.addEventListener('mouseenter', (e) => {
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
 
-  if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
-    const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
-    if (steps !== 0) {
-      moveBlock_drop(steps > 0 ? 1 : -1);
-      lastTouchX += steps * TILE_SENSITIVITY;
-    }
-  }
+  block_dropScreenEl.addEventListener('mouseleave', () => {
+    lastMouseX = null;
+    lastMouseY = null;
+    cancelHold();
+  });
 
-  if (deltaY >= TILE_SENSITIVITY) {
-    const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
-    if (stepsY > 0) {
-      cancelHold();
-      for (let i = 0; i < stepsY; i++) {
-        dropBlock_drop();
+  block_dropScreenEl.addEventListener('mousemove', (e) => {
+    if (!block_dropScreenEl.classList.contains('active') || isGameOver || lastMouseX === null || lastMouseY === null) return;
+
+    const deltaX = e.clientX - lastMouseX;
+    const deltaY = e.clientY - lastMouseY;
+
+    if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
+      const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
+      if (steps !== 0) {
+        moveBlock_drop(steps > 0 ? 1 : -1);
+        lastMouseX += steps * TILE_SENSITIVITY;
       }
-      lastTouchY += stepsY * TILE_SENSITIVITY;
     }
-  } else if (deltaY <= -TILE_SENSITIVITY) { 
-    actionHold(false); 
-    lastTouchY = currentY; 
-  }
-}, { passive: true });
 
-block_dropScreenEl.addEventListener('touchend', (e) => {
-  if (isGameOver) return;
-  cancelHold();
-  lastTouchEndTime = new Date().getTime();
+    if (deltaY >= TILE_SENSITIVITY) {
+      const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
+      if (stepsY > 0) {
+        cancelHold();
+        for (let i = 0; i < stepsY; i++) {
+          dropBlock_drop();
+        }
+        lastMouseY += stepsY * TILE_SENSITIVITY;
+      }
+    }
+  });
 
-  const touchEndX = e.changedTouches[0].clientX;
-  const touchEndY = e.changedTouches[0].clientY;
-  const totalDx = touchEndX - dragStartX;
-  const totalDy = touchEndY - dragStartY;
+  block_dropScreenEl.addEventListener('mousedown', (e) => {
+    if (!block_dropScreenEl.classList.contains('active') || isGameOver) return;
+    if (new Date().getTime() - lastTouchEndTime < 500) return;
 
-  if (Math.abs(totalDx) < 10 && Math.abs(totalDy) < 10) {
-    const currentTime = new Date().getTime();
-    const tapInterval = lastTapTime ? (currentTime - lastTapTime) : 999;
-
-    if (tapInterval < 180 && tapInterval > 0) {
-      clearTapTimer();
-      lastTapTime = 0;
+    if (e.button === 0) {
+      cancelHold();
       hardDropBlock_drop();
-    } else {
-      lastTapTime = currentTime;
-      clearTapTimer();
-      tapTimeout = setTimeout(() => {
-        rotateBlock_drop();
-        tapTimeout = null;
-      }, 190);
+    } else if (e.button === 2) {
+      rotateBlock_drop();
     }
-  }
-});
+  });
+
+  block_dropScreenEl.addEventListener('mouseup', () => {
+    cancelHold();
+  });
+
+  block_dropScreenEl.addEventListener('contextmenu', (e) => {
+    if (block_dropScreenEl.classList.contains('active')) {
+      e.preventDefault();
+    }
+  });
+
+  block_dropScreenEl.addEventListener('touchstart', (e) => {
+    if (isGameOver) return;
+    dragStartX = e.touches[0].clientX;
+    dragStartY = e.touches[0].clientY;
+    lastTouchX = dragStartX;
+    lastTouchY = dragStartY;
+  }, { passive: true });
+
+  block_dropScreenEl.addEventListener('touchmove', (e) => {
+    if (isGameOver) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - lastTouchX;
+    const deltaY = currentY - lastTouchY;
+
+    if (Math.abs(deltaX) >= TILE_SENSITIVITY) {
+      const steps = Math.trunc(deltaX / TILE_SENSITIVITY);
+      if (steps !== 0) {
+        moveBlock_drop(steps > 0 ? 1 : -1);
+        lastTouchX += steps * TILE_SENSITIVITY;
+      }
+    }
+
+    if (deltaY >= TILE_SENSITIVITY) {
+      const stepsY = Math.trunc(deltaY / TILE_SENSITIVITY);
+      if (stepsY > 0) {
+        cancelHold();
+        for (let i = 0; i < stepsY; i++) {
+          dropBlock_drop();
+        }
+        lastTouchY += stepsY * TILE_SENSITIVITY;
+      }
+    } else if (deltaY <= -TILE_SENSITIVITY) { 
+      actionHold(false); 
+      lastTouchY = currentY; 
+    }
+  }, { passive: true });
+
+  block_dropScreenEl.addEventListener('touchend', (e) => {
+    if (isGameOver) return;
+    cancelHold();
+    lastTouchEndTime = new Date().getTime();
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const totalDx = touchEndX - dragStartX;
+    const totalDy = touchEndY - dragStartY;
+
+    if (Math.abs(totalDx) < 10 && Math.abs(totalDy) < 10) {
+      const currentTime = new Date().getTime();
+      const tapInterval = lastTapTime ? (currentTime - lastTapTime) : 999;
+
+      if (tapInterval < 180 && tapInterval > 0) {
+        clearTapTimer();
+        lastTapTime = 0;
+        hardDropBlock_drop();
+      } else {
+        lastTapTime = currentTime;
+        clearTapTimer();
+        tapTimeout = setTimeout(() => {
+          rotateBlock_drop();
+          tapTimeout = null;
+        }, 190);
+      }
+    }
+  });
+}
 
 // キーボード操作
 document.addEventListener('keydown', event => {
-  if (block_dropScreenEl.classList.contains('active') && !isGameOver) {
+  if (block_dropScreenEl && block_dropScreenEl.classList.contains('active') && !isGameOver) {
     switch (event.keyCode) {
       case 37: moveBlock_drop(-1); break;
       case 39: moveBlock_drop(1); break;
