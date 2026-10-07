@@ -19,7 +19,8 @@ import { initSoloGame, initPvPGame, toggleInputMode, endTurn, processAction as p
 import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHockey, resumeAirHockey } from './airhockey.js';
 import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
 import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, updateMawariGameState } from './mawari_shogi.js';
-import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI} from './lobby.js';
+import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
+
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
 }
@@ -61,6 +62,39 @@ const STAMPS = {
 
 let selectedStampId = null;
 
+// 自分の名前を取得するヘルパー関数
+function getMyName() {
+  if (typeof currentGameState !== 'undefined' && currentGameState && currentGameState.slots) {
+    const mySlot = currentGameState.slots.find(s => s.connId === currentGameState.myConnId);
+    if (mySlot && mySlot.name) return mySlot.name;
+  }
+  return isHost ? 'ホスト' : 'ゲスト';
+}
+
+// ★ 追加：名前変更ボタン＆Enterキー入力のイベント設定
+const btnChangeName = document.getElementById('btn-change-name');
+const inputPlayerName = document.getElementById('input-player-name');
+
+if (btnChangeName && inputPlayerName) {
+  // ① 「変更」ボタンを押した時
+  btnChangeName.onclick = () => {
+    updateMyName(inputPlayerName.value);
+  };
+
+  // ② Enterキーを押した時
+  inputPlayerName.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      updateMyName(inputPlayerName.value);
+      inputPlayerName.blur(); // フォーカスを解除
+    }
+  });
+
+  // ③ 入力欄からフォーカスが外れた（確定した）時
+  inputPlayerName.addEventListener('change', (e) => {
+    updateMyName(e.target.value);
+  });
+}
+
 function initStampSystem() {
   const modalHTML = `
     <div id="stamp-modal" class="stamp-modal" style="display: none;">
@@ -100,9 +134,10 @@ function initStampSystem() {
 
   btnSend.onclick = () => {
     if (selectedStampId && isConnected) {
+      const senderName = getMyName();
       try {
-        sendData({ type: "STAMP", payload: { stampId: selectedStampId } });
-        showStampPopup(true, selectedStampId);
+        sendData({ type: "STAMP", payload: { stampId: selectedStampId, senderName: senderName } });
+        showStampPopup(true, selectedStampId, senderName);
       } catch (err) {
         console.error("スタンプの送信に失敗しました:", err);
       }
@@ -166,15 +201,20 @@ document.getElementById('btn-lobby-start').onclick = () => {
   showGameScreenForHost(selectedGame);
 };
 
-function showStampPopup(isMe, stampId) {
+function showStampPopup(isMe, stampId, senderName) {
   const stamp = STAMPS[stampId];
   if (!stamp) return;
+
+  const displayName = senderName || (isMe ? getMyName() : '対戦相手');
 
   const popup = document.createElement('div');
   popup.className = `stamp-popup ${isMe ? 'stamp-popup-me' : 'stamp-popup-opponent'}`;
   popup.innerHTML = `
-    <div class="stamp-popup-icon">${stamp.icon}</div>
-    <div class="stamp-popup-text">${stamp.text}</div>
+    <div class="stamp-popup-sender">${displayName}</div>
+    <div class="stamp-popup-body">
+      <div class="stamp-popup-icon">${stamp.icon}</div>
+      <div class="stamp-popup-text">${stamp.text}</div>
+    </div>
   `;
   document.body.appendChild(popup);
 
@@ -372,6 +412,9 @@ function startGuestScanFlow() {
         setStampButtonVisible(true);
         initLobby(selectedGame, false);
         showScreen('lobby-screen');
+        // ★ 追加：接続完了直後に、自分の端末で設定されている名前をホストに通知
+        const savedName = localStorage.getItem('player_name') || 'ゲスト';
+        sendData({ type: "CHANGE_NAME", payload: { name: savedName } });
       });
 
       localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame });
@@ -567,6 +610,14 @@ setOnMessage((data, sourceId) => {
     return;
   }
 
+  // ★ 追加：ゲストからの名前変更リクエストをホスト側で処理
+  if (data.type === "CHANGE_NAME") {
+    if (isHost && sourceId) {
+      updateGuestName(sourceId, data.payload.name);
+    }
+    return;
+  }
+
   if (data.type === "DISCONNECT") {
     if (!isHost) {
       // ゲストの場合：ホストがロビーを解散した
@@ -621,7 +672,7 @@ setOnMessage((data, sourceId) => {
   }
 
   if (data.type === "STAMP") {
-    showStampPopup(false, data.payload.stampId);
+    showStampPopup(false, data.payload.stampId, data.payload.senderName);
     return;
   }
 
