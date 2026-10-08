@@ -95,6 +95,9 @@ export function syncStateToAll() {
 }
 
 export function updateMawariGameState(payload) {
+    // 演出中（サイコロを振って移動中）は一括同期による駒の位置の飛びを防止
+    if (isRolling) return;
+
     players = payload.players;
     turnIndex = payload.turnIndex;
     gameOver = payload.gameOver;
@@ -190,6 +193,9 @@ function onDiceClick() {
 export function processMawariAction(data) {
     if (data.type === "MAWARI_ACTION_ROLL" && currentGameState.isHost) {
         handleRoll();
+    } else if (data.type === "MAWARI_ROLL_RESULT" && !currentGameState.isHost) {
+        // ゲスト側が出目結果を受信して演出を開始
+        executeRollSequenceForGuest(data.payload);
     }
 }
 
@@ -227,18 +233,62 @@ function rollKomaLogic() {
 
 async function handleRoll() {
     if (isRolling || gameOver) return;
-    const p = players[turnIndex];
     isRolling = true;
-    if (currentGameState.isHost) syncStateToAll();
 
+    const result = rollKomaLogic();
+    const currentTurnIdx = turnIndex;
+
+    // 全ゲストに出目データと回転演出の開始を送信
+    sendData({
+        type: "MAWARI_ROLL_RESULT",
+        payload: {
+            turnIndex: currentTurnIdx,
+            result: result
+        }
+    });
+
+    // ホスト側でダイス演出＆駒移動を実行
+    const hasWon = await playRollSequence(currentTurnIdx, result);
+
+    if (hasWon) {
+        gameOver = true;
+        syncStateToAll();
+        return;
+    }
+
+    isRolling = false;
+
+    if (result.extraTurn && !gameOver) {
+        document.getElementById('mawari-log-text').innerText += " ⭐もう一度！";
+        syncStateToAll();
+        updateUI();
+        checkComTurn();
+    } else {
+        nextTurn();
+    }
+}
+
+async function executeRollSequenceForGuest(payload) {
+    isRolling = true;
+    turnIndex = payload.turnIndex;
+    updateUI();
+
+    await playRollSequence(payload.turnIndex, payload.result);
+    isRolling = false;
+}
+
+// ダイス回転・出目更新・1歩ずつ進む演出の共通処理
+async function playRollSequence(targetTurnIdx, result) {
+    const p = players[targetTurnIdx];
     document.getElementById('btn-mawari-dice').disabled = true;
 
+    // 1. ダイス回転アニメーション
     const komaEls = document.querySelectorAll('.mawari-koma');
     komaEls.forEach(el => { el.className = 'mawari-koma rolling'; el.innerText = '金'; });
 
     await sleep(700);
-    const result = rollKomaLogic();
 
+    // 2. 出目の確定表示とログ表示
     komaEls.forEach((el, idx) => {
         const type = result.results[idx];
         el.className = `mawari-koma ${type}`;
@@ -248,6 +298,7 @@ async function handleRoll() {
     document.getElementById('mawari-log-text').innerText = result.detailText;
     await sleep(400);
 
+    // 3. 1歩ずつの駒移動演出
     const hasWon = await movePlayerStepByStep(p, result.score);
 
     if (hasWon) {
@@ -256,24 +307,15 @@ async function handleRoll() {
         const rematchBtn = document.getElementById('btn-rematch-mawari');
         if (rematchBtn && currentGameState.isHost) {
             rematchBtn.style.display = 'block';
-        }        
-        if (currentGameState.isHost) syncStateToAll();
+        }
         await sleep(200); 
         alert(`🎉 おめでとうございます！${p.name} が上がり達成で勝利しました！`);
-        return;
+        return true;
     }
 
+    // 4. 重なり（踏みつけ）チェック
     await checkOverlap(p);
-    isRolling = false;
-
-    if (result.extraTurn && !gameOver) {
-        document.getElementById('mawari-log-text').innerText += " ⭐もう一度！";
-        if (currentGameState.isHost) syncStateToAll();
-        updateUI();
-        checkComTurn();
-    } else {
-        nextTurn();
-    }
+    return false;
 }
 
 async function movePlayerStepByStep(player, steps) {
