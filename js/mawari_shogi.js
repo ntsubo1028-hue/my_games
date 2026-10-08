@@ -34,7 +34,6 @@ let pendingStateSync = null;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ホスト判定の厳格化関数
 function checkIsHost() {
     return typeof currentGameState !== 'undefined' && currentGameState.isHost === true;
 }
@@ -55,6 +54,14 @@ export function initMawariShogi() {
     document.getElementById('mawari-game-container').style.display = 'flex';
     document.getElementById('btn-rematch-mawari').style.display = 'none';
 
+    // ボタンを最前面に固定して確実に可視化
+    const diceBtn = document.getElementById('btn-mawari-dice');
+    if (diceBtn) {
+        diceBtn.style.display = 'block';
+        diceBtn.style.position = 'relative';
+        diceBtn.style.zIndex = '100';
+    }
+
     buildBoardUI();
 
     if (checkIsHost()) {
@@ -68,8 +75,8 @@ function setupGameFromLobby() {
         if (slot.type !== 'none') {
             players.push({
                 id: idx,
-                slotId: slot.slotId,
-                name: `${slot.slotId + 1}P (${slot.name})`,
+                slotId: slot.slotId !== undefined ? slot.slotId : idx,
+                name: `${idx + 1}P (${slot.name})`,
                 type: slot.type,
                 connId: slot.connId,
                 pos: START_POSITIONS[idx],
@@ -104,7 +111,6 @@ export function syncStateToAll() {
     });
 }
 
-// 通信データの受信（汎用ルーティング対応）
 export function updateMawariGameState(payload) {
     if (!payload) return;
     if (payload.type) {
@@ -157,7 +163,9 @@ function applyGameState(payload) {
 function buildBoardUI() {
     const boardEl = document.getElementById('mawari-board');
     if (!boardEl) return;
-    boardEl.innerHTML = ''; // 盤面をクリアして再構築
+
+    // 既存のセルのみをクリア（ボタン等は保持）
+    boardEl.querySelectorAll('.mawari-cell').forEach(c => c.remove());
 
     // 1. 盤面マス（32個）の構築
     BOARD_CELLS.forEach((data, idx) => {
@@ -179,7 +187,7 @@ function buildBoardUI() {
         boardEl.appendChild(cell);
     });
 
-    // 2. 中央のサイコロエリア（金4枚）を動的生成（ホスト・ゲスト共通で確実に配置）
+    // 2. 中央のサイコロエリア（金4枚）を横一列に完全固定
     let diceArea = boardEl.querySelector('.mawari-dice-area');
     if (!diceArea) {
         diceArea = document.createElement('div');
@@ -189,8 +197,9 @@ function buildBoardUI() {
         diceArea.style.display = 'flex';
         diceArea.style.justifyContent = 'center';
         diceArea.style.alignItems = 'center';
-        diceArea.style.gap = '8px';
-        diceArea.style.flexWrap = 'wrap';
+        diceArea.style.gap = '4px';
+        diceArea.style.flexWrap = 'nowrap';      // 絶対に折り返さない
+        diceArea.style.whiteSpace = 'nowrap';    // 要素内の折り返しも禁止
 
         for (let i = 0; i < 4; i++) {
             const koma = document.createElement('div');
@@ -199,6 +208,10 @@ function buildBoardUI() {
             diceArea.appendChild(koma);
         }
         boardEl.appendChild(diceArea);
+    } else {
+        // 既存エリアがある場合も念のためスタイルを強制
+        diceArea.style.flexWrap = 'nowrap';
+        diceArea.style.whiteSpace = 'nowrap';
     }
 
     renderPieces();
@@ -291,7 +304,6 @@ function rollKomaLogic() {
 }
 
 async function handleRoll() {
-    // ゲストからの直接実行を防止
     if (!checkIsHost()) {
         sendData({ type: "MAWARI_ACTION_ROLL" });
         return;
@@ -303,7 +315,6 @@ async function handleRoll() {
     const result = rollKomaLogic();
     const currentTurnIdx = turnIndex;
 
-    // 全ゲストへ計算結果と演出実行コマンドを送信
     sendData({
         type: "MAWARI_ROLL_RESULT",
         payload: {
@@ -312,7 +323,6 @@ async function handleRoll() {
         }
     });
 
-    // ホスト側の画面演出・一歩ずつの駒移動
     const hasWon = await playRollSequence(currentTurnIdx, result);
 
     if (hasWon) {
@@ -343,12 +353,10 @@ async function executeRollSequenceForGuest(payload) {
     }
     updateUI();
 
-    // ゲスト側画面でホストから受け取った結果に基づき演出再生
     await playRollSequence(turnIndex, payload.result);
     
     isRolling = false;
 
-    // 演出終了後、保留されていた最新盤面同期を反映
     if (pendingStateSync) {
         applyGameState(pendingStateSync);
         pendingStateSync = null;
@@ -492,10 +500,32 @@ function updateUI() {
         badge.style.backgroundColor = p.color;
     }
 
-    const isMyTurn = (p.connId === currentGameState.myConnId) || (p.type === 'host' && checkIsHost());
+    // 自分のターンかどうかの判定（ゲスト側のフォールバック強化）
+    let isMyTurn = false;
+    const myConnId = typeof currentGameState !== 'undefined' ? currentGameState.myConnId : undefined;
+    const mySlotId = typeof currentGameState !== 'undefined' ? currentGameState.mySlotId : undefined;
+
+    if (checkIsHost()) {
+        isMyTurn = (p.type !== 'com') && (p.id === 0 || p.connId === myConnId || (mySlotId !== undefined && p.slotId === mySlotId) || p.type === 'host' || p.type === 'human');
+    } else {
+        // ゲスト側の判定
+        if (myConnId && p.connId === myConnId) {
+            isMyTurn = true;
+        } else if (mySlotId !== undefined && p.slotId === mySlotId) {
+            isMyTurn = true;
+        } else if (p.type === 'human') {
+            // 万が一 currentGameState に自身の情報がない場合の最終手段
+            // ゲスト自身である（COM・ホストではない）と見なす
+            isMyTurn = true;
+        }
+    }
+
     const diceBtn = document.getElementById('btn-mawari-dice');
     if (diceBtn) {
-        diceBtn.disabled = (!isMyTurn || isRolling || gameOver || p.type === 'com');
+        diceBtn.disabled = (!isMyTurn || isRolling || gameOver);
+        // 重なり防止のため再度最前面を付与
+        diceBtn.style.zIndex = '100';
+        diceBtn.style.position = 'relative';
     }
     
     renderPieces();
