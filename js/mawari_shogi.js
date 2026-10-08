@@ -30,6 +30,9 @@ let isRolling = false;
 let gameOver = false;
 let isEventsRegistered = false;
 
+// 演出中に届いた同期データを一時保持する変数
+let pendingStateSync = null;
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function initMawariShogi() {
@@ -75,6 +78,7 @@ function setupGameFromLobby() {
     turnIndex = 0;
     gameOver = false;
     isRolling = false;
+    pendingStateSync = null;
 
     syncStateToAll();
     updateUI();
@@ -95,9 +99,15 @@ export function syncStateToAll() {
 }
 
 export function updateMawariGameState(payload) {
-    // 演出中（サイコロを振って移動中）は一括同期による駒の位置の飛びを防止
-    if (isRolling) return;
+    // 演出中（移動アニメーション中）は破棄せず「保留」する
+    if (isRolling) {
+        pendingStateSync = payload;
+        return;
+    }
+    applyGameState(payload);
+}
 
+function applyGameState(payload) {
     players = payload.players;
     turnIndex = payload.turnIndex;
     gameOver = payload.gameOver;
@@ -183,18 +193,14 @@ function renderPieces() {
 }
 
 function onDiceClick() {
-    if (currentGameState.isHost) {
-        handleRoll();
-    } else {
-        sendData({ type: "MAWARI_ACTION_ROLL" });
-    }
+    rollMawariDice();
 }
 
 export function processMawariAction(data) {
     if (data.type === "MAWARI_ACTION_ROLL" && currentGameState.isHost) {
         handleRoll();
     } else if (data.type === "MAWARI_ROLL_RESULT" && !currentGameState.isHost) {
-        // ゲスト側が出目結果を受信して演出を開始
+        // ゲスト側がホストから計算済みの出目結果を受信
         executeRollSequenceForGuest(data.payload);
     }
 }
@@ -232,13 +238,20 @@ function rollKomaLogic() {
 }
 
 async function handleRoll() {
+    // ゲストが誤って直呼び出しした場合はホストへリクエストを送信
+    if (!currentGameState.isHost) {
+        sendData({ type: "MAWARI_ACTION_ROLL" });
+        return;
+    }
+
     if (isRolling || gameOver) return;
     isRolling = true;
 
+    // ホストが計算を実行
     const result = rollKomaLogic();
     const currentTurnIdx = turnIndex;
 
-    // 全ゲストに出目データと回転演出の開始を送信
+    // 全ゲストに出目データと回転演出の開始をブロードキャスト
     sendData({
         type: "MAWARI_ROLL_RESULT",
         payload: {
@@ -247,7 +260,7 @@ async function handleRoll() {
         }
     });
 
-    // ホスト側でダイス演出＆駒移動を実行
+    // ホスト自身の画面でも演出＆コマ移動を実行
     const hasWon = await playRollSequence(currentTurnIdx, result);
 
     if (hasWon) {
@@ -273,8 +286,18 @@ async function executeRollSequenceForGuest(payload) {
     turnIndex = payload.turnIndex;
     updateUI();
 
+    // ゲスト側画面で演出を再生（ホストの計算結果を使用）
     await playRollSequence(payload.turnIndex, payload.result);
+    
     isRolling = false;
+
+    // 演出中に届いて保留されていたホストからの最終同期があればここで適用
+    if (pendingStateSync) {
+        applyGameState(pendingStateSync);
+        pendingStateSync = null;
+    } else {
+        updateUI();
+    }
 }
 
 // ダイス回転・出目更新・1歩ずつ進む演出の共通処理
@@ -418,4 +441,10 @@ export function stopMawariShogi() {
     gameOver = true; 
 }
 
-export const rollMawariDice = handleRoll;
+export function rollMawariDice() {
+    if (currentGameState.isHost) {
+        handleRoll();
+    } else {
+        sendData({ type: "MAWARI_ACTION_ROLL" });
+    }
+}
