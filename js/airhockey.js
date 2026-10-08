@@ -1,11 +1,19 @@
 import { playSound } from './sounds.js';
 
-const airhockeyScreen = document.getElementById('airhockey-game-screen');
-const airhockeyStatusText = document.getElementById('airhockey-status-text');
-const canvasAH = document.getElementById('airhockey-board');
-const ctxAH = canvasAH.getContext('2d');
-const btnQuitAirHockey = document.getElementById('btn-quit-airhockey');
-const btnRematchAirHockey = document.getElementById('btn-rematch-airhockey');
+// ゲーム設定定数
+const WINNING_SCORE = 5; // 勝利条件スコア
+
+// DOM要素（遅延初期化）
+let airhockeyScreen = null;
+let airhockeyStatusText = null;
+let canvasAH = null;
+let ctxAH = null;
+let btnQuitAirHockey = null;
+let btnRematchAirHockey = null;
+let ahHostSettings = null;
+let ahSyncRateSelect = null;
+
+let isDOMInitialized = false;
 
 // 描画・物理演算の定数
 const AH_WIDTH = 300;
@@ -14,23 +22,8 @@ const GOAL_WIDTH = 100;
 const PUCK_RADIUS = 12;
 const MALLET_RADIUS = 20;
 
-// 通信頻度の調整（可変にするため let に変更）
+// 通信頻度の調整
 let currentSyncRate = 3;
-
-// UI要素の取得とイベントリスナー（ホストが設定を変えたら即時送信）
-const ahHostSettings = document.getElementById('ah-host-settings');
-const ahSyncRateSelect = document.getElementById('ah-sync-rate-select');
-
-if (ahSyncRateSelect) {
-  ahSyncRateSelect.addEventListener('change', (e) => {
-    if (isHost) {
-      currentSyncRate = parseInt(e.target.value, 10);
-      if (sendData) {
-        sendDataWrapper({ type: 'ah_config', rate: currentSyncRate });
-      }
-    }
-  });
-}
 
 // タッチ座標の差分計算用変数
 let lastTouchX = 0;
@@ -44,8 +37,8 @@ let ahState = {
   hostMallet: { x: AH_WIDTH / 2, y: AH_HEIGHT - 50 },
   guestMallet: { x: AH_WIDTH / 2, y: 50 },
   isPlaying: false,
-  isGoalEffect: false,  // ゴール演出中のフラグ
-  goalTextScale: 0.5    // ゴール文字のアニメーション用
+  isGoalEffect: false,
+  goalTextScale: 0.5
 };
 
 let ahAnimId = null;
@@ -59,6 +52,135 @@ let totalBytesSent = 0;
 let totalBytesReceived = 0;
 let trafficBadge = null;
 
+// DOM要素の安全な初期化
+function ensureDOM() {
+  if (isDOMInitialized && ctxAH) return true;
+
+  airhockeyScreen = document.getElementById('airhockey-game-screen');
+  airhockeyStatusText = document.getElementById('airhockey-status-text');
+  canvasAH = document.getElementById('airhockey-board');
+  btnQuitAirHockey = document.getElementById('btn-quit-airhockey');
+  btnRematchAirHockey = document.getElementById('btn-rematch-airhockey');
+  ahHostSettings = document.getElementById('ah-host-settings');
+  ahSyncRateSelect = document.getElementById('ah-sync-rate-select');
+
+  if (!canvasAH) return false;
+
+  ctxAH = canvasAH.getContext('2d');
+  setupEventListeners();
+  isDOMInitialized = true;
+  return true;
+}
+
+function setupEventListeners() {
+  if (ahSyncRateSelect) {
+    ahSyncRateSelect.addEventListener('change', (e) => {
+      if (isHost) {
+        currentSyncRate = parseInt(e.target.value, 10);
+        if (sendData) {
+          sendDataWrapper({ type: 'ah_config', rate: currentSyncRate });
+        }
+      }
+    });
+  }
+
+  if (canvasAH) {
+    // タッチ開始
+    canvasAH.addEventListener('touchstart', (e) => {
+      if (!ahState.isPlaying || ahState.isGoalEffect) return;
+      e.preventDefault();
+      
+      let rect = canvasAH.getBoundingClientRect();
+      let touch = e.touches[0];
+      
+      lastTouchX = touch.clientX - rect.left;
+      lastTouchY = touch.clientY - rect.top;
+      isTouching = true;
+    }, { passive: false });
+
+    // タッチ移動 (相対移動)
+    canvasAH.addEventListener('touchmove', (e) => {
+      if (!ahState.isPlaying || ahState.isGoalEffect || !isTouching) return;
+      e.preventDefault();
+      
+      let rect = canvasAH.getBoundingClientRect();
+      let touch = e.touches[0];
+      
+      let currentTouchX = touch.clientX - rect.left;
+      let currentTouchY = touch.clientY - rect.top;
+      
+      let scaleX = AH_WIDTH / rect.width;
+      let scaleY = AH_HEIGHT / rect.height;
+      
+      let deltaX = (currentTouchX - lastTouchX) * scaleX;
+      let deltaY = (currentTouchY - lastTouchY) * scaleY;
+
+      if (!isHost) {
+        deltaX = -deltaX;
+        deltaY = -deltaY;
+      }
+      
+      let mallet = isHost ? ahState.hostMallet : ahState.guestMallet;
+      
+      mallet.x += deltaX;
+      mallet.y += deltaY;
+      
+      mallet.x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, mallet.x));
+      
+      if (isHost) {
+        let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
+        let maxY = AH_HEIGHT - MALLET_RADIUS;
+        mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
+      } else {
+        let minY = MALLET_RADIUS;
+        let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
+        mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
+      }
+      
+      lastTouchX = currentTouchX;
+      lastTouchY = currentTouchY;
+    }, { passive: false });
+
+    // タッチ終了
+    canvasAH.addEventListener('touchend', () => { isTouching = false; });
+    canvasAH.addEventListener('touchcancel', () => { isTouching = false; });
+
+    // マウス移動
+    canvasAH.addEventListener('mousemove', (e) => {
+      if (!ahState.isPlaying || ahState.isGoalEffect) return;
+      
+      let rect = canvasAH.getBoundingClientRect();
+      let scaleX = AH_WIDTH / rect.width;
+      let scaleY = AH_HEIGHT / rect.height;
+      let x = (e.clientX - rect.left) * scaleX;
+      let y = (e.clientY - rect.top) * scaleY;
+
+      if (!isHost) {
+        x = AH_WIDTH - x;
+        y = AH_HEIGHT - y;
+      }
+
+      x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, x));
+
+      if (isHost) {
+        let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
+        let maxY = AH_HEIGHT - MALLET_RADIUS;
+        y = Math.max(minY, Math.min(maxY, y));
+
+        ahState.hostMallet.x = x;
+        ahState.hostMallet.y = y;
+      } else {
+        let minY = MALLET_RADIUS;
+        let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
+        y = Math.max(minY, Math.min(maxY, y));
+
+        ahState.guestMallet.x = x;
+        ahState.guestMallet.y = y; 
+      }
+    });
+  }
+}
+
 // データを整数に変換するヘルパー関数
 const r = (val) => Math.round(val);
 
@@ -70,6 +192,7 @@ function sendDataWrapper(data) {
 }
 
 function updateTrafficBadge() {
+  if (!airhockeyScreen) return;
   if (!trafficBadge) {
     trafficBadge = document.getElementById('airhockey-traffic-badge');
     if (!trafficBadge) {
@@ -97,6 +220,7 @@ function updateTrafficBadge() {
 }
 
 export function initAirHockeySystem(hostFlag, sendFunction) {
+  ensureDOM();
   isHost = hostFlag;
   sendData = sendFunction;
   totalBytesSent = 0;
@@ -104,24 +228,26 @@ export function initAirHockeySystem(hostFlag, sendFunction) {
 }
 
 export function startAirHockey() {
+  if (!ensureDOM()) return;
+
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   airhockeyScreen.classList.add('active');
   
   if (isHost) {
-    ahHostSettings.style.display = 'block';
-    currentSyncRate = parseInt(ahSyncRateSelect.value, 10);
+    if (ahHostSettings) ahHostSettings.style.display = 'block';
+    if (ahSyncRateSelect) currentSyncRate = parseInt(ahSyncRateSelect.value, 10);
     if (sendData) {
       sendDataWrapper({ type: 'ah_config', rate: currentSyncRate });
     }
   } else {
-    ahHostSettings.style.display = 'none';
+    if (ahHostSettings) ahHostSettings.style.display = 'none';
   }
 
   ahState.hostScore = 0;
   ahState.guestScore = 0;
   ahState.isPlaying = true;
   ahState.isGoalEffect = false;
-  btnRematchAirHockey.style.display = 'none';
+  if (btnRematchAirHockey) btnRematchAirHockey.style.display = 'none';
   updateAHScoreBoard();
 
   resetPuck(true);
@@ -129,7 +255,9 @@ export function startAirHockey() {
   totalBytesSent = 0;
   totalBytesReceived = 0;
   
-  airhockeyStatusText.innerText = isHost ? "あなたのターン（赤）" : "あなたのターン（青）";
+  if (airhockeyStatusText) {
+    airhockeyStatusText.innerText = isHost ? "あなたのターン（赤）" : "あなたのターン（青）";
+  }
   updateTrafficBadge();
   
   if (ahAnimId) cancelAnimationFrame(ahAnimId);
@@ -148,22 +276,15 @@ export function stopAirHockey() {
   }
 }
 
-// 修正版：確認画面からキャンセルして復帰する処理
 export function resumeAirHockey() {
-  // 1. 停止・演出フラグを強制クリアしてプレイ状態に戻す
   ahState.isPlaying = true;
   ahState.isGoalEffect = false;
 
-  // 2. 既存のアニメーションフレームを確実に破棄
   if (ahAnimId) {
     cancelAnimationFrame(ahAnimId);
     ahAnimId = null;
   }
 
-  // 3. デバッグログ（ブラウザのコンソールで動作確認用）
-  console.log("AirHockey Resumed! ahAnimId cleared. Starting loop...");
-
-  // 4. 描画・物理演算ループを再開
   ahLoop();
 }
 
@@ -174,7 +295,6 @@ function resetPuck(placeAtHost) {
   ahState.puck.vy = 0;
 }
 
-// 衝突事故を防ぐため、マレットも定位置に戻す
 function resetMallets() {
   ahState.hostMallet.x = AH_WIDTH / 2;
   ahState.hostMallet.y = AH_HEIGHT - 50;
@@ -183,9 +303,8 @@ function resetMallets() {
 }
 
 function ahLoop() {
-  if (!ahState.isPlaying) return;
+  if (!ahState.isPlaying || !ctxAH) return;
 
-  // 演出中はパックの物理演算をストップする
   if (isHost && !ahState.isGoalEffect) {
     let p = ahState.puck;
     p.x += p.vx;
@@ -218,7 +337,6 @@ function ahLoop() {
 
   drawAHBoard();
 
-  // 通信量の極限削減処理（圧縮配列＆送信頻度の調整）
   ahFrameCount++;
   if (ahFrameCount % currentSyncRate === 0 && sendData) {
     if (isHost) {
@@ -246,33 +364,26 @@ function checkCollision(mallet, puck) {
   if (distance < PUCK_RADIUS + MALLET_RADIUS) {
     playSound('flip');
     
-    // 1. 衝突法線ベクトル（マレット中心からパック中心へ向かう向き）
     let nx = dx / distance;
     let ny = dy / distance;
     
-    // 2. めり込みを解消（パックがマレットに埋まらないように外へ押し出す）
     puck.x = mallet.x + nx * (PUCK_RADIUS + MALLET_RADIUS + 0.1);
     puck.y = mallet.y + ny * (PUCK_RADIUS + MALLET_RADIUS + 0.1);
 
-    // 3. パックの速度と法線ベクトルの内積を計算
     let dot = puck.vx * nx + puck.vy * ny;
     
-    // パックがマレットに向かっている場合のみ「入射角＝反射角」の反射計算を行う
     if (dot < 0) {
-      // 弾性衝突の公式: 速度 = 元の速度 - 2 * 内積 * 法線ベクトル
       puck.vx -= 2 * dot * nx;
       puck.vy -= 2 * dot * ny;
     } else if (Math.hypot(puck.vx, puck.vy) < 1) {
-      // パックがほぼ止まっている時にマレットを押し当てた場合は、法線方向へ押し出す
       puck.vx += nx * 2;
       puck.vy += ny * 2;
     }
 
-    // 4. エアホッケーらしい爽快感のためのスピード調整
     let currentSpeed = Math.hypot(puck.vx, puck.vy);
     if (currentSpeed > 0) {
-      let newSpeed = Math.min(currentSpeed + 3, 15); // 当たるたびに少し加速（最大15）
-      newSpeed = Math.max(newSpeed, 6);              // 勢いが死なないように最低速度を底上げ
+      let newSpeed = Math.min(currentSpeed + 3, 15);
+      newSpeed = Math.max(newSpeed, 6);
       puck.vx = (puck.vx / currentSpeed) * newSpeed;
       puck.vy = (puck.vy / currentSpeed) * newSpeed;
     } else {
@@ -288,21 +399,19 @@ function goalScored(isHostScored) {
   
   updateAHScoreBoard();
   
-  if (ahState.hostScore >= 5 || ahState.guestScore >= 5) {
+  if (ahState.hostScore >= WINNING_SCORE || ahState.guestScore >= WINNING_SCORE) {
     if (sendData) {
       sendDataWrapper({ type: 'ah_score', hs: ahState.hostScore, gs: ahState.guestScore, win: isHostScored ? 1 : 0, end: 1 });
     }
-    endAirHockey(ahState.hostScore >= 5 ? 'host' : 'guest');
+    endAirHockey(ahState.hostScore >= WINNING_SCORE ? 'host' : 'guest');
   } else {
-    // ゴール演出フラグをオンにして処理を一時停止
     ahState.isGoalEffect = true;
-    ahState.goalTextScale = 0.3; // 縮んだ状態からスタート
+    ahState.goalTextScale = 0.3;
     
     if (sendData) {
       sendDataWrapper({ type: 'ah_score', hs: ahState.hostScore, gs: ahState.guestScore, win: isHostScored ? 1 : 0, end: 0 });
     }
     
-    // 1秒後にリセットして再開
     setTimeout(() => {
       resetPuck(!isHostScored);
       resetMallets();
@@ -312,20 +421,24 @@ function goalScored(isHostScored) {
 }
 
 function updateAHScoreBoard() {
-  document.getElementById('airhockey-score-host').innerText = `ホスト(赤): ${ahState.hostScore}`;
-  document.getElementById('airhockey-score-guest').innerText = `ゲスト(青): ${ahState.guestScore}`;
+  const hostEl = document.getElementById('airhockey-score-host');
+  const guestEl = document.getElementById('airhockey-score-guest');
+  if (hostEl) hostEl.innerText = `ホスト(赤): ${ahState.hostScore}`;
+  if (guestEl) guestEl.innerText = `ゲスト(青): ${ahState.guestScore}`;
 }
 
 function endAirHockey(winner) {
   ahState.isPlaying = false;
   ahState.isGoalEffect = false;
   let winText = (winner === 'host' && isHost) || (winner === 'guest' && !isHost) ? "🎉 あなたの勝ち！" : "😭 あなたの負け...";
-  airhockeyStatusText.innerText = `ゲーム終了 - ${winText}`;
-  btnRematchAirHockey.style.display = 'block';
+  if (airhockeyStatusText) airhockeyStatusText.innerText = `ゲーム終了 - ${winText}`;
+  if (btnRematchAirHockey) btnRematchAirHockey.style.display = 'block';
   updateTrafficBadge();
 }
 
 function drawAHBoard() {
+  if (!ctxAH) return;
+
   ctxAH.fillStyle = '#0f172a';
   ctxAH.fillRect(0, 0, AH_WIDTH, AH_HEIGHT);
 
@@ -427,15 +540,13 @@ function drawAHBoard() {
   ctxAH.arc(guestX, guestY, MALLET_RADIUS * 0.5, 0, Math.PI * 2);
   ctxAH.stroke();
 
-  // ★ 追加：オシャレなGOALアニメーション演出
   if (ahState.isGoalEffect) {
-    ahState.goalTextScale += (1.2 - ahState.goalTextScale) * 0.15; // バウンス気味のイーズアウト
+    ahState.goalTextScale += (1.2 - ahState.goalTextScale) * 0.15;
     
     ctxAH.save();
     ctxAH.translate(AH_WIDTH / 2, AH_HEIGHT / 2);
     ctxAH.scale(ahState.goalTextScale, ahState.goalTextScale);
     
-    // ゴールドグラデーション文字
     let grad = ctxAH.createLinearGradient(0, -20, 0, 20);
     grad.addColorStop(0, '#fef08a');
     grad.addColorStop(0.5, '#eab308');
@@ -446,13 +557,11 @@ function drawAHBoard() {
     ctxAH.textAlign = "center";
     ctxAH.textBaseline = "middle";
     
-    // ネオンシャドウ
     ctxAH.shadowColor = "#f59e0b";
     ctxAH.shadowBlur = 20;
     ctxAH.shadowOffsetX = 0;
     ctxAH.shadowOffsetY = 0;
     
-    // 白縁取り
     ctxAH.strokeStyle = "#ffffff";
     ctxAH.lineWidth = 4;
     ctxAH.strokeText("GOAL!", 0, 0);
@@ -462,107 +571,6 @@ function drawAHBoard() {
   }
 }
 
-// タッチ開始
-canvasAH.addEventListener('touchstart', (e) => {
-  if (!ahState.isPlaying || ahState.isGoalEffect) return;
-  e.preventDefault();
-  
-  let rect = canvasAH.getBoundingClientRect();
-  let touch = e.touches[0];
-  
-  lastTouchX = touch.clientX - rect.left;
-  lastTouchY = touch.clientY - rect.top;
-  isTouching = true;
-}, { passive: false });
-
-// タッチ移動 (相対移動)
-canvasAH.addEventListener('touchmove', (e) => {
-  if (!ahState.isPlaying || ahState.isGoalEffect || !isTouching) return;
-  e.preventDefault();
-  
-  let rect = canvasAH.getBoundingClientRect();
-  let touch = e.touches[0];
-  
-  let currentTouchX = touch.clientX - rect.left;
-  let currentTouchY = touch.clientY - rect.top;
-  
-  let scaleX = AH_WIDTH / rect.width;
-  let scaleY = AH_HEIGHT / rect.height;
-  
-  let deltaX = (currentTouchX - lastTouchX) * scaleX;
-  let deltaY = (currentTouchY - lastTouchY) * scaleY;
-
-  // ゲスト(青)の場合は、画面が反転しているため移動方向も反転させる
-  if (!isHost) {
-    deltaX = -deltaX;
-    deltaY = -deltaY;
-  }
-  
-  let mallet = isHost ? ahState.hostMallet : ahState.guestMallet;
-  
-  mallet.x += deltaX;
-  mallet.y += deltaY;
-  
-  // 移動範囲の制限
-  mallet.x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, mallet.x));
-  
-  if (isHost) {
-    let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
-    let maxY = AH_HEIGHT - MALLET_RADIUS;
-    mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
-  } else {
-    let minY = MALLET_RADIUS;
-    let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
-    mallet.y = Math.max(minY, Math.min(maxY, mallet.y));
-  }
-  
-  lastTouchX = currentTouchX;
-  lastTouchY = currentTouchY;
-}, { passive: false });
-
-// タッチ終了
-canvasAH.addEventListener('touchend', () => { isTouching = false; });
-canvasAH.addEventListener('touchcancel', () => { isTouching = false; });
-
-
-// マウス移動 (こちらは既存の絶対座標移動のままにします。マウスは通常ワープしません。)
-canvasAH.addEventListener('mousemove', (e) => {
-    if (!ahState.isPlaying || ahState.isGoalEffect) return;
-    
-    let rect = canvasAH.getBoundingClientRect();
-    let clientX = e.clientX;
-    let clientY = e.clientY;
-    
-    let scaleX = AH_WIDTH / rect.width;
-    let scaleY = AH_HEIGHT / rect.height;
-    let x = (clientX - rect.left) * scaleX;
-    let y = (clientY - rect.top) * scaleY;
-
-    if (!isHost) {
-      x = AH_WIDTH - x;
-      y = AH_HEIGHT - y;
-    }
-
-    x = Math.max(MALLET_RADIUS, Math.min(AH_WIDTH - MALLET_RADIUS, x));
-
-    if (isHost) {
-      let minY = AH_HEIGHT / 2 + MALLET_RADIUS;
-      let maxY = AH_HEIGHT - MALLET_RADIUS;
-      y = Math.max(minY, Math.min(maxY, y));
-
-      ahState.hostMallet.x = x;
-      ahState.hostMallet.y = y;
-    } else {
-      let minY = MALLET_RADIUS;
-      let maxY = AH_HEIGHT / 2 - MALLET_RADIUS;
-      y = Math.max(minY, Math.min(maxY, y));
-
-      ahState.guestMallet.x = x;
-      ahState.guestMallet.y = y; 
-    }
-});
-
-// 受信処理（短縮配列対応 ＆ ゴール同期）
 export function processAirHockeyData(data) {
   if (!data) return;
   
@@ -597,10 +605,9 @@ export function processAirHockeyData(data) {
       ahState.guestScore = data.gs ?? data.guestScore;
       updateAHScoreBoard();
       
-      if (data.end === 1 || ahState.hostScore >= 5 || ahState.guestScore >= 5) {
-        endAirHockey(ahState.hostScore >= 5 ? 'host' : 'guest');
+      if (data.end === 1 || ahState.hostScore >= WINNING_SCORE || ahState.guestScore >= WINNING_SCORE) {
+        endAirHockey(ahState.hostScore >= WINNING_SCORE ? 'host' : 'guest');
       } else {
-        // ゲスト側でも1秒間停止してアニメーションを同期
         ahState.isGoalEffect = true;
         ahState.goalTextScale = 0.3;
         

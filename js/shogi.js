@@ -20,6 +20,13 @@ const topCapturedEl = document.getElementById('shogi-captured-top');   // 上側
 const bottomCapturedEl = document.getElementById('shogi-captured-bottom'); // 下側（自分の持ち駒）
 const btnRematch = document.getElementById('btn-rematch-shogi');
 
+// ★ 再戦ボタンにクリックイベントを設定
+if (btnRematch) {
+  btnRematch.onclick = () => {
+    requestRematch();
+  };
+}
+
 const PIECES = {
   FU: { name: '歩', val: '歩', promote: 'と' },
   KYO: { name: '香', val: '香', promote: '成香' },
@@ -46,7 +53,8 @@ export function initGame(isHost) {
   isMyTurn = isHost;
   gameOver = false;
   checkStatusText = "";
-  btnRematch.style.display = 'none';
+
+  if (btnRematch) btnRematch.style.display = 'none';
 
   // 前回のテロップ（王手・勝敗）表示をクリア
   const overlay = document.getElementById('shogi-effect-overlay');
@@ -167,9 +175,10 @@ function updateUI() {
   }
 
   if (gameOver) {
-    btnRematch.style.display = 'inline-block';
+    if (btnRematch) btnRematch.style.display = 'inline-block';
     turnText.innerText = "🏆 ゲーム終了";
   } else {
+    if (btnRematch) btnRematch.style.display = 'none';
     const turnStr = isMyTurn ? "🟢 あなたのターン" : "🔴 相手のターン";
     turnText.innerText = turnStr + checkStatusText;
   }
@@ -216,9 +225,6 @@ function handleCellClick(index) {
   }
 }
 
-// ==========================================
-// 1. 局面判定（王手・詰み・勝敗判定）
-// ==========================================
 function checkGameState() {
   let myKingExists = false;
   let opponentKingExists = false;
@@ -232,7 +238,6 @@ function checkGameState() {
     }
   }
 
-  // 玉が直接取られた場合の処理
   if (!myKingExists) {
     if (!gameOver) {
       gameOver = true;
@@ -252,7 +257,6 @@ function checkGameState() {
 
   if (gameOver) return;
 
-  // 詰み・王手判定
   const inCheck = isKingInCheck(currentTurn, board);
   const canMove = hasAnyLegalMove(currentTurn, board);
 
@@ -285,15 +289,11 @@ function checkGameState() {
   }
 }
 
-// ==========================================
-// 2. 禁じ手判定関数（打ち歩詰め対応）
-// ==========================================
 function isKinjite(piece, from, to, player, currentBoard, checkUchifu = true) {
   const toR = Math.floor(to / 9);
   const toC = to % 9;
   const isDrop = (from === null);
 
-  // ① 行きどころのない駒
   if (isDrop) {
     if (piece.type === 'FU' || piece.type === 'KYO') {
       if (player === 'sente' && toR === 0) return true;
@@ -305,7 +305,6 @@ function isKinjite(piece, from, to, player, currentBoard, checkUchifu = true) {
     }
   }
 
-  // ② 二歩
   if (isDrop && piece.type === 'FU') {
     for (let r = 0; r < 9; r++) {
       const checkIdx = r * 9 + toC;
@@ -316,22 +315,19 @@ function isKinjite(piece, from, to, player, currentBoard, checkUchifu = true) {
     }
   }
 
-  // 仮想盤面の作成
   const tempBoard = [...currentBoard]; 
   if (!isDrop) tempBoard[from] = null;
   tempBoard[to] = piece;
 
-  // ③ 王手放置・自殺手
   if (isKingInCheck(player, tempBoard)) {
     return true;
   }
 
-  // ④ 打ち歩詰め
   if (checkUchifu && isDrop && piece.type === 'FU') {
     const opponent = player === 'sente' ? 'gote' : 'sente';
     if (isKingInCheck(opponent, tempBoard)) {
       if (!hasAnyLegalMove(opponent, tempBoard, false)) {
-        return true; // 打ち歩詰めのため反則
+        return true;
       }
     }
   }
@@ -339,11 +335,7 @@ function isKinjite(piece, from, to, player, currentBoard, checkUchifu = true) {
   return false;
 }
 
-// ==========================================
-// 3. 合法手存在判定関数
-// ==========================================
 function hasAnyLegalMove(player, currentBoard, checkUchifu = true) {
-  // 盤上の駒の移動
   for (let i = 0; i < 81; i++) {
     const p = currentBoard[i];
     if (p && p.player === player) {
@@ -356,7 +348,6 @@ function hasAnyLegalMove(player, currentBoard, checkUchifu = true) {
     }
   }
 
-  // 持ち駒を打つ移動
   const hand = player === 'sente' ? capturedHost : capturedGuest;
   const uniqueTypes = [...new Set(hand)];
   for (const type of uniqueTypes) {
@@ -373,9 +364,6 @@ function hasAnyLegalMove(player, currentBoard, checkUchifu = true) {
   return false;
 }
 
-// ==========================================
-// 4. 王手判定の補助関数
-// ==========================================
 function isKingInCheck(targetPlayer, currentBoard) {
   let kingPos = -1;
   for (let i = 0; i < 81; i++) {
@@ -398,9 +386,6 @@ function isKingInCheck(targetPlayer, currentBoard) {
   return false;
 }
 
-// ==========================================
-// 5. 駒の純粋な動き（ルール無視）を計算する関数
-// ==========================================
 function calculateRawMoves(index, piece, currentBoard) {
   let moves = [];
   const r = Math.floor(index / 9);
@@ -463,17 +448,11 @@ function calculateRawMoves(index, piece, currentBoard) {
   return moves;
 }
 
-// ==========================================
-// 6. 盤上の駒の合法手を返す
-// ==========================================
 function getValidMoves(index, piece) {
   const rawMoves = calculateRawMoves(index, piece, board);
   return rawMoves.filter(to => !isKinjite(piece, index, to, piece.player, board));
 }
 
-// ==========================================
-// 7. 持ち駒を打てるマスを返す
-// ==========================================
 function getDropMoves(pieceType) {
   let moves = [];
   const tempPiece = { type: pieceType, player: myRole, promoted: false };
@@ -593,6 +572,11 @@ export function processAction(data) {
     updateBoard();
     updateUI();
     if (isHostPlayer) syncStateToGuest();
+  } else if (data.type === "ACTION_REMATCH_SHOGI") {
+    if (isHostPlayer) {
+      initGame(true);
+      syncStateToGuest();
+    }
   }
 }
 
@@ -612,13 +596,22 @@ export function updateGameState(payload) {
     capturedGuest = payload.capturedGuest;
     currentTurn = payload.currentTurn;
     isMyTurn = (currentTurn === myRole);
+    
+    gameOver = payload.gameOver !== undefined ? payload.gameOver : false;
+    checkStatusText = "";
 
     selectedIndex = null;
     selectedCapturedPiece = null;
     validMoves = [];
 
+    const overlay = document.getElementById('shogi-effect-overlay');
+    const textElem = document.getElementById('shogi-effect-text');
+    if (overlay) overlay.style.display = 'none';
+    if (textElem) textElem.textContent = '';
+
+    if (btnRematch) btnRematch.style.display = 'none';
+
     playSound('put');
-    checkGameState();
     updateBoard();
     updateUI();
   }
@@ -633,14 +626,12 @@ export function requestRematch() {
   }
 }
 
-// 王手や勝敗のタイミングで呼び出す関数
 export function showShogiEffect(type) {
   const overlay = document.getElementById('shogi-effect-overlay');
   const textElem = document.getElementById('shogi-effect-text');
   
   if (!overlay || !textElem) return;
 
-  // アニメーションを再起動するためのリセット処理
   textElem.className = '';
   void textElem.offsetWidth; 
 
@@ -652,7 +643,6 @@ export function showShogiEffect(type) {
     textElem.textContent = '勝 利';
     textElem.style.color = '#ffb300';
     textElem.style.textShadow = '2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 5px 5px 15px rgba(0,0,0,0.5)';
-    // 紙吹雪を表示
     if (window.confetti) {
       window.confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, zIndex: 10000 });
     }
@@ -665,7 +655,6 @@ export function showShogiEffect(type) {
   overlay.style.display = 'flex';
   textElem.classList.add('effect-pop');
 
-  // 王手の場合は2秒後に自動消去
   if (type === 'oute') {
     setTimeout(() => {
       overlay.style.display = 'none';

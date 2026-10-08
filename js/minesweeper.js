@@ -241,18 +241,10 @@ function handleSoloOpen(index) {
     if (board[index].bombCount === 0) {
       autoOpenNeighbors(index);
     }
-    checkSoloWin();
+    checkGameEnd();
   }
   updateBoard();
   updateUI();
-}
-
-function checkSoloWin() {
-  const unopenedNonBombs = board.filter(cell => !cell.isOpened && !cell.isBomb).length;
-  if (unopenedNonBombs === 0) {
-    gameOver = true;
-    playSound('win');
-  }
 }
 
 // アクション処理（ホスト・対戦用）
@@ -281,7 +273,7 @@ export function processAction(data) {
       playSound('flip');
       stopTurnTimer();
       
-      checkPvPGameEnd();
+      checkGameEnd();
       if (!gameOver) {
         currentTurnIndex = (currentTurnIndex + 1) % players.length;
         openedInCurrentTurn = 0;
@@ -293,7 +285,7 @@ export function processAction(data) {
       openedInCurrentTurn += openedCount;
       playSound('put');
 
-      checkPvPGameEnd();
+      checkGameEnd();
 
       // 1マス以上開けたら10秒タイマー開始（リセット）
       if (!gameOver) {
@@ -311,20 +303,24 @@ export function processAction(data) {
 function startTurnTimer() {
   stopTurnTimer();
   remainingTime = TURN_TIME_LIMIT;
-  updateTimerUI();
 
-  turnTimer = setInterval(() => {
-    remainingTime--;
-    updateTimerUI();
+  // ホストのみタイマーを回す
+  if (isHostPlayer) {
+    turnTimer = setInterval(() => {
+      remainingTime--;
+      updateTimerUI();
+      syncStateToGuest(); // ゲスト側に残り時間を毎秒同期
 
-    if (remainingTime <= 0) {
-      stopTurnTimer();
-      // 自分のターン中に制限時間切れになったら自動ターン終了
-      if (isMyTurn() && !gameOver) {
-        endTurn();
+      if (remainingTime <= 0) {
+        stopTurnTimer();
+        if (isMyTurn() && !gameOver) {
+          endTurn();
+        }
       }
-    }
-  }, 1000);
+    }, 1000);
+  }
+
+  updateTimerUI();
 }
 
 function stopTurnTimer() {
@@ -332,21 +328,19 @@ function stopTurnTimer() {
     clearInterval(turnTimer);
     turnTimer = null;
   }
-  const timerDisplay = document.getElementById('mine-timer-display');
-  if (timerDisplay) {
-    timerDisplay.style.visibility = 'hidden'; // 高さを詰める display:none をやめて領域保持
-  }
+  updateTimerUI();
 }
 
 function updateTimerUI() {
   const timerDisplay = document.getElementById('mine-timer-display');
   const timerSec = document.getElementById('mine-timer-sec');
   if (timerDisplay && timerSec) {
-    if (openedInCurrentTurn > 0 && !gameOver) {
-      timerDisplay.style.visibility = 'visible';
-      timerSec.innerText = remainingTime;
+    // turnTimer !== null の制限を解除し、マスが開けられていれば常に表示
+    if (!isSoloMode && openedInCurrentTurn > 0 && !gameOver) {
+      timerDisplay.style.display = 'inline';
+      timerSec.innerText = Math.max(0, remainingTime);
     } else {
-      timerDisplay.style.visibility = 'hidden';
+      timerDisplay.style.display = 'none';
     }
   }
 }
@@ -401,9 +395,10 @@ function switchTurn() {
   updateUI();
 }
 
-function checkPvPGameEnd() {
-  const unopenedNonBombs = board.filter(cell => !cell.isOpened && !cell.isBomb).length;
-  if (unopenedNonBombs === 0) {
+// 勝敗・ゲーム終了チェック（爆弾以外のマスがすべて開いたか）
+function checkGameEnd() {
+  const isAllSafeOpened = board.every(cell => cell.isBomb || cell.isOpened);
+  if (isAllSafeOpened) {
     gameOver = true;
     stopTurnTimer();
     revealAllBombs();
@@ -526,7 +521,7 @@ function updateUI() {
           : `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">${currName} のターン</span>`;
       }
 
-      /* ★ ターン終了ボタンの表示制御（visibility を使ってレイアウト崩れを解消） */
+      /* ターン終了ボタンの表示制御 */
       if (btnEndTurn) {
         if (myTurn && openedInCurrentTurn > 0) {
           btnEndTurn.style.visibility = 'visible';
@@ -538,6 +533,8 @@ function updateUI() {
       }
     }
   }
+
+  updateTimerUI();
 }
 
 // ゲスト側の同期受信処理
@@ -554,10 +551,8 @@ export function updateGameState(payload) {
     gameOver = payload.gameOver;
     openedInCurrentTurn = payload.openedInCurrentTurn;
 
-    if (openedInCurrentTurn > 0 && !gameOver) {
-      startTurnTimer();
-    } else {
-      stopTurnTimer();
+    if (payload.remainingTime !== undefined) {
+      remainingTime = payload.remainingTime;
     }
 
     if (gameOver) playSound('win');
@@ -571,7 +566,7 @@ export function syncStateToGuest() {
   if (isHostPlayer && !isSoloMode) {
     sendData({
       type: "MINE_STATE_SYNC",
-      payload: { board, players, currentTurnIndex, gameOver, openedInCurrentTurn }
+      payload: { board, players, currentTurnIndex, gameOver, openedInCurrentTurn, remainingTime }
     });
   }
 }
