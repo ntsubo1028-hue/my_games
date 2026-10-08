@@ -21,7 +21,6 @@ const BOARD_CELLS = [
 ];
 
 const START_POSITIONS = [0, 24, 16, 8]; 
-// 統一カラー: 1P赤, 2P青, 3P緑, 4P黄
 const PLAYER_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fbc02d'];
 
 let players = [];
@@ -30,14 +29,22 @@ let isRolling = false;
 let gameOver = false;
 let isEventsRegistered = false;
 
-// 演出中に届いた同期データを一時保持する変数
+// 演出中に届いた同期データを保持する変数
 let pendingStateSync = null;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+function checkIsHost() {
+    return typeof currentGameState !== 'undefined' && currentGameState.isHost === true;
+}
+
 export function initMawariShogi() {
     if (!isEventsRegistered) {
-        document.getElementById('btn-mawari-dice').addEventListener('click', onDiceClick);
+        const btn = document.getElementById('btn-mawari-dice');
+        if (btn) {
+            btn.removeEventListener('click', onDiceClick);
+            btn.addEventListener('click', onDiceClick);
+        }
         isEventsRegistered = true;
     }
 
@@ -46,12 +53,14 @@ export function initMawariShogi() {
 
     document.getElementById('mawari-game-container').style.display = 'flex';
     document.getElementById('btn-rematch-mawari').style.display = 'none';
-    
-    const boardEl = document.getElementById('mawari-board');
-    boardEl.querySelectorAll('.mawari-cell').forEach(c => c.remove());
-    document.getElementById('mawari-player-list').innerHTML = '';
 
-    if (currentGameState.isHost) {
+    // ボタンの表示状態を復元
+    const diceBtn = document.getElementById('btn-mawari-dice');
+    if (diceBtn) diceBtn.style.display = '';
+
+    buildBoardUI();
+
+    if (checkIsHost()) {
         setupGameFromLobby();
     }
 }
@@ -86,7 +95,7 @@ function setupGameFromLobby() {
 }
 
 export function syncStateToAll() {
-    if (!currentGameState.isHost) return;
+    if (!checkIsHost()) return;
     sendData({
         type: "MAWARI_STATE_SYNC",
         payload: {
@@ -99,22 +108,48 @@ export function syncStateToAll() {
 }
 
 export function updateMawariGameState(payload) {
-    // 演出中（移動アニメーション中）は破棄せず「保留」する
-    if (isRolling) {
-        pendingStateSync = payload;
+    if (!payload) return;
+    if (payload.type) {
+        processMawariAction(payload);
         return;
     }
-    applyGameState(payload);
+    const stateData = payload.payload || payload;
+    if (isRolling) {
+        pendingStateSync = stateData;
+        return;
+    }
+    applyGameState(stateData);
+}
+
+export function processMawariAction(data) {
+    if (!data) return;
+    const type = data.type;
+    const payload = data.payload || data;
+
+    if (type === "MAWARI_ACTION_ROLL") {
+        if (checkIsHost()) {
+            handleRoll();
+        }
+    } else if (type === "MAWARI_ROLL_RESULT") {
+        if (!checkIsHost()) {
+            executeRollSequenceForGuest(payload);
+        }
+    } else if (type === "MAWARI_STATE_SYNC") {
+        if (!checkIsHost()) {
+            updateMawariGameState(payload);
+        }
+    }
 }
 
 function applyGameState(payload) {
+    if (!payload || !payload.players) return;
     players = payload.players;
     turnIndex = payload.turnIndex;
     gameOver = payload.gameOver;
     isRolling = payload.isRolling;
 
     const boardEl = document.getElementById('mawari-board');
-    if (boardEl.querySelectorAll('.mawari-cell').length === 0) {
+    if (!boardEl || boardEl.querySelectorAll('.mawari-cell').length === 0) {
         buildBoardUI();
     }
     renderPieces();
@@ -123,6 +158,12 @@ function applyGameState(payload) {
 
 function buildBoardUI() {
     const boardEl = document.getElementById('mawari-board');
+    if (!boardEl) return;
+
+    // ボタン等の既存DOM要素を破壊せず、セルのみ削除して再構築
+    boardEl.querySelectorAll('.mawari-cell').forEach(c => c.remove());
+
+    // 1. 盤面マス（32個）の構築
     BOARD_CELLS.forEach((data, idx) => {
         const cell = document.createElement('div');
         cell.className = 'mawari-cell' + (data.corner ? ' corner' : '');
@@ -141,6 +182,29 @@ function buildBoardUI() {
 
         boardEl.appendChild(cell);
     });
+
+    // 2. 中央のサイコロエリア（金4枚）が存在しない場合のみ生成
+    let diceArea = boardEl.querySelector('.mawari-dice-area');
+    if (!diceArea) {
+        diceArea = document.createElement('div');
+        diceArea.className = 'mawari-dice-area';
+        diceArea.style.gridRow = '4 / 7';
+        diceArea.style.gridColumn = '4 / 7';
+        diceArea.style.display = 'flex';
+        diceArea.style.justifyContent = 'center';
+        diceArea.style.alignItems = 'center';
+        diceArea.style.gap = '8px';
+        diceArea.style.flexWrap = 'wrap';
+
+        for (let i = 0; i < 4; i++) {
+            const koma = document.createElement('div');
+            koma.className = 'mawari-koma';
+            koma.innerText = '金';
+            diceArea.appendChild(koma);
+        }
+        boardEl.appendChild(diceArea);
+    }
+
     renderPieces();
 }
 
@@ -182,27 +246,20 @@ function renderPieces() {
     });
 
     const listEl = document.getElementById('mawari-player-list');
-    listEl.innerHTML = '';
-    players.forEach((p, idx) => {
-        const card = document.createElement('div');
-        card.className = 'mawari-player-card' + (idx === turnIndex ? ' active' : '');
-        card.style.borderLeftColor = p.color;
-        card.innerText = `${p.name}: ${RANKS[p.rankIdx].name}`;
-        listEl.appendChild(card);
-    });
+    if (listEl) {
+        listEl.innerHTML = '';
+        players.forEach((p, idx) => {
+            const card = document.createElement('div');
+            card.className = 'mawari-player-card' + (idx === turnIndex ? ' active' : '');
+            card.style.borderLeftColor = p.color;
+            card.innerText = `${p.name}: ${RANKS[p.rankIdx].name}`;
+            listEl.appendChild(card);
+        });
+    }
 }
 
 function onDiceClick() {
     rollMawariDice();
-}
-
-export function processMawariAction(data) {
-    if (data.type === "MAWARI_ACTION_ROLL" && currentGameState.isHost) {
-        handleRoll();
-    } else if (data.type === "MAWARI_ROLL_RESULT" && !currentGameState.isHost) {
-        // ゲスト側がホストから計算済みの出目結果を受信
-        executeRollSequenceForGuest(data.payload);
-    }
 }
 
 function rollKomaLogic() {
@@ -238,8 +295,7 @@ function rollKomaLogic() {
 }
 
 async function handleRoll() {
-    // ゲストが誤って直呼び出しした場合はホストへリクエストを送信
-    if (!currentGameState.isHost) {
+    if (!checkIsHost()) {
         sendData({ type: "MAWARI_ACTION_ROLL" });
         return;
     }
@@ -247,11 +303,9 @@ async function handleRoll() {
     if (isRolling || gameOver) return;
     isRolling = true;
 
-    // ホストが計算を実行
     const result = rollKomaLogic();
     const currentTurnIdx = turnIndex;
 
-    // 全ゲストに出目データと回転演出の開始をブロードキャスト
     sendData({
         type: "MAWARI_ROLL_RESULT",
         payload: {
@@ -260,7 +314,6 @@ async function handleRoll() {
         }
     });
 
-    // ホスト自身の画面でも演出＆コマ移動を実行
     const hasWon = await playRollSequence(currentTurnIdx, result);
 
     if (hasWon) {
@@ -272,7 +325,8 @@ async function handleRoll() {
     isRolling = false;
 
     if (result.extraTurn && !gameOver) {
-        document.getElementById('mawari-log-text').innerText += " ⭐もう一度！";
+        const logText = document.getElementById('mawari-log-text');
+        if (logText) logText.innerText += " ⭐もう一度！";
         syncStateToAll();
         updateUI();
         checkComTurn();
@@ -282,16 +336,18 @@ async function handleRoll() {
 }
 
 async function executeRollSequenceForGuest(payload) {
+    if (isRolling) return;
     isRolling = true;
-    turnIndex = payload.turnIndex;
+
+    if (payload && payload.turnIndex !== undefined) {
+        turnIndex = payload.turnIndex;
+    }
     updateUI();
 
-    // ゲスト側画面で演出を再生（ホストの計算結果を使用）
-    await playRollSequence(payload.turnIndex, payload.result);
+    await playRollSequence(turnIndex, payload.result);
     
     isRolling = false;
 
-    // 演出中に届いて保留されていたホストからの最終同期があればここで適用
     if (pendingStateSync) {
         applyGameState(pendingStateSync);
         pendingStateSync = null;
@@ -300,35 +356,44 @@ async function executeRollSequenceForGuest(payload) {
     }
 }
 
-// ダイス回転・出目更新・1歩ずつ進む演出の共通処理
 async function playRollSequence(targetTurnIdx, result) {
     const p = players[targetTurnIdx];
-    document.getElementById('btn-mawari-dice').disabled = true;
+    if (!p) return false;
 
-    // 1. ダイス回転アニメーション
+    const btn = document.getElementById('btn-mawari-dice');
+    if (btn) btn.disabled = true;
+
+    // 1. サイコロ（金4枚）回転アニメーション
     const komaEls = document.querySelectorAll('.mawari-koma');
     komaEls.forEach(el => { el.className = 'mawari-koma rolling'; el.innerText = '金'; });
 
     await sleep(700);
 
     // 2. 出目の確定表示とログ表示
-    komaEls.forEach((el, idx) => {
-        const type = result.results[idx];
-        el.className = `mawari-koma ${type}`;
-        el.innerText = type === 'ura' ? '' : '金';
-    });
+    if (result && result.results) {
+        komaEls.forEach((el, idx) => {
+            const type = result.results[idx] || 'omote';
+            el.className = `mawari-koma ${type}`;
+            el.innerText = type === 'ura' ? '' : '金';
+        });
+    }
 
-    document.getElementById('mawari-log-text').innerText = result.detailText;
+    const logEl = document.getElementById('mawari-log-text');
+    if (logEl && result && result.detailText) {
+        logEl.innerText = result.detailText;
+    }
     await sleep(400);
 
-    // 3. 1歩ずつの駒移動演出
-    const hasWon = await movePlayerStepByStep(p, result.score);
+    // 3. 一歩ずつの駒移動演出
+    const score = (result && typeof result.score === 'number') ? result.score : 0;
+    const hasWon = await movePlayerStepByStep(p, score);
 
     if (hasWon) {
         gameOver = true;
-        document.getElementById('mawari-turn-badge').innerText = `🏆 ${p.name} の勝利！`;
+        const badge = document.getElementById('mawari-turn-badge');
+        if (badge) badge.innerText = `🏆 ${p.name} の勝利！`;
         const rematchBtn = document.getElementById('btn-rematch-mawari');
-        if (rematchBtn && currentGameState.isHost) {
+        if (rematchBtn && checkIsHost()) {
             rematchBtn.style.display = 'block';
         }
         await sleep(200); 
@@ -402,7 +467,8 @@ async function checkOverlap(currentPlayer) {
             const pieceEl = document.getElementById(`mawari-piece-player-${target.id}`);
             if (pieceEl) pieceEl.classList.add('blown-away');
         }
-        document.getElementById('mawari-log-text').innerText += ` 💥 相手を踏んだ！ふりだしへ！`;
+        const logEl = document.getElementById('mawari-log-text');
+        if (logEl) logEl.innerText += ` 💥 相手を踏んだ！ふりだしへ！`;
         await sleep(700);
         targets.forEach(target => target.pos = target.startPos);
         renderPieces();
@@ -411,7 +477,7 @@ async function checkOverlap(currentPlayer) {
 
 function nextTurn() {
     turnIndex = (turnIndex + 1) % players.length;
-    if (currentGameState.isHost) syncStateToAll();
+    if (checkIsHost()) syncStateToAll();
     updateUI();
     checkComTurn();
 }
@@ -420,17 +486,31 @@ function updateUI() {
     if (players.length === 0) return;
     const p = players[turnIndex];
     const badge = document.getElementById('mawari-turn-badge');
-    badge.innerText = `ターン: ${p.name} (${RANKS[p.rankIdx].name})`;
-    badge.style.backgroundColor = p.color;
+    if (badge) {
+        badge.innerText = `ターン: ${p.name} (${RANKS[p.rankIdx].name})`;
+        badge.style.backgroundColor = p.color;
+    }
 
-    const isMyTurn = (p.connId === currentGameState.myConnId) || (p.type === 'host' && currentGameState.isHost);
-    document.getElementById('btn-mawari-dice').disabled = (!isMyTurn || isRolling || gameOver || p.type === 'com');
+    // 自分のターンかどうかの判定ロジックを強化
+    let isMyTurn = false;
+    if (checkIsHost()) {
+        // ホストの場合：現在のプレイヤーがCOMでなく、ホストのスロット（例: 0P）または自分の接続IDである場合
+        isMyTurn = (p.type !== 'com') && (p.id === 0 || p.connId === currentGameState.myConnId || p.type === 'host' || p.type === 'human');
+    } else {
+        // ゲストの場合：自分の接続IDまたはスロットIDと一致する場合
+        isMyTurn = (p.connId === currentGameState.myConnId);
+    }
+
+    const diceBtn = document.getElementById('btn-mawari-dice');
+    if (diceBtn) {
+        diceBtn.disabled = (!isMyTurn || isRolling || gameOver);
+    }
     
     renderPieces();
 }
 
 function checkComTurn() {
-    if (!currentGameState.isHost) return;
+    if (!checkIsHost()) return;
     const p = players[turnIndex];
     if (p && p.type === 'com' && !gameOver) {
         setTimeout(() => handleRoll(), 1200);
@@ -442,7 +522,7 @@ export function stopMawariShogi() {
 }
 
 export function rollMawariDice() {
-    if (currentGameState.isHost) {
+    if (checkIsHost()) {
         handleRoll();
     } else {
         sendData({ type: "MAWARI_ACTION_ROLL" });
