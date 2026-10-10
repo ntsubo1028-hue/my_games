@@ -712,7 +712,7 @@ setOnMessage((data, sourceId) => {
     else if (!isHost && data.type === "STATE_SYNC_SHOGI") updateShogiGameState(data.payload);
   }
   if (selectedGame === 'mawari') {
-    if (data.type === "MAWARI_ACTION_ROLL") {
+    if (data.type === "MAWARI_ACTION_ROLL" || data.type === "MAWARI_START_ANIMATION") {
       processMawariAction(data);
     } else if (data.type === "MAWARI_STATE_SYNC") {
       updateMawariGameState(data.payload);
