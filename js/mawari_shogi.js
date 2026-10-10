@@ -27,6 +27,7 @@ let players = [];
 let turnIndex = 0;
 let gameOver = false;
 let isEventsRegistered = false;
+let isAnimating = false; 
 let lastDiceResults = ['omote', 'omote', 'omote', 'omote'];
 let lastLogText = '';
 
@@ -46,9 +47,8 @@ function getMySlotId() {
     return checkIsHost() ? 0 : -1;
 }
 
-// 自分のターンかどうかを判定（ボタン制御用）
 function isMyTurn() {
-    if (gameOver || players.length === 0) return false;
+    if (gameOver || players.length === 0 || isAnimating) return false;
     const currentP = players[turnIndex];
     if (!currentP) return false;
 
@@ -105,7 +105,6 @@ export function processMawariAction(data) {
             }
         }
     } else if (type === "MAWARI_START_ANIMATION") {
-        // ホストからのアニメーション＆結果指示を受信（ゲスト側）
         const animData = payload.payload !== undefined ? payload.payload : payload;
         if (animData && animData.results && animData.nextState) {
             startRollAnimationAndApply(animData.results, animData.nextState);
@@ -120,7 +119,7 @@ export function processMawariAction(data) {
 }
 
 function applyGameState(stateData) {
-    if (!stateData) return;
+    if (!stateData || isAnimating) return;
     if (stateData.players) players = stateData.players;
     if (stateData.turnIndex !== undefined) turnIndex = stateData.turnIndex;
     if (stateData.gameOver !== undefined) gameOver = stateData.gameOver;
@@ -159,6 +158,10 @@ export function initMawariShogi() {
 
     buildBoardUI();
     setupGameFromLobby();
+
+    if (!checkIsHost()) {
+        sendMawariData("MAWARI_REQUEST_SYNC", { senderSlotId: getMySlotId() });
+    }
 }
 
 function setupGameFromLobby() {
@@ -184,6 +187,7 @@ function setupGameFromLobby() {
 
     turnIndex = 0;
     gameOver = false;
+    isAnimating = false;
     lastDiceResults = ['omote', 'omote', 'omote', 'omote'];
     lastLogText = 'ゲーム開始';
 
@@ -211,8 +215,24 @@ function buildBoardUI() {
         numSpan.innerText = idx;
         cell.appendChild(numSpan);
 
+        const pieceContainer = document.createElement('div');
+        pieceContainer.className = 'mawari-piece-container';
+        pieceContainer.dataset.cellIndex = idx;
+        cell.appendChild(pieceContainer);
+
         boardEl.appendChild(cell);
     });
+
+    // 昇格演出用オーバーレイ要素がなければ動的生成（style_2.css対応）
+    if (!document.getElementById('mawari-shokaku-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'mawari-shokaku-overlay';
+        overlay.innerHTML = `
+            <div id="mawari-shokaku-text">昇格！</div>
+            <div id="mawari-shokaku-detail">歩 から 香 へ</div>
+        `;
+        boardEl.appendChild(overlay);
+    }
 }
 
 // --------------------------------------------------
@@ -223,7 +243,7 @@ function onDiceClick() {
 }
 
 export function rollMawariDice() {
-    if (gameOver || !isMyTurn()) return;
+    if (gameOver || !isMyTurn() || isAnimating) return;
 
     const diceBtn = document.getElementById('btn-mawari-dice');
     if (diceBtn) diceBtn.disabled = true;
@@ -238,7 +258,7 @@ export function rollMawariDice() {
 }
 
 // --------------------------------------------------
-// サイコロ・移動・ターン進行のシミュレーション
+// サイコロ・移動ロジック（軌跡生成：重なり演出 & 昇格演出対応）
 // --------------------------------------------------
 function rollKomaLogic() {
     const results = [];
@@ -286,6 +306,7 @@ function calculateNextState(rollRes) {
 
     const steps = rollRes.score;
     const isKing = (p.rankIdx === RANKS.length - 1);
+    const path = []; 
 
     if (steps > 0) {
         for (let i = 0; i < steps; i++) {
@@ -298,38 +319,87 @@ function calculateNextState(rollRes) {
 
             p.pos = newPos;
 
+            let promotedThisStep = false;
+            let promotionName = "";
+
             if (isKing && (newPos === p.startPos || passedStart)) {
                 p.pos = p.startPos;
                 isWon = true;
+                path.push({
+                    players: JSON.parse(JSON.stringify(clonedPlayers)),
+                    logText: logStr + ` 🎉 ${p.name} が上がり達成で勝利！`,
+                    shokaku: null
+                });
                 break;
             }
 
             if (passedStart && p.rankIdx < RANKS.length - 1) {
                 p.rankIdx++;
-                logStr += ` (1周達成で${RANKS[p.rankIdx].name}へ昇級！)`;
+                promotedThisStep = true;
+                promotionName = RANKS[p.rankIdx].name;
+                logStr = `${p.name}: ${rollRes.detailText} (1周達成で${promotionName}へ昇級！)`;
             }
-        }
 
-        if (!isWon && !isKing && BOARD_CELLS[p.pos].corner && p.rankIdx < RANKS.length - 1) {
-            p.rankIdx++;
-            logStr += ` (角マス到達で${RANKS[p.rankIdx].name}へ昇級！)`;
+            path.push({
+                players: JSON.parse(JSON.stringify(clonedPlayers)),
+                logText: logStr,
+                shokaku: promotedThisStep ? promotionName : null
+            });
         }
 
         if (!isWon) {
-            const targets = clonedPlayers.filter(other => other.id !== p.id && other.pos === p.pos);
-            if (targets.length > 0) {
-                targets.forEach(t => t.pos = t.startPos);
+            let promotedThisStep = false;
+            let promotionName = "";
+
+            if (!isKing && BOARD_CELLS[p.pos].corner && p.rankIdx < RANKS.length - 1) {
+                p.rankIdx++;
+                promotedThisStep = true;
+                promotionName = RANKS[p.rankIdx].name;
+                logStr += ` (角マス到達で${promotionName}へ昇級！)`;
+            }
+
+            // 相手の駒を踏んだかどうかの判定
+            const opponentsOnSameSpot = clonedPlayers.filter(other => other.id !== p.id && other.pos === p.pos);
+            if (opponentsOnSameSpot.length > 0) {
+                // 1. まず「重なった瞬間」をパスに1フレーム追加
+                path.push({
+                    players: JSON.parse(JSON.stringify(clonedPlayers)),
+                    logText: logStr + ` 💥 ${p.name} が相手のマスに重なった！`,
+                    shokaku: promotedThisStep ? promotionName : null
+                });
+
+                // 2. 相手をスタート位置（ふりだし）に戻す
+                opponentsOnSameSpot.forEach(t => t.pos = t.startPos);
                 logStr += ` 💥 相手を踏んだ！ふりだしへ！`;
+
+                // 3. 戻された後の状態をパスに追加
+                path.push({
+                    players: JSON.parse(JSON.stringify(clonedPlayers)),
+                    logText: logStr,
+                    shokaku: null
+                });
+            } else if (path.length > 0) {
+                path[path.length - 1].players = JSON.parse(JSON.stringify(clonedPlayers));
+                path[path.length - 1].logText = logStr;
+                if (promotedThisStep) {
+                    path[path.length - 1].shokaku = promotionName;
+                }
             }
         }
+    } else {
+        path.push({
+            players: JSON.parse(JSON.stringify(clonedPlayers)),
+            logText: logStr,
+            shokaku: null
+        });
     }
 
     if (isWon) {
         currentGameOver = true;
-        logStr += ` 🎉 ${p.name} が上がり達成で勝利！`;
     } else {
         if (rollRes.extraTurn) {
             logStr += ` ⭐もう一度！`;
+            if (path.length > 0) path[path.length - 1].logText = logStr;
         } else {
             currentTurnIndex = (currentTurnIndex + 1) % clonedPlayers.length;
         }
@@ -342,12 +412,13 @@ function calculateNextState(rollRes) {
         lastDiceResults: rollRes.results,
         lastLogText: logStr,
         isWon: isWon,
-        winnerName: p.name
+        winnerName: p.name,
+        path: path
     };
 }
 
 function executeRollAndBroadcast() {
-    if (!checkIsHost() || gameOver) return;
+    if (!checkIsHost() || gameOver || isAnimating) return;
 
     const rollRes = rollKomaLogic();
     const nextState = calculateNextState(rollRes);
@@ -363,6 +434,8 @@ function executeRollAndBroadcast() {
 // アニメーション実行と結果の確定
 // --------------------------------------------------
 function startRollAnimationAndApply(results, nextState) {
+    isAnimating = true;
+
     const komaEls = document.querySelectorAll('.mawari-koma');
     komaEls.forEach(el => {
         el.className = 'mawari-koma rolling';
@@ -378,25 +451,86 @@ function startRollAnimationAndApply(results, nextState) {
     const diceBtn = document.getElementById('btn-mawari-dice');
     if (diceBtn) diceBtn.disabled = true;
 
+    // 1.2秒間金駒を回転
     setTimeout(() => {
-        players = nextState.players;
-        turnIndex = nextState.turnIndex;
-        gameOver = nextState.gameOver;
-        lastDiceResults = nextState.lastDiceResults;
-        lastLogText = nextState.lastLogText;
+        lastDiceResults = results;
+        komaEls.forEach((el, idx) => {
+            el.classList.remove('rolling');
+            const type = lastDiceResults[idx] || 'omote';
+            el.className = `mawari-koma ${type}`;
+            el.innerText = type === 'ura' ? '' : '金';
+        });
 
-        if (checkIsHost()) {
-            syncStateToAll();
+        const path = nextState.path || [];
+        if (path.length === 0) {
+            finalizeState(nextState);
+            return;
         }
 
-        updateUI();
+        // 0.25秒ごとに1歩ずつ進めるステップアニメーション
+        let stepIdx = 0;
+        const intervalId = setInterval(() => {
+            if (stepIdx < path.length) {
+                const step = path[stepIdx];
+                players = step.players;
+                lastLogText = step.logText;
+                updateUI();
 
-        if (nextState.isWon) {
-            alert(`🎉 おめでとうございます！${nextState.winnerName} が勝利しました！`);
-        } else {
-            checkComTurn();
-        }
+                // 昇格が発生したステップならポップアップ演出を表示
+                if (step.shokaku) {
+                    showShokakuOverlay(step.shokaku);
+                }
+
+                stepIdx++;
+            } else {
+                clearInterval(intervalId);
+                finalizeState(nextState);
+            }
+        }, 250);
+
     }, 1200);
+}
+
+// 昇格ポップアップ演出のトリガー（style_2.cssのkeyframes連動）[cite: 7]
+function showShokakuOverlay(rankName) {
+    const overlay = document.getElementById('mawari-shokaku-overlay');
+    const textEl = document.getElementById('mawari-shokaku-text');
+    const detailEl = document.getElementById('mawari-shokaku-detail');
+    if (!overlay || !textEl) return;
+
+    if (detailEl) detailEl.innerText = `${rankName} へ昇格！`;
+
+    // アニメーションを再トリガーするため一旦displayをnoneにしてリセット
+    overlay.style.display = 'block';
+    textEl.style.animation = 'none';
+    textEl.offsetHeight; // reflow
+    textEl.style.animation = 'mawari-popShokaku 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 1000);
+}
+
+function finalizeState(nextState) {
+    players = nextState.players;
+    turnIndex = nextState.turnIndex;
+    gameOver = nextState.gameOver;
+    lastDiceResults = nextState.lastDiceResults;
+    lastLogText = nextState.lastLogText;
+
+    isAnimating = false;
+
+    if (checkIsHost()) {
+        syncStateToAll();
+    }
+
+    updateUI();
+
+    if (nextState.isWon) {
+        alert(`🎉 おめでとうございます！${nextState.winnerName} が勝利しました！`);
+    } else {
+        checkComTurn();
+    }
 }
 
 // --------------------------------------------------
@@ -414,9 +548,27 @@ function updateUI() {
 
     const komaEls = document.querySelectorAll('.mawari-koma');
     komaEls.forEach((el, idx) => {
-        const type = lastDiceResults[idx] || 'omote';
-        el.className = `mawari-koma ${type}`;
-        el.innerText = type === 'ura' ? '' : '金';
+        if (!el.classList.contains('rolling')) {
+            const type = lastDiceResults[idx] || 'omote';
+            el.className = `mawari-koma ${type}`;
+            el.innerText = type === 'ura' ? '' : '金';
+        }
+    });
+
+    const containers = document.querySelectorAll('.mawari-piece-container');
+    containers.forEach(container => {
+        container.innerHTML = '';
+    });
+
+    players.forEach(pl => {
+        const targetContainer = document.querySelector(`.mawari-piece-container[data-cell-index="${pl.pos}"]`);
+        if (targetContainer) {
+            const pieceEl = document.createElement('div');
+            pieceEl.className = 'mawari-piece';
+            pieceEl.style.backgroundColor = pl.color;
+            pieceEl.innerText = RANKS[pl.rankIdx].name;
+            targetContainer.appendChild(pieceEl);
+        }
     });
 
     const logEl = document.getElementById('mawari-log-text');
@@ -438,14 +590,14 @@ function updateUI() {
 
     const diceBtn = document.getElementById('btn-mawari-dice');
     if (diceBtn) {
-        diceBtn.disabled = (!isMyTurn() || gameOver);
+        diceBtn.disabled = (!isMyTurn() || gameOver || isAnimating);
     }
 }
 
 function checkComTurn() {
     if (!checkIsHost()) return;
     const p = players[turnIndex];
-    if (p && p.type === 'com' && !gameOver) {
+    if (p && p.type === 'com' && !gameOver && !isAnimating) {
         setTimeout(() => executeRollAndBroadcast(), 1000);
     }
 }
