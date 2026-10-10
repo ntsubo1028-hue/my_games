@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.0.6';
+    const VERSION = '2.0.7';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -407,7 +407,9 @@
   ================================== -->
   <div id="mawari-game-screen" class="screen" style="background: #f0e6d2; box-sizing: border-box; padding-bottom: 30px; overflow-y: auto;">
     
-    <div style="max-width: 480px; margin: 0 auto; padding: 15px 10px 5px 10px; display: flex; justify-content: space-between; align-items: center;">
+    <button type="button" onclick="openHelp('help-mawari.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 10px auto 0 auto; width: auto;">❓ 遊び方ヘルプ</button>
+
+    <div style="max-width: 480px; margin: 0 auto; padding: 5px 10px 5px 10px; display: flex; justify-content: space-between; align-items: center;">
       <h2 style="margin: 0 auto; color: #333; font-size: clamp(20px, 5vw, 24px); text-align: center; text-shadow: 1px 1px 0 rgba(255,255,255,0.6);">🎲 回り将棋</h2>
     </div>
 

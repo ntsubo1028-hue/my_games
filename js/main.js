@@ -711,8 +711,8 @@ setOnMessage((data, sourceId) => {
     else if (isHost && data.type === "ACTION_REMATCH_SHOGI") { initShogiGame(true); syncShogiStateToGuest(); }
     else if (!isHost && data.type === "STATE_SYNC_SHOGI") updateShogiGameState(data.payload);
   }
-  if (selectedGame === 'mawari') {
-    if (data.type === "MAWARI_ACTION_ROLL" || data.type === "MAWARI_START_ANIMATION") {
+if (selectedGame === 'mawari') {
+    if (data.type === "MAWARI_ACTION_ROLL" || data.type === "MAWARI_START_ANIMATION" || data.type === "MAWARI_ACTION_REMATCH" || data.type === "MAWARI_REMATCH") {
       processMawariAction(data);
     } else if (data.type === "MAWARI_STATE_SYNC") {
       updateMawariGameState(data.payload);
