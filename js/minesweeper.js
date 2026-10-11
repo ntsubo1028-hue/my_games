@@ -16,6 +16,7 @@ let myFlags = []; // ローカル専用の旗保持
 let players = []; // プレイヤーリスト { slotId, connId, name, score }
 let currentTurnIndex = 0;
 let gameOver = false;
+let isWin = false; // 勝利（クリア）したかどうかを保持するフラグ
 
 let openedInCurrentTurn = 0; // 現在のターンで開けたマス数
 let currentInputMode = 'open'; // 'open' または 'flag'
@@ -31,6 +32,7 @@ export function initSoloGame() {
   stopTurnTimer();
   isSoloMode = true;
   gameOver = false;
+  isWin = false;
   currentInputMode = 'open';
   openedInCurrentTurn = 0;
   myFlags = Array(ROWS * COLS).fill(false);
@@ -60,6 +62,7 @@ export function initPvPGame(isHost) {
   isSoloMode = false;
   isHostPlayer = isHost;
   gameOver = false;
+  isWin = false;
   openedInCurrentTurn = 0;
   currentInputMode = 'open';
   myFlags = Array(ROWS * COLS).fill(false);
@@ -234,6 +237,7 @@ function handleSoloOpen(index) {
 
   if (board[index].isBomb) {
     gameOver = true;
+    isWin = false; // 爆弾を踏んだのでゲームオーバー
     playSound('win');
     revealAllBombs();
   } else {
@@ -335,7 +339,6 @@ function updateTimerUI() {
   const timerDisplay = document.getElementById('mine-timer-display');
   const timerSec = document.getElementById('mine-timer-sec');
   if (timerDisplay && timerSec) {
-    // turnTimer !== null の制限を解除し、マスが開けられていれば常に表示
     if (!isSoloMode && openedInCurrentTurn > 0 && !gameOver) {
       timerDisplay.style.display = 'inline';
       timerSec.innerText = Math.max(0, remainingTime);
@@ -400,6 +403,7 @@ function checkGameEnd() {
   const isAllSafeOpened = board.every(cell => cell.isBomb || cell.isOpened);
   if (isAllSafeOpened) {
     gameOver = true;
+    isWin = true; // すべての安全なマスが開いたのでクリア成功
     stopTurnTimer();
     revealAllBombs();
     playSound('win');
@@ -497,7 +501,8 @@ function updateUI() {
 
     if (isSoloMode) {
       if (turnText) {
-        turnText.innerText = board.some(c => c.isBomb && c.isOpened) ? "💥 爆発！ゲームオーバー" : "🎉 クリアおめでとう！";
+        // isWin フラグを参照して正しくメッセージを出し分ける
+        turnText.innerText = isWin ? "🎉 クリアおめでとう！" : "💥 爆発！ゲームオーバー";
       }
     } else {
       if (turnText && players.length > 0) {
