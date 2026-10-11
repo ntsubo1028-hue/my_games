@@ -479,7 +479,7 @@ const handleQuitGame = () => {
 // ==========================================
 // 4. 実行時初期化・イベント登録部
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   // --- 名前変更フォームのイベント設定 ---
   const btnChangeName = document.getElementById('btn-change-name');
   const inputPlayerName = document.getElementById('input-player-name');
@@ -823,4 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (appVerEl && window.APP_VERSION) {
     appVerEl.innerText = `Ver ${window.APP_VERSION}`;
   }
-});
+}
+
+// すでにDOMの読み込みが完了していれば即座に実行、まだならイベントを待つ
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
