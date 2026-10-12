@@ -19,7 +19,6 @@ export let currentGameState = {
   isHost: false,
   myConnId: 'host',
   slots: [],
-  spectators: [], // 互換性のためプロパティは残すが使用しない
   targetSlotCount: 2
 };
 
@@ -110,7 +109,6 @@ export function broadcastLobbyState() {
     payload: {
       gameKey: currentGameState.gameKey,
       slots: currentGameState.slots,
-      spectators: [], // 空のまま送る
       targetSlotCount: currentGameState.targetSlotCount
     }
   });
@@ -198,7 +196,6 @@ function rebuildSlotsForGame() {
   }
 
   currentGameState.slots = newSlots;
-  currentGameState.spectators = []; // 観戦者は廃止
 }
 
 export function toggleComSlot(slotId) {
@@ -336,12 +333,6 @@ export function renderLobbyUI() {
     if (btnGroup.children.length > 0) {
       slotsContainer.appendChild(btnGroup);
     }
-  }
-
-  // 観戦者の描画を強制的に非表示
-  const spectatorContainer = document.getElementById('lobby-spectators-container');
-  if (spectatorContainer) {
-    spectatorContainer.style.display = 'none';
   }
 
   // ホストにのみ「ゲームスタート」と「ゲスト呼び出し」ボタンを表示

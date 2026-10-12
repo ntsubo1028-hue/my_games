@@ -33,7 +33,6 @@ let selectedGame = 'reversi';
 let localConnectionDataStr = ""; 
 let isConnected = false; 
 
-let currentGuestCount = 0;
 let pendingGuestId = null;
 
 // 現在の4桁の接続コードを保持する変数
@@ -675,7 +674,6 @@ function initApp() {
     const msg = isHost ? "ロビーを解散して通信を切断し、メニューに戻りますか？" : "ロビーから退出してメニューに戻りますか？";
     if (confirm(msg)) {
       resetLobby();
-      currentGuestCount = 0;
       currentConnectionCode = null;
       
       if (isConnected) {

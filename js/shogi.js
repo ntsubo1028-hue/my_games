@@ -67,10 +67,6 @@ export function initGame(isHost) {
   updateUI();
 }
 
-export function initShogiGame(isHost) {
-  initGame(isHost);
-}
-
 function setupInitialBoard() {
   const goteInitial = [
     [0, 'KYO'], [1, 'KEI'], [2, 'GIN'], [3, 'KIN'], [4, 'GYOKU'], [5, 'KIN'], [6, 'GIN'], [7, 'KEI'], [8, 'KYO'],

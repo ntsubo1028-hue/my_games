@@ -250,10 +250,6 @@ export function sendData(data, targetId = null) {
   }
 }
 
-export function isConnectionEstablished() {
-  return Object.values(connections).some(conn => conn.dataChannel && conn.dataChannel.readyState === 'open');
-}
-
 function setupDataChannelHandlers(targetId, channel, onOpen) {
   channel.onopen = () => { onOpen(targetId); };
   channel.onmessage = (event) => {
