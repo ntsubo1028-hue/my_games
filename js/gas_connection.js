@@ -102,13 +102,16 @@ export async function joinDynamicGasRoom(roomCode, onOpen, onStatusChange) {
       throw new Error(result.message || '満員か、接続準備ができていません');
     }
 
-    const assignedGuestId = result.assignedGuestId;
+    const assignedGuestId = result.assignedGuestId; // 例: guest-1, guest-2 など
     onStatusChange(`空き枠 (${assignedGuestId}) を取得しました。接続中...`);
     
     const decompressed = LZString.decompressFromBase64(result.hostSdp);
     const offerObj = JSON.parse(decompressed);
     
-    const localDesc = await setupGuestConnection(offerObj, onOpen);
+    // ★ 接続成功時に、割り当てられた assignedGuestId をコールバックに渡すように修正
+    const localDesc = await setupGuestConnection(offerObj, () => {
+      onOpen(assignedGuestId);
+    });
     
     const plainDesc = typeof localDesc.toJSON === 'function' ? localDesc.toJSON() : localDesc;
     const answerData = {
