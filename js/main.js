@@ -234,7 +234,6 @@ function showGameScreenForHost(game) {
 }
 
 function startGuestScanFlow() {
-  isHost = false; // ★ ゲストとして確実にフラグを折る
   showScreen('connection-screen');
   const connTitle = document.getElementById('conn-title');
   if (connTitle) connTitle.innerText = "ゲスト参加の準備";
@@ -247,7 +246,6 @@ function startGuestScanFlow() {
 
   const processHostOffer = async (scanResult) => {
     try {
-      isHost = false; // ★ ここでも確実にゲストに設定
       const offerObj = { type: scanResult.type || scanResult.t, sdp: scanResult.sdp || scanResult.s };
       selectedGame = scanResult.gameType || scanResult.g;
       const targetGuestId = scanResult.targetId || scanResult.id || 'guest-1';
@@ -257,7 +255,6 @@ function startGuestScanFlow() {
       setStatusText("ホストへの返信を生成中...");
 
       const localDesc = await setupGuestConnection(offerObj, () => {
-        isHost = false; // ★ 接続確立時も確実にゲストに設定
         isConnected = true;
         setStampButtonVisible(true);
         initLobby(selectedGame, false);
@@ -298,7 +295,6 @@ function startGuestScanFlow() {
   };
 
   setClick('btn-guest-input-qr', () => {
-    isHost = false;
     setElementDisplay('step-guest-choose-input', 'none');
     startMultiPartScan(
       async (scanResult) => { await processHostOffer(scanResult); },
@@ -308,7 +304,6 @@ function startGuestScanFlow() {
   });
 
   setClick('btn-guest-input-text', () => {
-    isHost = false;
     setElementDisplay('step-guest-choose-input', 'none');
     setElementDisplay('step-text-input-area', 'block');
   });
@@ -317,7 +312,6 @@ function startGuestScanFlow() {
   if (textInput) textInput.value = '';
   
   setClick('btn-submit-sdp', () => {
-    isHost = false;
     if (!textInput) return;
     const pasted = textInput.value.trim();
     if (!pasted) return;
@@ -340,14 +334,12 @@ function startGuestScanFlow() {
 
   // ゲストが「接続コードを入力して参加する」を選んだとき
   setClick('btn-guest-input-gas', () => {
-    isHost = false;
     setElementDisplay('step-guest-choose-input', 'none');
     setElementDisplay('step-gas-room-input-area', 'block');
     setStatusText("4桁の接続コードの入力");
   });
 
   setClick('btn-cancel-gas-input', () => {
-    isHost = false;
     setElementDisplay('step-gas-room-input-area', 'none');
     setElementDisplay('step-guest-choose-input', 'block');
     setStatusText("ホストの情報をどうやって入力するか選んでください");
@@ -355,7 +347,6 @@ function startGuestScanFlow() {
 
   // 「この番号で部屋に入る」ボタンが押されたとき
   setClick('btn-submit-gas-room', async () => {
-    isHost = false; // ★ 確実にゲストに設定
     const inputEl = document.getElementById('input-gas-room-number');
     const roomCode = inputEl ? inputEl.value.trim() : '';
     if (!roomCode || roomCode.length !== 4) {
@@ -370,7 +361,6 @@ function startGuestScanFlow() {
       const gameType = await joinDynamicGasRoom(
         roomCode,
         (connectedId) => {
-          isHost = false; // ★ 参加成功時も確実にゲストに設定
           isConnected = true;
           setStampButtonVisible(true);
           initLobby(selectedGame, false);
@@ -506,7 +496,6 @@ function initApp() {
 
   // --- ① ホスト側：4桁の接続コードで自動接続（GAS） ---
   setClick('btn-host-output-gas', async () => {
-    isHost = true; // ★ ホストとして確実に設定
     const targetSlots = [];
     if (currentGameState && currentGameState.slots) {
       for (let i = 1; i < currentGameState.slots.length; i++) {
@@ -530,7 +519,6 @@ function initApp() {
         selectedGame,
         targetSlots,
         (connectedId) => {
-          isHost = true; // ★ 接続成功時もホスト
           isConnected = true;
           alert(`${connectedId} と接続しました！`);
           showScreen('lobby-screen');
@@ -550,12 +538,10 @@ function initApp() {
 
   // --- ② ホスト側：従来のQRコードを表示する（P2P手動） ---
   setClick('btn-host-output-qr', async () => {
-    isHost = true;
     setElementDisplay('step-host-choose-output', 'none');
     setStatusText("QRコードを準備しています...");
     try {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
-        isHost = true;
         isConnected = true; 
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
@@ -575,12 +561,10 @@ function initApp() {
 
   // --- ③ ホスト側：従来のテキストをコピーする（P2P手動） ---
   setClick('btn-host-output-text', async () => {
-    isHost = true;
     setElementDisplay('step-host-choose-output', 'none');
     setStatusText("接続情報を準備しています...");
     try {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
-        isHost = true;
         isConnected = true; 
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
@@ -610,7 +594,6 @@ function initApp() {
 
   // ホスト側：相手からの返信をQRで読み取る
   setClick('btn-host-input-qr', () => {
-    isHost = true;
     setElementDisplay('step-host-choose-input', 'none');
     startMultiPartScan(
       async (answerObj) => { 
@@ -624,7 +607,6 @@ function initApp() {
 
   // ホスト側：相手からの返信をテキストでペーストする
   setClick('btn-host-input-text', () => {
-    isHost = true;
     setElementDisplay('step-host-choose-input', 'none');
     setElementDisplay('step-text-input-area', 'block');
   });
@@ -632,7 +614,6 @@ function initApp() {
   // テキスト送信ボタンの処理
   const textInput = document.getElementById('text-sdp-input');
   setClick('btn-submit-sdp', () => {
-    isHost = true;
     if (!textInput) return;
     const pasted = textInput.value.trim();
     if (!pasted) return;
@@ -699,7 +680,6 @@ function initApp() {
   });
 
   setClick('btn-goto-host-select', () => { 
-    isHost = true;
     showScreen('host-game-select-screen'); 
     const btnBack = document.getElementById('btn-back-main');
     const btnDisc = document.getElementById('btn-disconnect-host');
@@ -708,7 +688,7 @@ function initApp() {
   });
 
   setClick('btn-back-main', () => { showScreen('menu-screen'); });
-  setClick('btn-guest', () => { startGuestScanFlow(); });
+  setClick('btn-guest', () => { isHost = false; startGuestScanFlow(); });
   setClick('btn-play-solo-mine', () => { 
     setStampButtonVisible(false); 
     showScreen('minesweeper-game-screen'); 
