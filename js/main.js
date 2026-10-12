@@ -23,7 +23,7 @@ import { initAirHockeySystem, startAirHockey, processAirHockeyData, stopAirHocke
 import { initGame as initShogiGame, processAction as processShogiAction, updateGameState as updateShogiGameState, syncStateToGuest as syncShogiStateToGuest, requestRematch as requestShogiRematch } from './shogi.js';
 import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, updateMawariGameState } from './mawari_shogi.js';
 import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
-
+import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -35,6 +35,9 @@ let isConnected = false;
 
 let currentGuestCount = 0;
 let pendingGuestId = null;
+
+// 現在の4桁の接続コードを保持する変数
+let currentConnectionCode = null;
 
 const STAMPS = {
   greeting: { icon: '🤝', text: 'よろしく！' },
@@ -102,6 +105,7 @@ function resetConnectionUI() {
   setElementDisplay('step-host-choose-input', 'none');
   setElementDisplay('step-guest-choose-output', 'none');
   setElementDisplay('step-text-input-area', 'none');
+  setElementDisplay('step-gas-room-input-area', 'none');
 }
 
 function setStatusText(text) {
@@ -229,109 +233,6 @@ function showGameScreenForHost(game) {
   else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(true); }
 }
 
-// --- 接続・通信フロー関数 ---
-async function startHostConnectionFlow(guestId) {
-  showScreen('connection-screen');
-  const connTitle = document.getElementById('conn-title');
-  if (connTitle) connTitle.innerText = "ゲスト接続の準備";
-  setStatusText("接続情報を準備しています...");
-  resetConnectionUI();
-
-  try {
-    const localDesc = await setupHostConnection(guestId, (connectedId) => {
-      isConnected = true; 
-      alert(`ゲストと接続しました！`);
-      showScreen('lobby-screen');
-      addGuestConnection(connectedId, `ゲスト ${currentGuestCount}`);
-    });
-
-    localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame, targetId: guestId });
-
-    setStatusText("自分の情報をどうやって相手に伝えますか？");
-    setElementDisplay('step-host-choose-output', 'block');
-
-    const showDoneButton = () => { setElementDisplay('step-host-done-container', 'block'); };
-
-    setClick('btn-host-output-qr', () => {
-      setElementDisplay('step-host-choose-output', 'none');
-      setElementDisplay('qr-container', 'flex');
-      generateMultiPartQR('conn-status', localDesc, selectedGame, guestId);
-      showDoneButton();
-    });
-
-    setClick('btn-host-output-text', () => {
-      setElementDisplay('step-host-choose-output', 'none');
-      setElementDisplay('text-copy-container', 'block');
-      setStatusText("接続情報をコピーして相手に送ってください");
-      showDoneButton();
-    });
-
-    setClick('btn-copy-sdp', () => {
-      navigator.clipboard.writeText(localConnectionDataStr).then(() => {
-        alert("接続情報をコピーしました！\nLINE等で相手に送ってください。");
-      });
-    });
-
-    setClick('btn-host-done-output', () => {
-      setElementDisplay('qr-container', 'none');
-      setElementDisplay('text-copy-container', 'none');
-      setElementDisplay('step-host-done-container', 'none');
-
-      setStatusText("相手からの返信情報を入力してください");
-      setElementDisplay('step-host-choose-input', 'block');
-
-      setClick('btn-host-input-qr', () => {
-        setElementDisplay('step-host-choose-input', 'none');
-        startMultiPartScan(
-          async (answerObj) => { 
-            await handleGuestAnswer(guestId, answerObj); 
-            setStatusText("接続完了！ロビーに戻ります...");
-          },
-          () => showScreen('camera-screen'),
-          () => showScreen('connection-screen')
-        );
-      });
-
-      setClick('btn-host-input-text', () => {
-        setElementDisplay('step-host-choose-input', 'none');
-        setElementDisplay('step-text-input-area', 'block');
-      });
-    });
-
-    const textInput = document.getElementById('text-sdp-input');
-    if (textInput) textInput.value = '';
-    
-    setClick('btn-submit-sdp', () => {
-      if (!textInput) return;
-      const pasted = textInput.value.trim();
-      if (!pasted) return;
-
-      setElementDisplay('step-text-input-area', 'none');
-      setStatusText("接続を確立しています...");
-
-      setTimeout(async () => {
-        try {
-          const answerObj = decodeSdp(pasted);
-          await handleGuestAnswer(guestId, answerObj);
-          setStatusText("接続完了！ロビーに戻ります...");
-        } catch (e) {
-          console.error("ホスト側テキスト接続エラー:", e);
-          alert("エラーが発生しました！\n詳細: " + e.message);
-          setElementDisplay('step-text-input-area', 'block');
-          setStatusText("相手からの返信情報を入力してください");
-        }
-      }, 2000);
-    });
-
-  } catch (e) {
-    const connStatus = document.getElementById('conn-status');
-    if (connStatus) {
-      connStatus.className = 'error-text';
-      connStatus.innerText = "エラー:\n" + e.message;
-    }
-  }
-}
-
 function startGuestScanFlow() {
   showScreen('connection-screen');
   const connTitle = document.getElementById('conn-title');
@@ -430,6 +331,54 @@ function startGuestScanFlow() {
       }
     }, 2000);
   });
+
+  // ゲストが「接続コードを入力して参加する」を選んだとき
+  setClick('btn-guest-input-gas', () => {
+    setElementDisplay('step-guest-choose-input', 'none');
+    setElementDisplay('step-gas-room-input-area', 'block');
+    setStatusText("4桁の接続コードの入力");
+  });
+
+  setClick('btn-cancel-gas-input', () => {
+    setElementDisplay('step-gas-room-input-area', 'none');
+    setElementDisplay('step-guest-choose-input', 'block');
+    setStatusText("ホストの情報をどうやって入力するか選んでください");
+  });
+
+  // 「この番号で部屋に入る」ボタンが押されたとき
+  setClick('btn-submit-gas-room', async () => {
+    const inputEl = document.getElementById('input-gas-room-number');
+    const roomCode = inputEl ? inputEl.value.trim() : '';
+    if (!roomCode || roomCode.length !== 4) {
+      alert("4桁の接続コードを入力してください。");
+      return;
+    }
+
+    setElementDisplay('step-gas-room-input-area', 'none');
+    setStatusText("接続コードを確認しています...");
+
+    try {
+      const gameType = await joinDynamicGasRoom(
+        roomCode,
+        (connectedId) => {
+          isConnected = true;
+          setStampButtonVisible(true);
+          initLobby(selectedGame, false);
+          showScreen('lobby-screen');
+          const savedName = localStorage.getItem('player_name') || 'ゲスト';
+          sendData({ type: "CHANGE_NAME", payload: { name: savedName } });
+        },
+        (statusMsg) => {
+          setStatusText(statusMsg);
+        }
+      );
+      selectedGame = gameType;
+    } catch (e) {
+      console.error(e);
+      setElementDisplay('step-gas-room-input-area', 'block');
+      setStatusText("接続に失敗しました: " + e.message);
+    }
+  });
 }
 
 function cancelOutputSelection() {
@@ -438,7 +387,7 @@ function cancelOutputSelection() {
   if (isHost) {
     setElementDisplay('step-host-done-container', 'none');
     setElementDisplay('step-host-choose-output', 'block');
-    setStatusText("自分の情報をどうやって相手に伝えますか？");
+    setStatusText("接続方法を選んでください");
   } else {
     setElementDisplay('step-guest-choose-output', 'block');
     setStatusText("返信の準備ができました。");
@@ -510,9 +459,191 @@ function initApp() {
 
   // --- メニュー・ロビー・各種ボタンのイベント登録 ---
   setClick('btn-lobby-add-guest', () => {
-    currentGuestCount++;
-    pendingGuestId = `guest-${currentGuestCount}`;
-    startHostConnectionFlow(pendingGuestId);
+    // 1. 次の空き枠の guestId を決定
+    const targetSlots = [];
+    let nextGuestId = 'guest-1';
+    if (currentGameState && currentGameState.slots) {
+      for (let i = 1; i < currentGameState.slots.length; i++) {
+        const slot = currentGameState.slots[i];
+        if (slot && (slot.type === 'none' || slot.type === 'com')) {
+          targetSlots.push(`guest-${slot.slotId}`);
+        }
+      }
+      const firstEmpty = currentGameState.slots.find(s => s.type === 'none');
+      if (firstEmpty) {
+        nextGuestId = `guest-${firstEmpty.slotId}`;
+      }
+    }
+
+    if (targetSlots.length === 0) {
+      alert("追加できる空き枠・COM枠がありません。");
+      return;
+    }
+    
+    pendingGuestId = nextGuestId;
+
+    // 2. 接続画面へ遷移し、接続方法の選択肢を表示する
+    showScreen('connection-screen');
+    const connTitle = document.getElementById('conn-title');
+    if (connTitle) connTitle.innerText = "ゲスト接続の準備";
+    setStatusText("接続方法を選んでください");
+    resetConnectionUI();
+
+    setElementDisplay('btn-back-select', 'inline-block');
+    setElementDisplay('btn-disconnect-host', 'none');
+    setElementDisplay('step-host-choose-output', 'block'); // ホスト側の3択選択画面を表示
+  });
+
+  // --- ① ホスト側：4桁の接続コードで自動接続（GAS） ---
+  setClick('btn-host-output-gas', async () => {
+    const targetSlots = [];
+    if (currentGameState && currentGameState.slots) {
+      for (let i = 1; i < currentGameState.slots.length; i++) {
+        const slot = currentGameState.slots[i];
+        if (slot && (slot.type === 'none' || slot.type === 'com')) {
+          targetSlots.push(`guest-${slot.slotId}`);
+        }
+      }
+    }
+
+    if (targetSlots.length === 0) {
+      alert("追加できる空き枠・COM枠がありません。");
+      return;
+    }
+
+    setElementDisplay('step-host-choose-output', 'none');
+    setStatusText("接続情報を生成中...");
+    try {
+      currentConnectionCode = await createOrUpdateDynamicGasRoom(
+        currentConnectionCode,
+        selectedGame,
+        targetSlots,
+        (connectedId) => {
+          isConnected = true;
+          alert(`${connectedId} と接続しました！`);
+          showScreen('lobby-screen');
+          addGuestConnection(connectedId, `ゲスト`);
+        },
+        (statusMsg) => {
+          setStatusText(statusMsg);
+        }
+      );
+      setStatusText(`接続コード: 【 ${currentConnectionCode} 】\nこの4桁をゲストに伝えてください。\nゲストの参加を待っています...`);
+    } catch (e) {
+      console.error(e);
+      setStatusText("エラー: " + e.message);
+      setElementDisplay('step-host-choose-output', 'block');
+    }
+  });
+
+  // --- ② ホスト側：従来のQRコードを表示する（P2P手動） ---
+  setClick('btn-host-output-qr', async () => {
+    setElementDisplay('step-host-choose-output', 'none');
+    setStatusText("QRコードを準備しています...");
+    try {
+      const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
+        isConnected = true; 
+        alert(`ゲストと接続しました！`);
+        showScreen('lobby-screen');
+        addGuestConnection(connectedId, `ゲスト`);
+      });
+      
+      localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame, targetId: pendingGuestId });
+      
+      setElementDisplay('qr-container', 'flex');
+      generateMultiPartQR('conn-status', localDesc, selectedGame, pendingGuestId);
+      setElementDisplay('step-host-done-container', 'block');
+    } catch (e) {
+      setStatusText("エラー:\n" + e.message);
+      setElementDisplay('step-host-choose-output', 'block');
+    }
+  });
+
+  // --- ③ ホスト側：従来のテキストをコピーする（P2P手動） ---
+  setClick('btn-host-output-text', async () => {
+    setElementDisplay('step-host-choose-output', 'none');
+    setStatusText("接続情報を準備しています...");
+    try {
+      const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
+        isConnected = true; 
+        alert(`ゲストと接続しました！`);
+        showScreen('lobby-screen');
+        addGuestConnection(connectedId, `ゲスト`);
+      });
+      
+      localConnectionDataStr = encodeSdp({ type: localDesc.type, sdp: localDesc.sdp, gameType: selectedGame, targetId: pendingGuestId });
+      
+      setElementDisplay('text-copy-container', 'block');
+      setStatusText("接続情報をコピーして相手に送ってください");
+      setElementDisplay('step-host-done-container', 'block');
+    } catch (e) {
+      setStatusText("エラー:\n" + e.message);
+      setElementDisplay('step-host-choose-output', 'block');
+    }
+  });
+
+  // --- 手動接続用：「接続情報を相手に伝えた」ボタン ---
+  setClick('btn-host-done-output', () => {
+    setElementDisplay('qr-container', 'none');
+    setElementDisplay('text-copy-container', 'none');
+    setElementDisplay('step-host-done-container', 'none');
+
+    setStatusText("相手からの返信情報を入力してください");
+    setElementDisplay('step-host-choose-input', 'block');
+  });
+
+  // ホスト側：相手からの返信をQRで読み取る
+  setClick('btn-host-input-qr', () => {
+    setElementDisplay('step-host-choose-input', 'none');
+    startMultiPartScan(
+      async (answerObj) => { 
+        await handleGuestAnswer(pendingGuestId, answerObj); 
+        setStatusText("接続完了！ロビーに戻ります...");
+      },
+      () => showScreen('camera-screen'),
+      () => showScreen('connection-screen')
+    );
+  });
+
+  // ホスト側：相手からの返信をテキストでペーストする
+  setClick('btn-host-input-text', () => {
+    setElementDisplay('step-host-choose-input', 'none');
+    setElementDisplay('step-text-input-area', 'block');
+  });
+
+  // テキスト送信ボタンの処理
+  const textInput = document.getElementById('text-sdp-input');
+  setClick('btn-submit-sdp', () => {
+    if (!textInput) return;
+    const pasted = textInput.value.trim();
+    if (!pasted) return;
+
+    setElementDisplay('step-text-input-area', 'none');
+    setStatusText("接続を確立しています...");
+
+    setTimeout(async () => {
+      try {
+        const answerObj = decodeSdp(pasted);
+        await handleGuestAnswer(pendingGuestId, answerObj);
+        setStatusText("接続完了！ロビーに戻ります...");
+      } catch (e) {
+        console.error("ホスト側テキスト接続エラー:", e);
+        alert("エラーが発生しました！\n詳細: " + e.message);
+        setElementDisplay('step-text-input-area', 'block');
+        setStatusText("相手からの返信情報を入力してください");
+      }
+    }, 2000);
+  });
+
+  // --- コピーボタンのイベント登録 ---
+  setClick('btn-copy-sdp', () => {
+    if (!localConnectionDataStr) {
+      alert("コピーする情報がまだありません。");
+      return;
+    }
+    navigator.clipboard.writeText(localConnectionDataStr).then(() => {
+      alert("接続情報をコピーしました！\nLINE等で相手に送ってください。");
+    });
   });
 
   setClick('btn-quit-lobby', () => {
@@ -520,6 +651,7 @@ function initApp() {
     if (confirm(msg)) {
       resetLobby();
       currentGuestCount = 0;
+      currentConnectionCode = null;
       
       if (isConnected) {
         disconnectConnection();
