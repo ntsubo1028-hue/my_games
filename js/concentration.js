@@ -1,3 +1,4 @@
+// concentration.js
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
 import { currentGameState } from './lobby.js';
@@ -12,6 +13,8 @@ let isProcessing = false;
 
 let isWaitingForConfirmation = false;
 let confirmationTimer = null;
+let remainingSeconds = 5;     // ★ 残り秒数管理用変数
+let countdownInterval = null;  // ★ カウントダウン用インターバル
 
 const SYMBOLS = ['🍎', '🍊', '🍇', '🍓', '🍉', '🍒', '🍍', '🥝'];
 const PLAYER_COLORS = ['#d32f2f', '#1976d2', '#388e3c', '#f57c00']; 
@@ -26,7 +29,6 @@ export function initGame(isHost) {
 
   // ロビーの参加スロット情報からプレイヤーリストを生成
   if (currentGameState && currentGameState.slots) {
-    // 修正: 'empty'（空き枠）以外の全てのスロット（COM等含む）をプレイヤーとして取得
     const activeSlots = currentGameState.slots.filter(s => s.type !== 'empty');
     if (activeSlots.length > 0) {
       players = activeSlots.map((s, idx) => ({
@@ -36,7 +38,6 @@ export function initGame(isHost) {
         score: 0
       }));
     } else {
-      // ロビー情報はあるが空の場合のフォールバック
       players = [
         { slotId: 0, connId: 'host', name: '1P (ホスト)', score: 0 },
         { slotId: 1, connId: 'guest-1', name: '2P', score: 0 },
@@ -45,7 +46,6 @@ export function initGame(isHost) {
       ];
     }
   } else {
-    // 修正: ロビーを通さず直接起動したテスト時も4人で開始されるように変更
     players = [
       { slotId: 0, connId: 'host', name: '1P (ホスト)', score: 0 },
       { slotId: 1, connId: 'guest-1', name: '2P', score: 0 },
@@ -151,10 +151,11 @@ function updateUI() {
   } else {
     if (turnText) {
       if (isWaitingForConfirmation) {
+        // ★ カウントダウンの残り秒数を表示
         if (myTurn) {
-          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 覚えるタイム(タップ又は5秒で終了)</span>`;
+          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 覚えるタイム: 残り ${remainingSeconds}秒 (タップで閉じる)</span>`;
         } else {
-          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 ${currName} が覚えています...</span>`;
+          turnText.innerHTML = `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">👀 ${currName} が覚えています... (残り ${remainingSeconds}秒)</span>`;
         }
       } else {
         turnText.innerHTML = myTurn 
@@ -187,6 +188,18 @@ function handleCardClick(index, e) {
 
 function startConfirmationTimer() {
   clearConfirmationTimer();
+  remainingSeconds = 5;
+
+  // ★ 1秒ごとに残り秒数を減らしてUIを更新
+  countdownInterval = setInterval(() => {
+    remainingSeconds--;
+    if (remainingSeconds < 0) {
+      remainingSeconds = 0;
+    }
+    updateUI();
+  }, 1000);
+
+  // ★ 5秒後にカードを伏せる
   confirmationTimer = setTimeout(() => {
     triggerCloseMismatch();
   }, 5000); 
@@ -197,6 +210,11 @@ function clearConfirmationTimer() {
     clearTimeout(confirmationTimer);
     confirmationTimer = null;
   }
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  remainingSeconds = 5;
 }
 
 function triggerCloseMismatch() {
@@ -209,7 +227,7 @@ function triggerCloseMismatch() {
 }
 
 export function handleScreenTap() {
-  if (!isWaitingForConfirmation || !isMyTurn()) return;
+  if (!isWaitingForConfirmation) return;
   triggerCloseMismatch();
 }
 
@@ -286,9 +304,8 @@ export function processAction(data) {
         updateBoard();
         updateUI();
 
-        if (isMyTurn()) {
-          startConfirmationTimer();
-        }
+        // ★ ホスト側でタイマーを開始
+        startConfirmationTimer();
       }
     }
   }
@@ -313,7 +330,8 @@ export function updateGameState(payload) {
     updateBoard();
     updateUI();
 
-    if (!wasWaiting && isWaitingForConfirmation && isMyTurn()) {
+    // ★ ゲスト側でも待ち状態に変わったタイミングでタイマーを動かす
+    if (!wasWaiting && isWaitingForConfirmation) {
       startConfirmationTimer();
     }
   }

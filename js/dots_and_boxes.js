@@ -1,3 +1,4 @@
+// dots_and_boxes.js
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js'; // 音声モジュールをインポート
 import { currentGameState } from './lobby.js'; // ロビーの参加者情報を取得
@@ -14,12 +15,12 @@ let players = [];
 let scores = [];
 let turnIndex = 0;
 
-// --- ボードのサイズ設定（4人対応に合わせて4x4） ---
-const BOARD_SIZE = 4;
-const H_LINES_COUNT = (BOARD_SIZE + 1) * BOARD_SIZE;     // 20
-const V_LINES_COUNT = BOARD_SIZE * (BOARD_SIZE + 1);     // 20
-const TOTAL_LINES = H_LINES_COUNT + V_LINES_COUNT;       // 40
-const TOTAL_BOXES = BOARD_SIZE * BOARD_SIZE;             // 16
+// --- ボードのサイズ設定（3x3） ---
+const BOARD_SIZE = 3;
+const H_LINES_COUNT = (BOARD_SIZE + 1) * BOARD_SIZE;     // 12
+const V_LINES_COUNT = BOARD_SIZE * (BOARD_SIZE + 1);     // 12
+const TOTAL_LINES = H_LINES_COUNT + V_LINES_COUNT;       // 24
+const TOTAL_BOXES = BOARD_SIZE * BOARD_SIZE;             // 9
 
 // UI要素の安全な取得
 function getElements() {
@@ -72,32 +73,29 @@ function renderBoard() {
   if (!board) return;
 
   board.innerHTML = '';
-  const gridSize = BOARD_SIZE * 2 + 1; // 9
+  const gridSize = BOARD_SIZE * 2 + 1; // 7
   
   board.style.display = 'grid';
-  board.style.gridTemplateColumns = `repeat(${gridSize}, auto)`;
   board.style.justifyContent = 'center';
   board.style.alignItems = 'center';
   board.style.gap = '0px';
-  board.style.margin = '20px auto';
-
-  // CSSに依存せずJavaScriptでサイズを自動設定
-  const DOT_SIZE = '12px';
-  const LINE_THICKNESS = '12px';
-  const BOX_SIZE = '48px';
+  board.style.margin = '0 auto';
 
   for(let r = 0; r < gridSize; r++) {
     for(let c = 0; c < gridSize; c++) {
       const cell = document.createElement('div');
       cell.style.boxSizing = 'border-box';
+      cell.style.width = '100%';
+      cell.style.height = '100%';
       
       if(r % 2 === 0 && c % 2 === 0) {
         // ドット
         cell.className = 'dot';
-        cell.style.width = DOT_SIZE;
-        cell.style.height = DOT_SIZE;
         cell.style.backgroundColor = '#333';
         cell.style.borderRadius = '50%';
+        cell.style.width = '10px';
+        cell.style.height = '10px';
+        cell.style.margin = 'auto';
       } else if (r % 2 === 0 && c % 2 !== 0) {
         // 横の線
         const lineR = r / 2; 
@@ -105,11 +103,10 @@ function renderBoard() {
         const index = lineR * BOARD_SIZE + lineC;
         cell.className = 'line-h';
         cell.dataset.index = index;
-        cell.style.width = BOX_SIZE;
-        cell.style.height = LINE_THICKNESS;
         cell.style.backgroundColor = '#e0e0e0';
         cell.style.cursor = 'pointer';
         cell.style.borderRadius = '4px';
+        cell.style.minHeight = '10px';
         cell.onclick = () => handleLineClick(index);
       } else if (r % 2 !== 0 && c % 2 === 0) {
         // 縦の線
@@ -118,11 +115,10 @@ function renderBoard() {
         const index = H_LINES_COUNT + lineR * (BOARD_SIZE + 1) + lineC;
         cell.className = 'line-v';
         cell.dataset.index = index;
-        cell.style.width = LINE_THICKNESS;
-        cell.style.height = BOX_SIZE;
         cell.style.backgroundColor = '#e0e0e0';
         cell.style.cursor = 'pointer';
         cell.style.borderRadius = '4px';
+        cell.style.minWidth = '10px';
         cell.onclick = () => handleLineClick(index);
       } else {
         // ボックス (陣地)
@@ -131,8 +127,6 @@ function renderBoard() {
         const index = boxR * BOARD_SIZE + boxC;
         cell.className = 'box';
         cell.id = 'box-' + index;
-        cell.style.width = BOX_SIZE;
-        cell.style.height = BOX_SIZE;
         cell.style.backgroundColor = '#fafafa';
         cell.style.borderRadius = '4px';
       }

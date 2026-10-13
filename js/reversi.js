@@ -1,5 +1,6 @@
+// reversi.js
 import { sendData } from './connection.js';
-import { playSound } from './sounds.js'; // ※ご自身のファイル名に合わせています
+import { playSound } from './sounds.js';
 
 let isHostPlayer = false;
 let isMyTurn = false;
@@ -16,6 +17,9 @@ const scoreBlack = document.getElementById('score-black');
 const scoreWhite = document.getElementById('score-white');
 const btnRematch = document.getElementById('btn-rematch-reversi'); // 再戦ボタン
 
+// 初回に盤面のセルを保持しておく配列
+let cellElements = [];
+
 export function initGame(isHost) {
   isHostPlayer = isHost;
   myColor = isHost ? 'black' : 'white';
@@ -29,40 +33,67 @@ export function initGame(isHost) {
   isMyTurn = isHost; // ホスト（黒）が先手
   gameOver = false;
   isAnimating = false;
-  btnRematch.style.display = 'none'; // 開始時は再戦ボタンを隠す
+  if (btnRematch) btnRematch.style.display = 'none'; // 開始時は再戦ボタンを隠す
   
+  createBoardDOM();
   updateBoard();
   updateUI();
 }
 
-function updateBoard() {
+// 最初に64マス分のDOMを一度だけ生成する
+function createBoardDOM() {
+  if (!boardEl) return;
   boardEl.innerHTML = '';
-  const validMoves = getValidMoves(currentTurnColor);
+  cellElements = [];
 
   for (let i = 0; i < 64; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     
-    if (board[i]) {
-      // 3Dフリップアニメーション用の構造を作成
-      const disc = document.createElement('div');
-      disc.className = `disc ${board[i]}`;
-      
-      const faceBlack = document.createElement('div');
-      faceBlack.className = 'face face-black';
-      const faceWhite = document.createElement('div');
-      faceWhite.className = 'face face-white';
-      
-      disc.appendChild(faceBlack);
-      disc.appendChild(faceWhite);
-      cell.appendChild(disc);
-    } else if (isMyTurn && !gameOver && !isAnimating && validMoves.includes(i)) {
-      // 自分のターンで、かつアニメーション中でなければ置ける場所をハイライト
-      cell.classList.add('valid-move');
-      cell.onclick = () => handleCellClick(i);
-    }
+    // ディスク用コンテナ
+    const disc = document.createElement('div');
+    disc.className = 'disc empty';
+    
+    const faceBlack = document.createElement('div');
+    faceBlack.className = 'face face-black';
+    const faceWhite = document.createElement('div');
+    faceWhite.className = 'face face-white';
+    
+    disc.appendChild(faceBlack);
+    disc.appendChild(faceWhite);
+    cell.appendChild(disc);
     
     boardEl.appendChild(cell);
+    cellElements.push({ cell, disc });
+  }
+}
+
+function updateBoard() {
+  if (cellElements.length === 0) {
+    createBoardDOM();
+  }
+
+  const validMoves = getValidMoves(currentTurnColor);
+
+  for (let i = 0; i < 64; i++) {
+    const { cell, disc } = cellElements[i];
+    const stone = board[i];
+
+    // 有効手ハイライトのリセット
+    cell.classList.remove('valid-move');
+    cell.onclick = null;
+
+    // ディスクの状態更新
+    if (stone) {
+      disc.className = `disc ${stone}`; // 'disc black' または 'disc white'
+    } else {
+      disc.className = 'disc empty';
+      // 自分のターンで、かつアニメーション中でなければ置ける場所をハイライト
+      if (isMyTurn && !gameOver && !isAnimating && validMoves.includes(i)) {
+        cell.classList.add('valid-move');
+        cell.onclick = () => handleCellClick(i);
+      }
+    }
   }
 }
 
@@ -70,11 +101,11 @@ function updateUI() {
   const blackCount = board.filter(c => c === 'black').length;
   const whiteCount = board.filter(c => c === 'white').length;
   
-  scoreBlack.innerText = `黒: ${blackCount}`;
-  scoreWhite.innerText = `白: ${whiteCount}`;
+  if (scoreBlack) scoreBlack.innerText = `黒: ${blackCount}`;
+  if (scoreWhite) scoreWhite.innerText = `白: ${whiteCount}`;
 
   if (gameOver) {
-    btnRematch.style.display = 'inline-block'; // ゲーム終了で再戦ボタン表示
+    if (btnRematch) btnRematch.style.display = 'inline-block'; // ゲーム終了で再戦ボタン表示
     if (blackCount > whiteCount) turnText.innerText = "🏆 黒の勝ち！";
     else if (whiteCount > blackCount) turnText.innerText = "🏆 白の勝ち！";
     else turnText.innerText = "🤝 引き分け！";
@@ -173,7 +204,6 @@ function checkGameOverAndNextTurn(lastPlayer) {
   }
 }
 
-
 export function syncStateToGuest(passedPlayer = null) {
   if (isHostPlayer) {
     sendData({
@@ -210,7 +240,7 @@ export function updateGameState(payload) {
          updateUI();
          if (gameOver) {
            playSound('win');
-           btnRematch.style.display = 'inline-block';
+           if (btnRematch) btnRematch.style.display = 'inline-block';
          }
        }, 2000);
        return;
@@ -218,7 +248,7 @@ export function updateGameState(payload) {
     
     if (gameOver) {
        playSound('win');
-       btnRematch.style.display = 'inline-block';
+       if (btnRematch) btnRematch.style.display = 'inline-block';
     }
 
     updateBoard();

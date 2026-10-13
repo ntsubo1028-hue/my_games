@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.5';
+    const VERSION = '2.1.6';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -355,8 +355,8 @@
     <h2>エアホッケー</h2>
     <button type="button" onclick="openHelp('help-airhockey.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     
-    <!-- フレームレートの選択 -->
-    <div id="ah-host-settings" style="display: none; text-align: center; margin-bottom: 10px;">
+    <!-- ★ フレームレートの選択（ゲスト用に変更） -->
+    <div id="ah-guest-settings" style="display: none; text-align: center; margin-bottom: 10px;">
       <label style="color: #ccc; font-size: 13px;">📡 通信フレームレート:</label>
       <select id="ah-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
         <option value="1">最高 (毎フレーム同期 / Wi-Fi推奨)</option>
@@ -373,8 +373,12 @@
       <span id="airhockey-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
     </div>
 
-    <div class="game-board-container">
+    <!-- コートの中央にスタートボタンを重ねるコンテナ -->
+    <div class="game-board-container" style="position: relative;">
       <canvas id="airhockey-board" width="300" height="500" style="touch-action: none;"></canvas>
+      <div id="ah-start-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 20; border-radius: 8px;">
+        <button id="btn-start-airhockey" class="btn-action" style="background-color: #4caf50; font-size: 22px; padding: 16px 32px; width: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">🎮 ゲーム開始</button>
+      </div>
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">

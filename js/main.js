@@ -935,7 +935,7 @@ function initApp() {
       else if (isHost && data.type === "MINE_REMATCH") { initPvPGame(true); syncMineStateToGuest(); }
       else if (!isHost && data.type === "MINE_STATE_SYNC") updateMineGameState(data.payload);
     } else if (selectedGame === 'airhockey') {
-      if (data.type === "ah_sync_host" || data.type === "ah_sync_guest" || data.type === "ah_score") {
+      if (data.type === "ah_sync_host" || data.type === "ah_sync_guest" || data.type === "ah_score" || data.type === "ah_ready" || data.type === "ah_start") {
         processAirHockeyData(data);
       } else if (data.type === "start_airhockey") {
         startAirHockey();

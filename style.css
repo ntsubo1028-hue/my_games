@@ -190,9 +190,21 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
    ゲーム盤面 (ドット＆ボックス)
 ================================== */
 #dots-board-container {
-  width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 1 / 1; display: grid;
-  grid-template-columns: 3fr 12fr 3fr 12fr 3fr 12fr 3fr; grid-template-rows: 3fr 12fr 3fr 12fr 3fr 12fr 3fr;
-  background-color: #fff; padding: 2%; border-radius: 10px; box-sizing: border-box;
+  width: 100%; 
+  height: auto; 
+  max-width: 360px; 
+  max-height: 100%; 
+  aspect-ratio: 1 / 1; 
+  display: grid;
+  grid-template-columns: 10px 1fr 10px 1fr 10px 1fr 10px;
+  grid-template-rows: 10px 1fr 10px 1fr 10px 1fr 10px;
+  background-color: #fff; 
+  padding: 10px; 
+  border-radius: 10px; 
+  box-sizing: border-box;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
 }
 .dot { background-color: #455a64; border-radius: 50%; width: 100%; height: 100%; }
 .line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
