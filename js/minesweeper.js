@@ -5,37 +5,43 @@ import { currentGameState } from './lobby.js';
 const ROWS = 8;
 const COLS = 8;
 const BOMBS = 10;
-const TURN_TIME_LIMIT = 10; // 2手目以降の制限時間（秒）
+const TURN_TIME_LIMIT = 10;
 
 let isSoloMode = false;
 let isHostPlayer = false;
 
-let board = []; // { isBomb, isOpened, bombCount }
-let myFlags = []; // ローカル専用の旗保持
+let board = [];
+let myFlags = [];
 
-let players = []; // プレイヤーリスト { slotId, connId, name, score }
+let players = [];
 let currentTurnIndex = 0;
 let gameOver = false;
-let isWin = false; // 勝利（クリア）したかどうかを保持するフラグ
+let isWin = false;
 
-let openedInCurrentTurn = 0; // 現在のターンで開けたマス数
-let currentInputMode = 'open'; // 'open' または 'flag'
+let openedInCurrentTurn = 0;
+let currentInputMode = 'open';
 
-// タイマー制御用変数
 let turnTimer = null;
 let remainingTime = TURN_TIME_LIMIT;
+
+// ★ 一人用タイマー・タイムアタック用変数
+let soloTimerInterval = null;
+let soloElapsedTime = 0;
+let isSoloTimerRunning = false;
 
 const PLAYER_COLORS = ['#d32f2f', '#1976d2', '#388e3c', '#f57c00'];
 
 // --- 一人用ゲーム初期化 ---
 export function initSoloGame() {
   stopTurnTimer();
+  stopSoloTimer(); // ★ 一人用タイマーの停止・リセット
   isSoloMode = true;
   gameOver = false;
   isWin = false;
   currentInputMode = 'open';
   openedInCurrentTurn = 0;
   myFlags = Array(ROWS * COLS).fill(false);
+  soloElapsedTime = 0;
 
   generateBoard();
   
@@ -56,9 +62,18 @@ export function initSoloGame() {
   updateUI();
 }
 
-// --- 対戦ゲーム初期化（再戦時もここを通る） ---
+// ★ 次の実装でスコアやタイムを取り出せるようにするエクスポート関数
+export function getSoloMinesweeperStats() {
+  return {
+    isCleared: isSoloMode && isWin && gameOver,
+    time: (isSoloMode && isWin && gameOver) ? soloElapsedTime : null
+  };
+}
+
+// --- 対戦ゲーム初期化 ---
 export function initPvPGame(isHost) {
   stopTurnTimer();
+  stopSoloTimer();
   isSoloMode = false;
   isHostPlayer = isHost;
   gameOver = false;
@@ -67,7 +82,6 @@ export function initPvPGame(isHost) {
   currentInputMode = 'open';
   myFlags = Array(ROWS * COLS).fill(false);
 
-  // ロビーの参加スロット情報からプレイヤーリストを生成（最大4人対応）
   if (currentGameState && currentGameState.slots) {
     const activeSlots = currentGameState.slots.filter(s => s.type !== 'none');
     if (activeSlots.length > 0) {
@@ -101,8 +115,8 @@ export function initPvPGame(isHost) {
 
   const btnEndTurn = document.getElementById('btn-mine-end-turn');
   if (btnEndTurn) {
-    btnEndTurn.style.display = 'inline-block'; // 表示用の配置枠を確保
-    btnEndTurn.style.visibility = 'hidden';   // 最初は透明・操作不可
+    btnEndTurn.style.display = 'inline-block';
+    btnEndTurn.style.visibility = 'hidden';
     btnEndTurn.style.pointerEvents = 'none';
   }
 
@@ -119,7 +133,6 @@ export function initPvPGame(isHost) {
   updateUI();
 }
 
-// 盤面と爆弾の生成
 function generateBoard() {
   board = Array(ROWS * COLS).fill(null).map(() => ({
     isBomb: false,
@@ -165,7 +178,6 @@ function getNeighbors(r, c) {
   return neighbors;
 }
 
-// モジュール内での自分のターン判定
 function isMyTurn() {
   if (isSoloMode) return true;
   if (!players || players.length === 0) return false;
@@ -173,7 +185,6 @@ function isMyTurn() {
   return players[currentTurnIndex] && players[currentTurnIndex].connId === myConnId;
 }
 
-// モード切り替え（開く ↔ 旗）
 export function toggleInputMode() {
   currentInputMode = (currentInputMode === 'open') ? 'flag' : 'open';
   updateModeButton();
@@ -192,11 +203,9 @@ function updateModeButton() {
   }
 }
 
-// マスクリック処理
 function handleCellClick(index, isRightClick = false) {
   if (gameOver) return;
 
-  // 右クリック、または「旗モード」
   if (isRightClick || currentInputMode === 'flag') {
     if (!board[index].isOpened) {
       myFlags[index] = !myFlags[index];
@@ -207,7 +216,7 @@ function handleCellClick(index, isRightClick = false) {
     return;
   }
 
-  if (myFlags[index]) return; // 自分の旗があるマスは誤タップ防止
+  if (myFlags[index]) return;
 
   if (isSoloMode) {
     handleSoloOpen(index);
@@ -228,16 +237,42 @@ function handleCellClick(index, isRightClick = false) {
   }
 }
 
+// --- 一人用タイマー制御 ---
+function startSoloTimer() {
+  if (isSoloTimerRunning) return;
+  isSoloTimerRunning = true;
+  soloElapsedTime = 0;
+  
+  soloTimerInterval = setInterval(() => {
+    soloElapsedTime++;
+    updateTimerUI();
+  }, 1000);
+}
+
+function stopSoloTimer() {
+  if (soloTimerInterval) {
+    clearInterval(soloTimerInterval);
+    soloTimerInterval = null;
+  }
+  isSoloTimerRunning = false;
+}
+
 // 一人用：マスオープン
 function handleSoloOpen(index) {
   if (board[index].isOpened) return;
+
+  // ★ 最初のパネルを開いた瞬間にタイマーを発動
+  if (!isSoloTimerRunning && !gameOver) {
+    startSoloTimer();
+  }
 
   board[index].isOpened = true;
   myFlags[index] = false;
 
   if (board[index].isBomb) {
     gameOver = true;
-    isWin = false; // 爆弾を踏んだのでゲームオーバー
+    isWin = false; 
+    stopSoloTimer(); // 失敗したらタイマー停止（クリアできなかったらタイムはノーカウント）
     playSound('win');
     revealAllBombs();
   } else {
@@ -246,12 +281,14 @@ function handleSoloOpen(index) {
       autoOpenNeighbors(index);
     }
     checkGameEnd();
+    if (gameOver && isWin) {
+      stopSoloTimer(); // クリア成功したらタイマー停止
+    }
   }
   updateBoard();
   updateUI();
 }
 
-// アクション処理（ホスト・対戦用）
 export function processAction(data) {
   if (!isHostPlayer) return;
 
@@ -272,7 +309,6 @@ export function processAction(data) {
     myFlags[index] = false;
 
     if (board[index].isBomb) {
-      // 爆弾を踏んだ：0点 ＆ 次のプレイヤーへターン交替
       currPlayer.score = 0;
       playSound('flip');
       stopTurnTimer();
@@ -283,7 +319,6 @@ export function processAction(data) {
         openedInCurrentTurn = 0;
       }
     } else {
-      // 安全なマス
       const openedCount = 1 + (board[index].bombCount === 0 ? autoOpenNeighbors(index) : 0);
       currPlayer.score += openedCount;
       openedInCurrentTurn += openedCount;
@@ -291,7 +326,6 @@ export function processAction(data) {
 
       checkGameEnd();
 
-      // 1マス以上開けたら10秒タイマー開始（リセット）
       if (!gameOver) {
         startTurnTimer();
       }
@@ -303,17 +337,15 @@ export function processAction(data) {
   }
 }
 
-// タイマー制御
 function startTurnTimer() {
   stopTurnTimer();
   remainingTime = TURN_TIME_LIMIT;
 
-  // ホストのみタイマーを回す
   if (isHostPlayer) {
     turnTimer = setInterval(() => {
       remainingTime--;
       updateTimerUI();
-      syncStateToGuest(); // ゲスト側に残り時間を毎秒同期
+      syncStateToGuest();
 
       if (remainingTime <= 0) {
         stopTurnTimer();
@@ -338,8 +370,13 @@ function stopTurnTimer() {
 function updateTimerUI() {
   const timerDisplay = document.getElementById('mine-timer-display');
   const timerSec = document.getElementById('mine-timer-sec');
+  
   if (timerDisplay && timerSec) {
-    if (!isSoloMode && openedInCurrentTurn > 0 && !gameOver) {
+    if (isSoloMode) {
+      // 一人用のときは経過時間を表示
+      timerDisplay.style.display = 'inline';
+      timerSec.innerText = soloElapsedTime;
+    } else if (!isSoloMode && openedInCurrentTurn > 0 && !gameOver) {
       timerDisplay.style.display = 'inline';
       timerSec.innerText = Math.max(0, remainingTime);
     } else {
@@ -348,7 +385,6 @@ function updateTimerUI() {
   }
 }
 
-// 0マスの連鎖オープン
 function autoOpenNeighbors(startIndex) {
   let openedCount = 0;
   const queue = [startIndex];
@@ -372,7 +408,6 @@ function autoOpenNeighbors(startIndex) {
   return openedCount;
 }
 
-// ターン終了ボタン押下時
 export function endTurn() {
   if (isSoloMode || !isMyTurn() || openedInCurrentTurn === 0) return;
 
@@ -398,13 +433,13 @@ function switchTurn() {
   updateUI();
 }
 
-// 勝敗・ゲーム終了チェック（爆弾以外のマスがすべて開いたか）
 function checkGameEnd() {
   const isAllSafeOpened = board.every(cell => cell.isBomb || cell.isOpened);
   if (isAllSafeOpened) {
     gameOver = true;
-    isWin = true; // すべての安全なマスが開いたのでクリア成功
+    isWin = true; 
     stopTurnTimer();
+    stopSoloTimer(); // クリア時に一人用タイマーを確定
     revealAllBombs();
     playSound('win');
   }
@@ -474,7 +509,6 @@ function updateUI() {
     remainingCountEl.innerText = Math.max(0, remaining);
   }
 
-  // 多人数スコアボードの更新とプレイヤーカラーの適用
   if (!isSoloMode && scoreBoardEl && players.length > 0) {
     scoreBoardEl.innerHTML = players.map((p, idx) => {
       const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
@@ -493,6 +527,7 @@ function updateUI() {
 
   if (gameOver) {
     stopTurnTimer();
+    stopSoloTimer();
     if (btnRematch) btnRematch.style.display = 'inline-block';
     if (btnEndTurn) {
       btnEndTurn.style.visibility = 'hidden';
@@ -501,8 +536,7 @@ function updateUI() {
 
     if (isSoloMode) {
       if (turnText) {
-        // isWin フラグを参照して正しくメッセージを出し分ける
-        turnText.innerText = isWin ? "🎉 クリアおめでとう！" : "💥 爆発！ゲームオーバー";
+        turnText.innerText = isWin ? `🎉 クリア！ タイム: ${soloElapsedTime}秒` : "💥 爆発！ゲームオーバー (タイムノーカウント)";
       }
     } else {
       if (turnText && players.length > 0) {
@@ -518,7 +552,7 @@ function updateUI() {
     }
   } else {
     if (isSoloMode) {
-      if (turnText) turnText.innerText = "💣 マインスイーパー (一人用)";
+      if (turnText) turnText.innerText = "💣 マインスイーパー (タイムアタック)";
     } else {
       if (turnText) {
         turnText.innerHTML = myTurn 
@@ -526,7 +560,6 @@ function updateUI() {
           : `<span style="color: ${currentColor};">●</span> <span style="color: ${currentColor};">${currName} のターン</span>`;
       }
 
-      /* ターン終了ボタンの表示制御 */
       if (btnEndTurn) {
         if (myTurn && openedInCurrentTurn > 0) {
           btnEndTurn.style.visibility = 'visible';
@@ -542,7 +575,6 @@ function updateUI() {
   updateTimerUI();
 }
 
-// ゲスト側の同期受信処理
 export function updateGameState(payload) {
   if (!isHostPlayer && !isSoloMode) {
     if (gameOver && !payload.gameOver) {
@@ -576,7 +608,6 @@ export function syncStateToGuest() {
   }
 }
 
-// 再戦要求処理
 export function requestRematch() {
   if (isSoloMode) {
     initSoloGame();

@@ -1,9 +1,8 @@
 /**
- * Block_drop Game Module - Version 1.1.9
+ * Block_drop Game Module - Version 1.2.0
  */
 import { playSound } from './sounds.js';
 
-// 変数の宣言のみ先に行う
 let canvas, ctx, nextCanvas, nextCtx, holdCanvas, holdCtx;
 let scoreEl, linesEl, btnRematch, block_dropScreenEl;
 
@@ -45,19 +44,17 @@ let dropInterval = 1000;
 let lastTime = 0;
 let score = 0;
 let lines = 0;
+let combo = 0; // ★ コンボ数管理用変数
 let animationId = null;
 let isGameOver = false;
 
-// 7-Bag（7種1巡）用変数
 let block_dropBag = [];
 
-// --- 演出用変数 ---
 let particles = [];
 let floatingTexts = [];
 let shakeTime = 0;
 let shakeIntensity = 0;
 
-// タップ判定用タイマー管理
 let tapTimeout = null;
 let lastTapTime = 0;
 
@@ -72,7 +69,6 @@ function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 }
 
-// 7-Bagの袋を生成・シャッフルする関数
 function generateBag() {
   let newBag = [1, 2, 3, 4, 5, 6, 7];
   for (let i = newBag.length - 1; i > 0; i--) {
@@ -82,7 +78,6 @@ function generateBag() {
   return newBag;
 }
 
-// 7-Bagからミノを取り出す関数
 function getRandomPiece() {
   if (block_dropBag.length === 0) {
     block_dropBag = generateBag();
@@ -203,15 +198,49 @@ function sweep() {
   if (rowCount > 0) {
     playSound('flip');
     lines += rowCount;
-    score += [0, 100, 300, 500, 1200][rowCount] * (Math.floor(lines / 10) + 1);
+    combo++; // ★ ラインを消したのでコンボを進める
+
+    // ★ 基本スコアの定義 (1:1点, 2:3点, 3:6点, 4+:9点)
+    const baseScores = [0, 1, 3, 6, 9];
+    const baseScore = baseScores[rowCount] || 9;
+    
+    // ★ コンボ倍率の適用（2コンボ目で2倍、3コンボ目は3倍…）
+    const earnedScore = baseScore * combo;
+    score += earnedScore;
+
     dropInterval = Math.max(100, 1000 - (Math.floor(lines / 10) * 100));
     updateScore();
 
-    if (rowCount === 1) { triggerShake(3, 10); addFloatingText('SINGLE!', '#00FFFF'); }
-    else if (rowCount === 2) { triggerShake(6, 12); addFloatingText('DOUBLE!!', '#00FF00'); }
-    else if (rowCount === 3) { triggerShake(9, 15); addFloatingText('TRIPLE!!!', '#FFA500'); }
-    else if (rowCount >= 4) { triggerShake(15, 25); addFloatingText('BLOCK_DROP!!!!', '#FF0055'); }
+    const comboText = combo > 1 ? ` (${combo}COMBO!)` : '';
+
+    if (rowCount === 1) { 
+      triggerShake(3, 10); 
+      addFloatingText(`SINGLE! +${earnedScore}${comboText}`, '#00FFFF'); 
+    }
+    else if (rowCount === 2) { 
+      triggerShake(6, 12); 
+      addFloatingText(`DOUBLE!! +${earnedScore}${comboText}`, '#00FF00'); 
+    }
+    else if (rowCount === 3) { 
+      triggerShake(9, 15); 
+      addFloatingText(`TRIPLE!!! +${earnedScore}${comboText}`, '#FFA500'); 
+    }
+    else if (rowCount >= 4) { 
+      triggerShake(15, 25); 
+      addFloatingText(`TETRIS!!!! +${earnedScore}${comboText}`, '#FF0055'); 
+    }
+  } else {
+    // ★ ラインが消えなかった場合はコンボリセット
+    combo = 0;
   }
+}
+
+// ★ 次の実装でスコアを取り出せるようにするエクスポート関数
+export function getBlockDropScore() {
+  return {
+    score: score,
+    lines: lines
+  };
 }
 
 export function moveBlock_drop(dir) {
@@ -492,7 +521,6 @@ function update(time = 0) {
 }
 
 export function initBlock_drop() {
-  // 初期化が実行されるタイミング（＝HTML要素が確実に存在する状態）で要素を取得する
   canvas = document.getElementById('block_drop-board');
   ctx = canvas ? canvas.getContext('2d') : null;
   nextCanvas = document.getElementById('block_drop-next');
@@ -517,6 +545,7 @@ export function initBlock_drop() {
   }
   score = 0;
   lines = 0;
+  combo = 0;
   dropInterval = 1000;
   isGameOver = false;
   particles = [];
@@ -542,11 +571,7 @@ export function stopBlock_drop() {
   }
 }
 
-// ==========================================
-// PC & スマホ統合操作システムの実装
-// ==========================================
 const TILE_SENSITIVITY = 20;
-
 let lastTouchEndTime = 0;
 let lastMouseX = null;
 let lastMouseY = null;
@@ -687,7 +712,6 @@ function setupEventListeners() {
   });
 }
 
-// キーボード操作
 document.addEventListener('keydown', event => {
   if (block_dropScreenEl && block_dropScreenEl.classList.contains('active') && !isGameOver) {
     switch (event.keyCode) {
