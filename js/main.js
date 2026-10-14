@@ -62,6 +62,36 @@ function setClick(id, handler) {
   if (el) el.onclick = handler;
 }
 
+// 画面中央に大きくアニメーション付きで通知を表示する関数[cite: 13]
+function showGameStartPopup(message, onComplete) {
+  let overlay = document.getElementById('common-notice-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'common-notice-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10000; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s ease;';
+    overlay.innerHTML = `<div id="common-notice-text" style="font-size: clamp(20px, 5vw, 32px); font-weight: bold; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 16px 32px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.5); transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);"></div>`;
+    document.body.appendChild(overlay);
+  }
+
+  const textEl = document.getElementById('common-notice-text');
+  textEl.textContent = message;
+
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    overlay.style.opacity = '1';
+    textEl.style.transform = 'scale(1)';
+  });
+
+  setTimeout(() => {
+    overlay.style.opacity = '0';
+    textEl.style.transform = 'scale(0.8)';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      if (onComplete) onComplete();
+    }, 300);
+  }, 1200);
+}
+
 function encodeSdp(obj) {
   return LZString.compressToBase64(JSON.stringify(obj));
 }
@@ -112,12 +142,12 @@ function setStatusText(text) {
   if (el) el.innerText = text;
 }
 
-// --- スタンプ・画面表示関連 ---
+// --- スタンプ・チャット関連 ---
 function initStampSystem() {
   const modalHTML = `
     <div id="stamp-modal" class="stamp-modal" style="display: none;">
       <div class="stamp-modal-content">
-        <h3 style="margin-top: 0; margin-bottom: 15px;">スタンプを送る</h3>
+        <h3 style="margin-top: 0; margin-bottom: 10px;">スタンプ・チャット</h3>
         <div class="stamp-grid">
           ${Object.keys(STAMPS).map(key => `
             <div class="stamp-option" data-stamp-id="${key}">
@@ -126,9 +156,16 @@ function initStampSystem() {
             </div>
           `).join('')}
         </div>
-        <div class="stamp-modal-actions">
-          <button id="btn-send-stamp" class="btn-action" style="background-color: #00bcd4;" disabled>送信する</button>
-          <button id="btn-close-stamp" class="btn-action secondary-btn">キャンセル</button>
+        
+        <!-- 簡易チャット入力欄 -->
+        <div style="margin: 15px 0 10px 0; display: flex; gap: 6px;">
+          <input type="text" id="input-chat-text" placeholder="短文を入力して送信..." maxlength="30" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box;">
+          <button id="btn-send-chat" class="btn-action" style="background-color: #ff9800; width: auto; padding: 8px 14px; margin: 0; min-height: unset;">送信</button>
+        </div>
+
+        <div class="stamp-modal-actions" style="display: flex; gap: 10px;">
+          <button id="btn-send-stamp" class="btn-action" style="background-color: #00bcd4; flex: 1;" disabled>スタンプ送信</button>
+          <button id="btn-close-stamp" class="btn-action secondary-btn" style="flex: 1;">キャンセル</button>
         </div>
       </div>
     </div>
@@ -136,7 +173,9 @@ function initStampSystem() {
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 
   const modal = document.getElementById('stamp-modal');
-  const btnSend = document.getElementById('btn-send-stamp');
+  const btnSendStamp = document.getElementById('btn-send-stamp');
+  const btnSendChat = document.getElementById('btn-send-chat');
+  const inputChatText = document.getElementById('input-chat-text');
   const options = document.querySelectorAll('.stamp-option');
 
   options.forEach(opt => {
@@ -144,7 +183,7 @@ function initStampSystem() {
       options.forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
       selectedStampId = opt.getAttribute('data-stamp-id');
-      if (btnSend) btnSend.disabled = false;
+      if (btnSendStamp) btnSendStamp.disabled = false;
     });
   });
 
@@ -152,43 +191,118 @@ function initStampSystem() {
     if (modal) modal.style.display = 'none'; 
   });
 
-  if (btnSend) {
-    btnSend.onclick = () => {
+  if (btnSendStamp) {
+    btnSendStamp.onclick = () => {
       if (selectedStampId && isConnected) {
         const senderName = getMyName();
+        const myConnId = currentGameState ? currentGameState.myConnId : (isHost ? 'host' : null);
         try {
-          sendData({ type: "STAMP", payload: { stampId: selectedStampId, senderName: senderName } });
-          showStampPopup(true, selectedStampId, senderName);
+          sendData({ 
+            type: "STAMP", 
+            payload: { stampId: selectedStampId, senderName: senderName, senderConnId: myConnId } 
+          });
+          showStampPopup(true, selectedStampId, senderName, myConnId);
         } catch (err) {
           console.error("スタンプの送信に失敗しました:", err);
         }
         
         if (modal) modal.style.display = 'none';
-        btnSend.disabled = true;
+        btnSendStamp.disabled = true;
         options.forEach(o => o.classList.remove('selected'));
         selectedStampId = null;
       }
     };
   }
 
+  // チャット送信処理
+  if (btnSendChat && inputChatText) {
+    const executeSendChat = () => {
+      const text = inputChatText.value.trim();
+      if (text && isConnected) {
+        const senderName = getMyName();
+        const myConnId = currentGameState ? currentGameState.myConnId : (isHost ? 'host' : null);
+        try {
+          sendData({ 
+            type: "CHAT_MESSAGE", 
+            payload: { text: text, senderName: senderName, senderConnId: myConnId } 
+          });
+          showChatPopup(true, text, senderName, myConnId);
+        } catch (err) {
+          console.error("チャットの送信に失敗しました:", err);
+        }
+        
+        if (modal) modal.style.display = 'none';
+        inputChatText.value = '';
+      }
+    };
+
+    btnSendChat.onclick = executeSendChat;
+    inputChatText.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        executeSendChat();
+      }
+    });
+  }
+
   document.querySelectorAll('.btn-open-stamp').forEach(btn => {
     btn.onclick = () => {
       selectedStampId = null;
       options.forEach(o => o.classList.remove('selected'));
-      if (btnSend) btnSend.disabled = true;
+      if (btnSendStamp) btnSendStamp.disabled = true;
+      if (inputChatText) inputChatText.value = '';
       if (modal) modal.style.display = 'flex';
     };
   });
 }
 
-function showStampPopup(isMe, stampId, senderName) {
+// 送信者の connId からスロットID（0〜3）を特定するヘルパー
+function getSlotIdForSender(senderConnId) {
+  if (currentGameState && currentGameState.slots) {
+    if (senderConnId) {
+      const slot = currentGameState.slots.find(s => s.connId === senderConnId);
+      if (slot) return slot.slotId;
+    }
+    if (currentGameState.myConnId) {
+      const mySlot = currentGameState.slots.find(s => s.connId === currentGameState.myConnId);
+      if (mySlot) return mySlot.slotId;
+    }
+  }
+  return isHost ? 0 : 1;
+}
+
+// 四隅のスタイルを割り当てるヘルパー
+function getCornerStyle(slotId) {
+  switch (slotId) {
+    case 0: // ホスト: 左上
+      return 'top: 20px; left: 20px;';
+    case 1: // ゲスト1: 右上
+      return 'top: 20px; right: 20px;';
+    case 2: // ゲスト2: 左下
+      return 'bottom: 20px; left: 20px;';
+    case 3: // ゲスト3: 右下
+      return 'bottom: 20px; right: 20px;';
+    default:
+      return 'top: 20px; left: 20px;';
+  }
+}
+
+function showStampPopup(isMe, stampId, senderName, senderConnId) {
   const stamp = STAMPS[stampId];
   if (!stamp) return;
 
   const displayName = senderName || (isMe ? getMyName() : '対戦相手');
+  const slotId = getSlotIdForSender(senderConnId);
+
+  // 同じ位置に既存のポップアップがあれば削除する（重なり防止）
+  const popupId = `player-popup-${slotId}`;
+  const existing = document.getElementById(popupId);
+  if (existing) existing.remove();
 
   const popup = document.createElement('div');
+  popup.id = popupId;
   popup.className = `stamp-popup ${isMe ? 'stamp-popup-me' : 'stamp-popup-opponent'}`;
+  popup.style.cssText = `position: fixed; z-index: 9999; ${getCornerStyle(slotId)}`;
+  
   popup.innerHTML = `
     <div class="stamp-popup-sender">${displayName}</div>
     <div class="stamp-popup-body">
@@ -198,7 +312,36 @@ function showStampPopup(isMe, stampId, senderName) {
   `;
   document.body.appendChild(popup);
 
-  setTimeout(() => { if (popup.parentNode) popup.remove(); }, 2500);
+  setTimeout(() => { 
+    if (popup.parentNode) popup.remove(); 
+  }, 3000);
+}
+
+function showChatPopup(isMe, text, senderName, senderConnId) {
+  const displayName = senderName || (isMe ? getMyName() : '対戦相手');
+  const slotId = getSlotIdForSender(senderConnId);
+
+  // 同じ位置に既存のポップアップがあれば削除する（重なり防止）
+  const popupId = `player-popup-${slotId}`;
+  const existing = document.getElementById(popupId);
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = popupId;
+  popup.className = `stamp-popup ${isMe ? 'stamp-popup-me' : 'stamp-popup-opponent'}`;
+  popup.style.cssText = `position: fixed; z-index: 9999; ${getCornerStyle(slotId)}`;
+
+  popup.innerHTML = `
+    <div class="stamp-popup-sender">${displayName}</div>
+    <div class="stamp-popup-body">
+      <div class="stamp-popup-text" style="font-size: 14px; max-width: 200px; word-break: break-all;">${text}</div>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  setTimeout(() => { 
+    if (popup.parentNode) popup.remove(); 
+  }, 3000);
 }
 
 function setStampButtonVisible(visible) {
@@ -352,7 +495,7 @@ function startGuestScanFlow() {
     setStatusText("ホストの情報をどうやって入力するか選んでください");
   });
 
-  // 「この番号で部屋に入る」ボタンが押されたとき（★ここを修正）
+  // 「この番号で部屋に入る」ボタンが押されたとき
   setClick('btn-submit-gas-room', async () => {
     isHost = false; 
     const inputEl = document.getElementById('input-gas-room-number');
@@ -372,7 +515,6 @@ function startGuestScanFlow() {
           isHost = false;
           isConnected = true;
           
-          // ★ここで割り当てられたゲストID（例: guest-1, guest-2）を自分のコネクションIDとして確実にセットする
           if (connectedId) {
             setMyConnId(connectedId);
           }
@@ -474,7 +616,6 @@ function initApp() {
 
   // --- メニュー・ロビー・各種ボタンのイベント登録 ---
   setClick('btn-lobby-add-guest', () => {
-    // 1. 次の空き枠の guestId を決定
     const targetSlots = [];
     let nextGuestId = 'guest-1';
     if (currentGameState && currentGameState.slots) {
@@ -497,7 +638,6 @@ function initApp() {
     
     pendingGuestId = nextGuestId;
 
-    // 2. 接続画面へ遷移し、接続方法の選択肢を表示する
     showScreen('connection-screen');
     const connTitle = document.getElementById('conn-title');
     if (connTitle) connTitle.innerText = "ゲスト接続の準備";
@@ -537,6 +677,7 @@ function initApp() {
         (connectedId) => {
           isHost = true; 
           isConnected = true;
+          setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
           alert(`${connectedId} と接続しました！`);
           showScreen('lobby-screen');
           addGuestConnection(connectedId, `ゲスト`);
@@ -562,6 +703,7 @@ function initApp() {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
         isHost = true;
         isConnected = true; 
+        setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
         addGuestConnection(connectedId, `ゲスト`);
@@ -587,6 +729,7 @@ function initApp() {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
         isHost = true;
         isConnected = true; 
+        setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
         addGuestConnection(connectedId, `ゲスト`);
@@ -603,7 +746,6 @@ function initApp() {
     }
   });
 
-  // --- 手動接続用：「接続情報を相手に伝えた」ボタン ---
   setClick('btn-host-done-output', () => {
     setElementDisplay('qr-container', 'none');
     setElementDisplay('text-copy-container', 'none');
@@ -613,7 +755,6 @@ function initApp() {
     setElementDisplay('step-host-choose-input', 'block');
   });
 
-  // ホスト側：相手からの返信をQRで読み取る
   setClick('btn-host-input-qr', () => {
     isHost = true;
     setElementDisplay('step-host-choose-input', 'none');
@@ -627,14 +768,12 @@ function initApp() {
     );
   });
 
-  // ホスト側：相手からの返信をテキストでペーストする
   setClick('btn-host-input-text', () => {
     isHost = true;
     setElementDisplay('step-host-choose-input', 'none');
     setElementDisplay('step-text-input-area', 'block');
   });
 
-  // テキスト送信ボタンの処理
   const textInput = document.getElementById('text-sdp-input');
   setClick('btn-submit-sdp', () => {
     isHost = true;
@@ -659,7 +798,6 @@ function initApp() {
     }, 2000);
   });
 
-  // --- コピーボタンのイベント登録 ---
   setClick('btn-copy-sdp', () => {
     if (!localConnectionDataStr) {
       alert("コピーする情報がまだありません。");
@@ -696,10 +834,12 @@ function initApp() {
       return;
     }
 
-    if (isConnected) {
-      sendData({ type: "LOBBY_GAME_START", payload: { game: selectedGame } });
-    }
-    showGameScreenForHost(selectedGame);
+    showGameStartPopup("ゲームスタート！", () => {
+      if (isConnected) {
+        sendData({ type: "LOBBY_GAME_START", payload: { game: selectedGame } });
+      }
+      showGameScreenForHost(selectedGame);
+    });
   });
 
   setClick('btn-goto-host-select', () => { 
@@ -902,19 +1042,26 @@ function initApp() {
     if (data.type === "LOBBY_GAME_START") {
       setStampButtonVisible(true); 
       selectedGame = data.payload.game;
-      alert("ホストがゲームを開始しました！");
-      if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
-      else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
-      else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
-      else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
-      else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
-      else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
-      else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
+      
+      showGameStartPopup("ホストがゲームを開始しました！", () => {
+        if (selectedGame === 'reversi') { showScreen('game-screen'); initGame(false); }
+        else if (selectedGame === 'dots') { showScreen('dots-game-screen'); initDotsGame(false); }
+        else if (selectedGame === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(false); }
+        else if (selectedGame === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(false); }
+        else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
+        else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
+        else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
+      });
       return;
     }
 
     if (data.type === "STAMP") {
-      showStampPopup(false, data.payload.stampId, data.payload.senderName);
+      showStampPopup(false, data.payload.stampId, data.payload.senderName, data.payload.senderConnId || sourceId);
+      return;
+    }
+
+    if (data.type === "CHAT_MESSAGE") {
+      showChatPopup(false, data.payload.text, data.payload.senderName, data.payload.senderConnId || sourceId);
       return;
     }
 

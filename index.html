@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+lobby-screen<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.6';
+    const VERSION = '2.1.8';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -56,25 +56,56 @@
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
 
       <h2>一人で遊ぶ</h2>
-      <button id="btn-play-block_drop" class="btn-action secondary-btn">ブロックドロップ</button>
-      <button id="btn-play-solo-mine" class="btn-action secondary-btn">マインスイーパー (一人用)</button>
+      <!-- ★ タイル状に変更 ★ -->
+      <div class="game-tile-grid">
+        <button id="btn-play-block_drop" class="btn-tile" style="background-color: #78909c;">
+          <span class="tile-icon">🧱</span>
+          <span class="tile-name">ブロックドロップ</span>
+        </button>
+        <button id="btn-play-solo-mine" class="btn-tile" style="background-color: #009688;">
+          <span class="tile-icon">💣</span>
+          <span class="tile-name">マインスイーパー<br><small>(一人用)</small></span>
+        </button>
+      </div>
       <div class="version-info" id="app-version-text"></div>
     </div>
   </div>
 
   <!-- ホスト用：ゲーム選択画面 -->
-  <div id="host-game-select-screen" class="screen">
+  <div id="host-game-select-screen" class="screen scrollable-screen">
     <h2>遊ぶゲームを選択</h2>
-    <div class="menu-container">
-      <button id="btn-select-reversi" class="btn-action" style="background-color: #2e7d32;">🟢 リバーシ (1対1)</button>
-      <button id="btn-select-dots" class="btn-action" style="background-color: #e65100;">🟠 ドット＆ボックス (2〜4人)</button>
-      <button id="btn-select-concentration" class="btn-action" style="background-color: #3f51b5;">🃏 神経衰弱 (2〜4人)</button> 
-      <button id="btn-select-minesweeper" class="btn-action" style="background-color: #009688;">💣 マインスイーパー (2〜4人)</button>
-      <button id="btn-select-airhockey" class="btn-action" style="background-color: #9c27b0;">🏑 エアホッケー (1対1)</button>
-      <button id="btn-select-shogi" class="btn-action" style="background-color: #795548;">☖ 将棋 (1対1)</button>
-      <button id="btn-select-mawari" class="btn-action" style="background-color: #8d6e63;">🎲 回り将棋 (2〜4人)</button>
+    <!-- ★ タイル状に変更 ★ -->
+    <div class="game-tile-grid" style="max-width: 450px; margin-bottom: 10px;">
+      <button id="btn-select-reversi" class="btn-tile" style="background-color: #2e7d32;">
+        <span class="tile-icon">🟢</span>
+        <span class="tile-name">リバーシ<br><small>(1対1)</small></span>
+      </button>
+      <button id="btn-select-dots" class="btn-tile" style="background-color: #e65100;">
+        <span class="tile-icon">🟠</span>
+        <span class="tile-name">ドット＆ボックス<br><small>(2〜4人)</small></span>
+      </button>
+      <button id="btn-select-concentration" class="btn-tile" style="background-color: #3f51b5;">
+        <span class="tile-icon">🃏</span>
+        <span class="tile-name">神経衰弱<br><small>(2〜4人)</small></span>
+      </button>
+      <button id="btn-select-minesweeper" class="btn-tile" style="background-color: #009688;">
+        <span class="tile-icon">💣</span>
+        <span class="tile-name">マインスイーパー<br><small>(2〜4人)</small></span>
+      </button>
+      <button id="btn-select-airhockey" class="btn-tile" style="background-color: #9c27b0;">
+        <span class="tile-icon">🏑</span>
+        <span class="tile-name">エアホッケー<br><small>(1対1)</small></span>
+      </button>
+      <button id="btn-select-shogi" class="btn-tile" style="background-color: #795548;">
+        <span class="tile-icon">☖</span>
+        <span class="tile-name">将棋<br><small>(1対1)</small></span>
+      </button>
+      <button id="btn-select-mawari" class="btn-tile" style="background-color: #8d6e63;">
+        <span class="tile-icon">🎲</span>
+        <span class="tile-name">回り将棋<br><small>(2〜4人)</small></span>
+      </button>
     </div>
-    <div class="button-group-col" style="margin-top: 15px;">
+    <div class="button-group-col" style="margin-top: auto; padding-bottom: 5px;">
       <button id="btn-back-main" class="btn-action secondary-btn">◀ メニューに戻る</button>
       <button id="btn-disconnect-host" class="btn-action" style="background-color: #d32f2f; display: none;">🛑 通信を切断してメニューに戻る</button>
     </div>
@@ -107,6 +138,7 @@
     <div class="button-group-col" style="margin-top: 25px;">
       <button id="btn-lobby-add-guest" class="btn-action" style="background-color: #2196f3;">📡 通信してゲストを呼ぶ</button>
       <button id="btn-lobby-start" class="btn-action" style="background-color: #4caf50;">🎮 ゲームスタート</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-lobby-change-game" class="btn-action" style="background-color: #ff9800; display: none;">🔄 ゲームを変更する</button>
       <button id="btn-quit-lobby" class="btn-action secondary-btn">解散してメニューに戻る</button>
     </div>
@@ -238,7 +270,7 @@
       <div id="board"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-reversi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-game" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -256,7 +288,7 @@
       <div id="dots-board-container"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-dots" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -274,7 +306,7 @@
       <div id="concentration-board"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-concentration" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -344,7 +376,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -355,7 +387,7 @@
     <h2>エアホッケー</h2>
     <button type="button" onclick="openHelp('help-airhockey.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     
-    <!-- ★ フレームレートの選択（ゲスト用に変更） -->
+    <!-- フレームレートの選択（ゲスト用） -->
     <div id="ah-guest-settings" style="display: none; text-align: center; margin-bottom: 10px;">
       <label style="color: #ccc; font-size: 13px;">📡 通信フレームレート:</label>
       <select id="ah-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
@@ -382,7 +414,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-airhockey" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-airhockey" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -408,7 +440,7 @@
     </div>
 
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-shogi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-shogi" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
@@ -455,7 +487,7 @@
       <div id="mawari-player-list"></div>
     </div>
     <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプを送る</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-mawari" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-mawari" class="btn-action secondary-btn">メニューに戻る</button>
     </div>

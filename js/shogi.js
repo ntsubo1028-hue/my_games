@@ -14,18 +14,8 @@ let myRole = 'sente'; // ホスト＝先手(sente)、ゲスト＝後手(gote)
 let currentTurn = 'sente';
 let checkStatusText = ""; // 王手表示用テキスト
 
-const boardEl = document.getElementById('shogi-board');
-const turnText = document.getElementById('shogi-turn-text');
-const topCapturedEl = document.getElementById('shogi-captured-top');   // 上側（相手の持ち駒）
-const bottomCapturedEl = document.getElementById('shogi-captured-bottom'); // 下側（自分の持ち駒）
-const btnRematch = document.getElementById('btn-rematch-shogi');
-
-// ★ 再戦ボタンにクリックイベントを設定
-if (btnRematch) {
-  btnRematch.onclick = () => {
-    requestRematch();
-  };
-}
+// DOM elements（変数の宣言のみ行い、取得は initGame 内で行う）
+let boardEl, turnText, topCapturedEl, bottomCapturedEl, btnRematch;
 
 const PIECES = {
   FU: { name: '歩', val: '歩', promote: 'と' },
@@ -41,6 +31,20 @@ const PIECES = {
 const PIECE_ORDER = ['FU', 'KYO', 'KEI', 'GIN', 'KIN', 'KAKU', 'HISHA'];
 
 export function initGame(isHost) {
+  // ゲーム初期化時（確実に画面が表示されているタイミング）にDOM要素を取得する
+  boardEl = document.getElementById('shogi-board');
+  turnText = document.getElementById('shogi-turn-text');
+  topCapturedEl = document.getElementById('shogi-captured-top');   // 上側（相手の持ち駒）
+  bottomCapturedEl = document.getElementById('shogi-captured-bottom'); // 下側（自分の持ち駒）
+  btnRematch = document.getElementById('btn-rematch-shogi');
+
+  // 再戦ボタンにクリックイベントを設定
+  if (btnRematch) {
+    btnRematch.onclick = () => {
+      requestRematch();
+    };
+  }
+
   isHostPlayer = isHost;
   myRole = isHost ? 'sente' : 'gote';
   board = new Array(81).fill(null);
@@ -84,6 +88,10 @@ function setupInitialBoard() {
 }
 
 function updateBoard() {
+  if (!boardEl) {
+    boardEl = document.getElementById('shogi-board');
+    if (!boardEl) return;
+  }
   boardEl.innerHTML = '';
   
   for (let displayI = 0; displayI < 81; displayI++) {
@@ -129,54 +137,62 @@ function formatCapturedPieces(piecesArray) {
 }
 
 function updateUI() {
+  if (!topCapturedEl) topCapturedEl = document.getElementById('shogi-captured-top');
+  if (!bottomCapturedEl) bottomCapturedEl = document.getElementById('shogi-captured-bottom');
+  if (!turnText) turnText = document.getElementById('shogi-turn-text');
+
   const topCaptured = isHostPlayer ? capturedGuest : capturedHost;
   const bottomCaptured = isHostPlayer ? capturedHost : capturedGuest;
   const topName = isHostPlayer ? "後手（相手）" : "先手（相手）";
   const bottomName = isHostPlayer ? "先手（自分）" : "後手（自分）";
 
-  topCapturedEl.innerText = `${topName} 持ち駒: ${formatCapturedPieces(topCaptured)}`;
+  if (topCapturedEl) {
+    topCapturedEl.innerText = `${topName} 持ち駒: ${formatCapturedPieces(topCaptured)}`;
+  }
 
-  bottomCapturedEl.innerHTML = `${bottomName} 持ち駒: `;
-  if (bottomCaptured.length === 0) {
-    bottomCapturedEl.append("なし");
-  } else {
-    const counts = {};
-    bottomCaptured.forEach(p => counts[p] = (counts[p] || 0) + 1);
+  if (bottomCapturedEl) {
+    bottomCapturedEl.innerHTML = `${bottomName} 持ち駒: `;
+    if (bottomCaptured.length === 0) {
+      bottomCapturedEl.append("なし");
+    } else {
+      const counts = {};
+      bottomCaptured.forEach(p => counts[p] = (counts[p] || 0) + 1);
 
-    PIECE_ORDER.forEach(type => {
-      if (counts[type]) {
-        const span = document.createElement('span');
-        span.style.cssText = "display: inline-block; padding: 2px 6px; margin: 0 2px; background: #e0c090; border: 1px solid #8b5a2b; border-radius: 3px; cursor: pointer;";
-        const countStr = counts[type] > 1 ? `${counts[type]}` : '';
-        span.innerText = `${PIECES[type].val}${countStr}`;
-        if (selectedCapturedPiece === type) {
-          span.style.backgroundColor = '#ffd700';
-        }
-        span.onclick = () => {
-          if (!isMyTurn || gameOver) return;
+      PIECE_ORDER.forEach(type => {
+        if (counts[type]) {
+          const span = document.createElement('span');
+          span.style.cssText = "display: inline-block; padding: 2px 6px; margin: 0 2px; background: #e0c090; border: 1px solid #8b5a2b; border-radius: 3px; cursor: pointer;";
+          const countStr = counts[type] > 1 ? `${counts[type]}` : '';
+          span.innerText = `${PIECES[type].val}${countStr}`;
           if (selectedCapturedPiece === type) {
-            selectedCapturedPiece = null;
-            validMoves = [];
-          } else {
-            selectedCapturedPiece = type;
-            selectedIndex = null;
-            validMoves = getDropMoves(type);
+            span.style.backgroundColor = '#ffd700';
           }
-          updateBoard();
-          updateUI();
-        };
-        bottomCapturedEl.appendChild(span);
-      }
-    });
+          span.onclick = () => {
+            if (!isMyTurn || gameOver) return;
+            if (selectedCapturedPiece === type) {
+              selectedCapturedPiece = null;
+              validMoves = [];
+            } else {
+              selectedCapturedPiece = type;
+              selectedIndex = null;
+              validMoves = getDropMoves(type);
+            }
+            updateBoard();
+            updateUI();
+          };
+          bottomCapturedEl.appendChild(span);
+        }
+      });
+    }
   }
 
   if (gameOver) {
     if (btnRematch) btnRematch.style.display = 'inline-block';
-    turnText.innerText = "🏆 ゲーム終了";
+    if (turnText) turnText.innerText = "🏆 ゲーム終了";
   } else {
     if (btnRematch) btnRematch.style.display = 'none';
     const turnStr = isMyTurn ? "🟢 あなたのターン" : "🔴 相手のターン";
-    turnText.innerText = turnStr + checkStatusText;
+    if (turnText) turnText.innerText = turnStr + checkStatusText;
   }
 }
 

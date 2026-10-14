@@ -10,17 +10,20 @@ let myColor = 'black';
 let currentTurnColor = 'black';
 let isAnimating = false; // 石が裏返っている最中のクリック防止用フラグ
 
-// DOM elements
-const boardEl = document.getElementById('board');
-const turnText = document.getElementById('turn-text');
-const scoreBlack = document.getElementById('score-black');
-const scoreWhite = document.getElementById('score-white');
-const btnRematch = document.getElementById('btn-rematch-reversi'); // 再戦ボタン
+// DOM elements（変数の宣言のみ行い、取得は initGame 内で行う）
+let boardEl, turnText, scoreBlack, scoreWhite, btnRematch;
 
 // 初回に盤面のセルを保持しておく配列
 let cellElements = [];
 
 export function initGame(isHost) {
+  // ゲーム初期化時（確実に画面が表示されているタイミング）にDOM要素を取得する
+  boardEl = document.getElementById('board');
+  turnText = document.getElementById('turn-text');
+  scoreBlack = document.getElementById('score-black');
+  scoreWhite = document.getElementById('score-white');
+  btnRematch = document.getElementById('btn-rematch-reversi');
+
   isHostPlayer = isHost;
   myColor = isHost ? 'black' : 'white';
   board = new Array(64).fill(null);
@@ -69,14 +72,19 @@ function createBoardDOM() {
 }
 
 function updateBoard() {
-  if (cellElements.length === 0) {
+  // ★ boardElがない、またはセルがまだ生成されていない場合は生成を試みる
+  if (!boardEl || cellElements.length === 0) {
     createBoardDOM();
+    if (cellElements.length === 0) return; // まだDOMが作れなければ処理を中断
   }
 
   const validMoves = getValidMoves(currentTurnColor);
 
   for (let i = 0; i < 64; i++) {
-    const { cell, disc } = cellElements[i];
+    const item = cellElements[i];
+    if (!item) continue; // ★ 安全装置：要素が存在しない場合はスキップしてクラッシュを防ぐ
+    
+    const { cell, disc } = item;
     const stone = board[i];
 
     // 有効手ハイライトのリセット
