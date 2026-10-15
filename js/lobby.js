@@ -6,14 +6,14 @@ export const GAME_CONFIG = {
   concentration: { minPlayers: 2, maxPlayers: 4, name: '🃏 神経衰弱',           allowCom: false },
   minesweeper:   { minPlayers: 2, maxPlayers: 4, name: '💣 マインスイーパー',   allowCom: false },
   airhockey:     { minPlayers: 2, maxPlayers: 2, name: '🏑 エアホッケー',       allowCom: false },
-  colorsort:     { minPlayers: 2, maxPlayers: 2, name: '🔴 色分けゲーム',       allowCom: false },
   shogi:         { minPlayers: 2, maxPlayers: 2, name: '☖ 将棋',               allowCom: false },
   mawari:        { minPlayers: 2, maxPlayers: 4, name: '🎲 回り将棋',           allowCom: true }
 };
 
-// ホストの端末に保存されている名前を取得
+// ホストの端末に保存されている名前を取得（なければ「ホスト」）
 let hostName = localStorage.getItem('player_name') || 'ホスト';
 
+// ロビーの現在の状態
 export let currentGameState = {
   gameKey: null,
   isHost: false,
@@ -28,9 +28,12 @@ export function setMyConnId(connId) {
   currentGameState.myConnId = connId;
 }
 
+// 自分の名前を変更する関数
 export function updateMyName(newName) {
   const trimmed = newName.trim();
   if (!trimmed) return;
+
+  // ローカルストレージに保存
   localStorage.setItem('player_name', trimmed);
 
   if (currentGameState.isHost) {
@@ -39,10 +42,15 @@ export function updateMyName(newName) {
     renderLobbyUI();
     broadcastLobbyState();
   } else {
-    sendData({ type: "CHANGE_NAME", payload: { name: trimmed } });
+    // ゲストの場合はホストへ変更リクエストを送信
+    sendData({
+      type: "CHANGE_NAME",
+      payload: { name: trimmed }
+    });
   }
 }
 
+// ホストがゲストの名前変更を受信して適用する関数
 export function updateGuestName(guestId, newName) {
   if (guestConnections[guestId]) {
     guestConnections[guestId].name = newName || '';
@@ -52,6 +60,9 @@ export function updateGuestName(guestId, newName) {
   }
 }
 
+/**
+ * ロビーを初期化して画面を描画する
+ */
 export function initLobby(gameKey, isHost) {
   const config = GAME_CONFIG[gameKey];
   currentGameState.gameKey = gameKey;
@@ -74,16 +85,25 @@ export function initLobby(gameKey, isHost) {
   if (isHost) broadcastLobbyState();
 }
 
+/**
+ * ホストから届いたロビー状態をゲスト側に同期適用する
+ */
 export function updateLobbyStateFromHost(payload) {
   if (currentGameState.isHost) return;
+  
   currentGameState.gameKey = payload.gameKey;
   currentGameState.slots = payload.slots;
   currentGameState.targetSlotCount = payload.targetSlotCount;
+
   renderLobbyUI();
 }
 
+/**
+ * ホストが全ゲストへ最新のロビー状態を送信する
+ */
 export function broadcastLobbyState() {
   if (!currentGameState.isHost) return;
+
   sendData({
     type: "LOBBY_STATE_SYNC",
     payload: {
@@ -94,6 +114,9 @@ export function broadcastLobbyState() {
   });
 }
 
+/**
+ * ゲーム切り替え・ゲスト増減・枠追加時のスロット再構築
+ */
 function rebuildSlotsForGame() {
   const config = GAME_CONFIG[currentGameState.gameKey];
   if (!config) return;
@@ -103,6 +126,7 @@ function rebuildSlotsForGame() {
     connectedHumans.push({ connId: 'host', name: hostName, isHost: true });
   }
 
+  // ID番号順にソート（guest-1, guest-2...）して参加順を明確にする
   const guestKeys = Object.keys(guestConnections).sort((a, b) => {
     const numA = parseInt(a.replace('guest-', '')) || 0;
     const numB = parseInt(b.replace('guest-', '')) || 0;
@@ -117,20 +141,30 @@ function rebuildSlotsForGame() {
     });
   });
 
+  // 枠数を超える場合、あぶれた人（IDが一番大きいゲスト＝配列の末尾）を退出させる
   while (connectedHumans.length > currentGameState.targetSlotCount) {
     const kickedHuman = connectedHumans.pop();
     if (!kickedHuman.isHost) {
-      sendData({ type: "KICKED_FROM_LOBBY", payload: { targetConnId: kickedHuman.connId } });
+      sendData({
+        type: "KICKED_FROM_LOBBY",
+        payload: { targetConnId: kickedHuman.connId }
+      });
       delete guestConnections[kickedHuman.connId];
     }
   }
 
   const existingComs = currentGameState.slots ? currentGameState.slots.filter(s => s.type === 'com') : [];
+
   const newSlots = [];
 
   connectedHumans.forEach((human, index) => {
+    // 枠番号に応じたデフォルト名（1P＝ホスト、2P＝ゲスト1、3P＝ゲスト2...）
     const defaultName = human.isHost ? 'ホスト' : `ゲスト${index}`;
-    const finalName = (human.name && human.name !== 'ゲスト' && human.name.trim() !== '') ? human.name : defaultName;
+
+    // 個別の名前が設定されていない、または「ゲスト」のままの場合はデフォルト名を生成
+    const finalName = (human.name && human.name !== 'ゲスト' && human.name.trim() !== '')
+      ? human.name
+      : defaultName;
 
     newSlots.push({
       slotId: index,
@@ -144,10 +178,20 @@ function rebuildSlotsForGame() {
   while (newSlots.length < currentGameState.targetSlotCount) {
     const slotId = newSlots.length;
     if (comIndex < existingComs.length && config.allowCom) {
-       newSlots.push({ slotId: slotId, type: 'com', connId: null, name: `COM` });
+       newSlots.push({
+         slotId: slotId,
+         type: 'com',
+         connId: null,
+         name: `COM`
+       });
        comIndex++;
     } else {
-       newSlots.push({ slotId: slotId, type: 'none', connId: null, name: `空き枠` });
+       newSlots.push({
+         slotId: slotId,
+         type: 'none',
+         connId: null,
+         name: `空き枠`
+       });
     }
   }
 
@@ -156,6 +200,7 @@ function rebuildSlotsForGame() {
 
 export function toggleComSlot(slotId) {
   if (!currentGameState.isHost) return;
+
   const slot = currentGameState.slots[slotId];
   if (!slot || slot.type === 'host' || slot.type === 'guest') return; 
 
@@ -171,17 +216,23 @@ export function toggleComSlot(slotId) {
   broadcastLobbyState();
 }
 
+/**
+ * ロビー画面のUIを更新する
+ */
 export function renderLobbyUI() {
   const config = GAME_CONFIG[currentGameState.gameKey];
   document.getElementById('lobby-game-title').innerText = config ? config.name : 'ロビー';
 
+  // 入力欄に自身の最新の名前を表示（フォーカス中でない時のみセット）
   const nameInputEl = document.getElementById('input-player-name');
   if (nameInputEl && document.activeElement !== nameInputEl) {
     const savedName = localStorage.getItem('player_name') || '';
     nameInputEl.value = savedName;
   }
 
+  // 人数と自分のID情報表示エリアの計算と更新
   const connectedHumansCount = currentGameState.slots.filter(s => s.type === 'host' || s.type === 'guest').length;
+  
   let myRoleText = "接続中...";
   let mySlotInfo = currentGameState.slots.find(s => s.connId === currentGameState.myConnId);
   
@@ -192,11 +243,16 @@ export function renderLobbyUI() {
   }
 
   const countEl = document.getElementById('lobby-player-count-display');
-  if (countEl) countEl.innerText = `現在の参加人数: ${connectedHumansCount}人`;
+  if (countEl) {
+    countEl.innerText = `現在の参加人数: ${connectedHumansCount}人`;
+  }
 
   const myIdEl = document.getElementById('lobby-my-id-display');
-  if (myIdEl) myIdEl.innerText = `あなたの順番: ${myRoleText}`;
+  if (myIdEl) {
+    myIdEl.innerText = `あなたの順番: ${myRoleText}`;
+  }
 
+  // スロットの更新
   const slotsContainer = document.getElementById('lobby-slots-container');
   slotsContainer.innerHTML = ''; 
 
@@ -212,6 +268,8 @@ export function renderLobbyUI() {
     else if (slot.type === 'com') { icon = '🤖'; color = '#388e3c'; }
 
     slotEl.style.borderColor = color;
+
+    // 自分がどの席にいるか分かりやすくマーク(あなた)を表示
     const isMe = (slot.connId === currentGameState.myConnId);
     const meMark = isMe ? ' <span style="background:#4caf50; color:#fff; border-radius:4px; padding:2px 6px; font-size:10px;">あなた</span>' : '';
 
@@ -239,9 +297,49 @@ export function renderLobbyUI() {
     slotsContainer.appendChild(slotEl);
   });
 
+  // 多人数ゲーム用の枠増減コントロール（ホスト専用）
+  if (currentGameState.isHost) {
+    const btnGroup = document.createElement('div');
+    btnGroup.style = 'display: flex; gap: 10px; margin-top: 10px;';
+    
+    if (currentGameState.targetSlotCount < config.maxPlayers) {
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn-action';
+      addBtn.style = 'background-color: #ff9800; padding: 6px; font-size: 14px; flex: 1;';
+      addBtn.innerHTML = '➕ 参加枠を追加';
+      addBtn.onclick = () => {
+        currentGameState.targetSlotCount++;
+        rebuildSlotsForGame();
+        renderLobbyUI();
+        broadcastLobbyState();
+      };
+      btnGroup.appendChild(addBtn);
+    }
+
+    if (currentGameState.targetSlotCount > config.minPlayers) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-action';
+      removeBtn.style = 'background-color: #9e9e9e; padding: 6px; font-size: 14px; flex: 1;';
+      removeBtn.innerHTML = '➖ 枠を減らす';
+      removeBtn.onclick = () => {
+        currentGameState.targetSlotCount--;
+        rebuildSlotsForGame();
+        renderLobbyUI();
+        broadcastLobbyState();
+      };
+      btnGroup.appendChild(removeBtn);
+    }
+    
+    if (btnGroup.children.length > 0) {
+      slotsContainer.appendChild(btnGroup);
+    }
+  }
+
+  // ホストにのみ「ゲームスタート」と「ゲスト呼び出し」ボタンを表示
   const btnAddGuest = document.getElementById('btn-lobby-add-guest');
   if (currentGameState.isHost) {
     btnAddGuest.style.display = 'inline-block';
+    
     if (connectedHumansCount >= currentGameState.targetSlotCount) {
       btnAddGuest.disabled = true;
       btnAddGuest.style.opacity = '0.5';
@@ -257,10 +355,13 @@ export function renderLobbyUI() {
     btnAddGuest.style.display = 'none';
   }
 
+  // ホストのみゲームスタートを表示
   const btnStart = document.getElementById('btn-lobby-start');
   if (currentGameState.isHost) {
     btnStart.style.display = 'inline-block';
+    
     const hasOpponent = currentGameState.slots.some(slot => slot.type === 'guest' || slot.type === 'com');
+    
     if (hasOpponent) {
       btnStart.disabled = false;
       btnStart.style.opacity = '1';
@@ -276,11 +377,13 @@ export function renderLobbyUI() {
     btnStart.style.display = 'none';
   }
 
+  // 退出ボタンの表示をホストとゲストで切り替え
   const btnQuit = document.getElementById('btn-quit-lobby');
   if (btnQuit) {
     btnQuit.innerText = currentGameState.isHost ? "解散してメニューに戻る" : "ロビーから退出する";
   }
 
+  // ゲーム変更ボタンの表示制御（ホストのみ表示）
   const btnChangeGame = document.getElementById('btn-lobby-change-game');
   if (btnChangeGame) {
     btnChangeGame.style.display = currentGameState.isHost ? 'inline-block' : 'none';
@@ -303,6 +406,7 @@ export function removeGuestConnection(guestId) {
   }
 }
 
+// ロビーの状態を初期化する関数
 export function resetLobby() {
   currentGameState.gameKey = null;
   currentGameState.isHost = false;
