@@ -1,4 +1,4 @@
-lobby-screen<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@ lobby-screen<!DOCTYPE html>
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.8';
+    const VERSION = '2.1.10';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -67,6 +67,12 @@ lobby-screen<!DOCTYPE html>
           <span class="tile-name">マインスイーパー<br><small>(一人用)</small></span>
         </button>
       </div>
+      
+      <!-- ★ 全ゲームのランキング閲覧メニューを追加 ★ -->
+      <div style="margin-top: 10px;">
+        <button id="btn-open-ranking-modal" class="btn-action" style="background-color: #ff9800; font-weight: bold;">🏆 オンラインランキングを見る</button>
+      </div>
+
       <div class="version-info" id="app-version-text"></div>
     </div>
   </div>

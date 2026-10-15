@@ -24,6 +24,7 @@ import { initGame as initShogiGame, processAction as processShogiAction, updateG
 import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, updateMawariGameState } from './mawari_shogi.js';
 import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
+import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -1126,6 +1127,14 @@ function initApp() {
   if (appVerEl && window.APP_VERSION) {
     appVerEl.innerText = `Ver ${window.APP_VERSION}`;
   }
+
+  // --- ランキングシステムの初期化 ---
+  initRankingSystem();
+
+// --- オンラインランキングを見るボタンのイベント設定 ---
+  setClick('btn-open-ranking-modal', () => {
+    openRankingViewModal('block_drop', true); // ★ メニューからなので最新をAPIから取得する
+  });
 }
 
 // すでにDOMの読み込みが完了していれば即座に実行、まだならイベントを待つ

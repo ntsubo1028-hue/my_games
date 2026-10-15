@@ -2,6 +2,7 @@
  * Block_drop Game Module - Version 1.2.0
  */
 import { playSound } from './sounds.js';
+import { openRankingRegisterModal } from './ranking.js';
 
 let canvas, ctx, nextCanvas, nextCtx, holdCanvas, holdCtx;
 let scoreEl, linesEl, btnRematch, block_dropScreenEl;
@@ -44,7 +45,7 @@ let dropInterval = 1000;
 let lastTime = 0;
 let score = 0;
 let lines = 0;
-let combo = 0; // ★ コンボ数管理用変数
+let combo = 0;
 let animationId = null;
 let isGameOver = false;
 
@@ -109,6 +110,10 @@ function spawnPiece() {
     isGameOver = true;
     btnRematch.style.display = 'inline-block';
     playSound('win');
+
+    // ★ スコアとライン数（stats.lines）をセットでランキング登録モーダルに渡す
+    const stats = getBlockDropScore();
+    openRankingRegisterModal('block_drop', stats.score, stats.lines);
   }
 }
 
@@ -198,13 +203,10 @@ function sweep() {
   if (rowCount > 0) {
     playSound('flip');
     lines += rowCount;
-    combo++; // ★ ラインを消したのでコンボを進める
+    combo++;
 
-    // ★ 基本スコアの定義 (1:1点, 2:3点, 3:6点, 4+:9点)
     const baseScores = [0, 1, 3, 6, 9];
     const baseScore = baseScores[rowCount] || 9;
-    
-    // ★ コンボ倍率の適用（2コンボ目で2倍、3コンボ目は3倍…）
     const earnedScore = baseScore * combo;
     score += earnedScore;
 
@@ -230,12 +232,10 @@ function sweep() {
       addFloatingText(`TETRIS!!!! +${earnedScore}${comboText}`, '#FF0055'); 
     }
   } else {
-    // ★ ラインが消えなかった場合はコンボリセット
     combo = 0;
   }
 }
 
-// ★ 次の実装でスコアを取り出せるようにするエクスポート関数
 export function getBlockDropScore() {
   return {
     score: score,

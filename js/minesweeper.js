@@ -1,6 +1,7 @@
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
 import { currentGameState } from './lobby.js';
+import { openRankingRegisterModal } from './ranking.js'; // ★ ランキング登録モーダルのインポート
 
 const ROWS = 8;
 const COLS = 8;
@@ -24,7 +25,7 @@ let currentInputMode = 'open';
 let turnTimer = null;
 let remainingTime = TURN_TIME_LIMIT;
 
-// ★ 一人用タイマー・タイムアタック用変数
+// 一人用タイマー・タイムアタック用変数
 let soloTimerInterval = null;
 let soloElapsedTime = 0;
 let isSoloTimerRunning = false;
@@ -34,7 +35,7 @@ const PLAYER_COLORS = ['#d32f2f', '#1976d2', '#388e3c', '#f57c00'];
 // --- 一人用ゲーム初期化 ---
 export function initSoloGame() {
   stopTurnTimer();
-  stopSoloTimer(); // ★ 一人用タイマーの停止・リセット
+  stopSoloTimer(); // 一人用タイマーの停止・リセット
   isSoloMode = true;
   gameOver = false;
   isWin = false;
@@ -62,7 +63,7 @@ export function initSoloGame() {
   updateUI();
 }
 
-// ★ 次の実装でスコアやタイムを取り出せるようにするエクスポート関数
+// スコアやタイムを取り出せるようにするエクスポート関数
 export function getSoloMinesweeperStats() {
   return {
     isCleared: isSoloMode && isWin && gameOver,
@@ -261,7 +262,7 @@ function stopSoloTimer() {
 function handleSoloOpen(index) {
   if (board[index].isOpened) return;
 
-  // ★ 最初のパネルを開いた瞬間にタイマーを発動
+  // 最初のパネルを開いた瞬間にタイマーを発動
   if (!isSoloTimerRunning && !gameOver) {
     startSoloTimer();
   }
@@ -272,7 +273,7 @@ function handleSoloOpen(index) {
   if (board[index].isBomb) {
     gameOver = true;
     isWin = false; 
-    stopSoloTimer(); // 失敗したらタイマー停止（クリアできなかったらタイムはノーカウント）
+    stopSoloTimer(); // 失敗したらタイマー停止
     playSound('win');
     revealAllBombs();
   } else {
@@ -373,7 +374,6 @@ function updateTimerUI() {
   
   if (timerDisplay && timerSec) {
     if (isSoloMode) {
-      // 一人用のときは経過時間を表示
       timerDisplay.style.display = 'inline';
       timerSec.innerText = soloElapsedTime;
     } else if (!isSoloMode && openedInCurrentTurn > 0 && !gameOver) {
@@ -437,11 +437,19 @@ function checkGameEnd() {
   const isAllSafeOpened = board.every(cell => cell.isBomb || cell.isOpened);
   if (isAllSafeOpened) {
     gameOver = true;
-    isWin = true; 
+    isWin = true;
     stopTurnTimer();
     stopSoloTimer(); // クリア時に一人用タイマーを確定
     revealAllBombs();
     playSound('win');
+
+    // ★ 一人用モードでクリアしたとき、ランキング登録モーダルを呼び出す
+    if (isSoloMode) {
+      const stats = getSoloMinesweeperStats();
+      if (stats.isCleared && stats.time !== null) {
+        openRankingRegisterModal('minesweeper', stats.time);
+      }
+    }
   }
 }
 

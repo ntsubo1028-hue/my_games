@@ -1,7 +1,7 @@
 // gas_connection.js
 import { initConnection, setupHostConnection, setupGuestConnection, handleGuestAnswer } from './connection.js';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyPlpWlVOkLLFwYZG2fjlPo-2pZrm8O0UjqmLg4bA5RJ58H4jASboz4MxwQUU-jq1I/exec'; // ←ご自身のURL
+export const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyPlpWlVOkLLFwYZG2fjlPo-2pZrm8O0UjqmLg4bA5RJ58H4jASboz4MxwQUU-jq1I/exec'; // ←ご自身のURL
 
 /**
  * 【ホスト側】解放されているスロット分だけ接続情報を生成（または更新）して接続コードを発行する
