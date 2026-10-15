@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.10';
+    const VERSION = '2.2.0';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -37,9 +37,7 @@
 </head>
 <body>
 
-  <!-- ==================================
-       メインメニュー画面
-  ================================== -->
+  <!-- メインメニュー画面 -->
   <div id="menu-screen" class="screen active">
     <div class="hero-header">
       <div class="secret-badge">🎮 P2P Arcade</div>
@@ -56,7 +54,6 @@
       <button id="btn-guest" class="btn-action guest-btn">ゲストとして参加する</button>
 
       <h2>一人で遊ぶ</h2>
-      <!-- ★ タイル状に変更 ★ -->
       <div class="game-tile-grid">
         <button id="btn-play-block_drop" class="btn-tile" style="background-color: #78909c;">
           <span class="tile-icon">🧱</span>
@@ -68,7 +65,6 @@
         </button>
       </div>
       
-      <!-- ★ 全ゲームのランキング閲覧メニューを追加 ★ -->
       <div style="margin-top: 10px;">
         <button id="btn-open-ranking-modal" class="btn-action" style="background-color: #ff9800; font-weight: bold;">🏆 オンラインランキングを見る</button>
       </div>
@@ -80,7 +76,6 @@
   <!-- ホスト用：ゲーム選択画面 -->
   <div id="host-game-select-screen" class="screen scrollable-screen">
     <h2>遊ぶゲームを選択</h2>
-    <!-- ★ タイル状に変更 ★ -->
     <div class="game-tile-grid" style="max-width: 450px; margin-bottom: 10px;">
       <button id="btn-select-reversi" class="btn-tile" style="background-color: #2e7d32;">
         <span class="tile-icon">🟢</span>
@@ -102,6 +97,10 @@
         <span class="tile-icon">🏑</span>
         <span class="tile-name">エアホッケー<br><small>(1対1)</small></span>
       </button>
+      <button id="btn-select-colorsort" class="btn-tile" style="background-color: #e91e63;">
+        <span class="tile-icon">🔴</span>
+        <span class="tile-name">色分けゲーム<br><small>(1対1)</small></span>
+      </button>
       <button id="btn-select-shogi" class="btn-tile" style="background-color: #795548;">
         <span class="tile-icon">☖</span>
         <span class="tile-name">将棋<br><small>(1対1)</small></span>
@@ -117,9 +116,7 @@
     </div>
   </div>
 
-  <!-- ==================================
-       ロビー画面
-  ================================== -->
+  <!-- ロビー画面 -->
   <div id="lobby-screen" class="screen scrollable-screen">
     <div class="secret-badge">Lobby</div>
     <h2 id="lobby-game-title">ゲーム名</h2>
@@ -127,19 +124,14 @@
     <div class="info-board" style="background: #e3f2fd; color: #0d47a1; margin-bottom: 15px; font-size: 14px; flex-direction: column; gap: 4px; align-items: flex-start; padding: 10px 15px;">
       <div id="lobby-player-count-display" style="font-weight: bold;">現在の参加人数: 1人</div>
       <div id="lobby-my-id-display" style="font-weight: bold; color: #2e7d32;">あなたの順番: 1P (ホスト)</div>
-      <!-- 名前変更フォーム -->
       <div style="width: 100%; display: flex; align-items: center; gap: 6px; margin-top: 4px;">
         <span style="font-weight: bold; font-size: 13px; white-space: nowrap;">名前:</span>
         <input type="text" id="input-player-name" placeholder="名前を入力" maxlength="10" style="flex: 1; padding: 4px 8px; border-radius: 4px; border: 1px solid #90caf9; font-size: 13px; box-sizing: border-box;">
         <button id="btn-change-name" class="btn-action" style="padding: 4px 10px; font-size: 12px; margin: 0; width: auto; background-color: #2196f3;">変更</button>
       </div>
-      <div style="font-size: 12px; color: #555; margin-top: 4px;">メンバーが集まったら開始できます。空いている席にはCOMを入れることができます。</div>
     </div>
 
-    <!-- プレイヤースロット -->
-    <div id="lobby-slots-container" style="width: 100%; max-width: 400px; margin: 0 auto;">
-      <!-- JSで動的生成 -->
-    </div>
+    <div id="lobby-slots-container" style="width: 100%; max-width: 400px; margin: 0 auto;"></div>
 
     <div class="button-group-col" style="margin-top: 25px;">
       <button id="btn-lobby-add-guest" class="btn-action" style="background-color: #2196f3;">📡 通信してゲストを呼ぶ</button>
@@ -157,7 +149,6 @@
     
     <p id="conn-status" class="loading-text">準備中...</p>
     
-    <!-- ゲスト側：参加方法選択 -->
     <div id="step-guest-choose-input" class="step-container" style="display: none;">
       <p class="step-question">Q. ホストの情報をどうやって入力しますか？</p>
       <div class="button-group-col">
@@ -167,7 +158,6 @@
       </div>
     </div>
 
-    <!-- ホスト側：接続方法選択 -->
     <div id="step-host-choose-output" class="step-container" style="display: none;">
       <p class="step-question">Q. 接続方法を選んでください</p>
       <div class="button-group-col">
@@ -177,7 +167,6 @@
       </div>
     </div>
 
-    <!-- ゲスト用 4桁の接続コード入力エリア -->
     <div id="step-gas-room-input-area" class="step-container" style="display: none;">
       <p class="step-question">4桁の接続コードを入力してください</p>
       <input type="text" id="input-gas-room-number" maxlength="4" placeholder="例: 1234" style="width: 100%; padding: 10px; font-size: 20px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; text-align: center; letter-spacing: 4px; margin-bottom: 10px;">
@@ -187,7 +176,6 @@
       </div>
     </div>
 
-    <!-- ホスト側：返信情報の入力方法選択 -->
     <div id="step-host-choose-input" class="step-container" style="display: none;">
       <p class="step-question">Q. 相手からの返信をどうやって入力しますか？</p>
       <div class="button-group-col">
@@ -196,7 +184,6 @@
       </div>
     </div>
 
-    <!-- ゲスト側：返信の出力方法選択 -->
     <div id="step-guest-choose-output" class="step-container" style="display: none;">
       <p class="step-question">Q. ホストに返信情報をどうやって伝えますか？</p>
       <div class="button-group-col">
@@ -205,7 +192,6 @@
       </div>
     </div>
 
-    <!-- テキスト入力エリア -->
     <div id="step-text-input-area" class="step-container" style="display: none;">
       <textarea id="text-sdp-input" rows="3" style="width: 100%; padding: 10px; font-size: 14px; border-radius: 6px; box-sizing: border-box; resize: none;" placeholder="相手からのテキストをペースト"></textarea>
       <div class="button-group-col" style="margin-top: 10px;">
@@ -214,28 +200,14 @@
       </div>
     </div>
 
-    <!-- QRコード表示コンテナ -->
     <div id="qr-container" style="display: none; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; width: 100%;">
-      <div id="qr-box-1" class="qr-box red-box">
-        <div class="qr-title">🔴 Part 1</div>
-        <img id="conn-qr-1" class="qr-img" alt="QR 1">
-      </div>
-      <div id="qr-box-2" class="qr-box blue-box">
-        <div class="qr-title">🔵 Part 2</div>
-        <img id="conn-qr-2" class="qr-img" alt="QR 2">
-      </div>
-      <div id="qr-box-3" class="qr-box yellow-box">
-        <div class="qr-title">🟡 Part 3</div>
-        <img id="conn-qr-3" class="qr-img" alt="QR 3">
-      </div>
-      <div id="qr-box-4" class="qr-box green-box">
-        <div class="qr-title">🟢 Part 4</div>
-        <img id="conn-qr-4" class="qr-img" alt="QR 4">
-      </div>
+      <div id="qr-box-1" class="qr-box red-box"><div class="qr-title">🔴 Part 1</div><img id="conn-qr-1" class="qr-img" alt="QR 1"></div>
+      <div id="qr-box-2" class="qr-box blue-box"><div class="qr-title">🔵 Part 2</div><img id="conn-qr-2" class="qr-img" alt="QR 2"></div>
+      <div id="qr-box-3" class="qr-box yellow-box"><div class="qr-title">🟡 Part 3</div><img id="conn-qr-3" class="qr-img" alt="QR 3"></div>
+      <div id="qr-box-4" class="qr-box green-box"><div class="qr-title">🟢 Part 4</div><img id="conn-qr-4" class="qr-img" alt="QR 4"></div>
       <button id="btn-cancel-output-qr" class="btn-action secondary-btn" style="margin-top: 10px;">選び直す</button>
     </div>
 
-    <!-- テキストコピーコンテナ -->
     <div id="text-copy-container" class="step-container" style="display: none; text-align: center;">
       <button id="btn-copy-sdp" class="btn-action" style="background-color: #2196f3; margin-bottom: 10px;">📋 接続情報をコピーする</button>
       <button id="btn-cancel-output-text" class="btn-action secondary-btn">選び直す</button>
@@ -264,139 +236,14 @@
     <button id="btn-cancel-scan" class="btn-action secondary-btn" style="margin-top: 15px;">選び直す</button>
   </div>
 
-  <!-- ゲーム本体画面 (リバーシ) -->
-  <div id="game-screen" class="screen">
-    <button type="button" onclick="openHelp('help-reversi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
-    <h2 id="turn-text">通信待機中...</h2>
-    <div id="score-board" class="info-board" style="background: #e8f5e9;">
-      <span id="score-black">黒: 2</span>
-      <span id="score-white">白: 2</span>
-    </div>
-    <div class="game-board-container">
-      <div id="board"></div>
-    </div>
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-reversi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-game" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ゲーム本体画面 (ドット＆ボックス) -->
-  <div id="dots-game-screen" class="screen">
-    <button type="button" onclick="openHelp('help-dots.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
-    <h2 id="dots-turn-text">通信待機中...</h2>
-    <div id="dots-score-board" class="info-board">
-      <span id="dots-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
-      <span id="dots-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
-    </div>
-    <div class="game-board-container">
-      <div id="dots-board-container"></div>
-    </div>
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-dots" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-dots" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ゲーム本体画面（神経衰弱） -->
-  <div id="concentration-game-screen" class="screen">
-    <button type="button" onclick="openHelp('help-concentration.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
-    <h2 id="concentration-turn-text">通信待機中...</h2>
-    <div id="concentration-score-board" class="info-board">
-      <span id="concentration-score-host" style="color: #d32f2f;">ホスト: 0</span>
-      <span id="concentration-score-guest" style="color: #1976d2;">ゲスト: 0</span>
-    </div>
-    <div class="game-board-container">
-      <div id="concentration-board"></div>
-    </div>
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-concentration" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-concentration" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ゲーム本体画面: ブロックドロップ (一人用) -->
-  <div id="block_drop-game-screen" class="screen">
-    <h2>ブロックドロップ</h2>
-    <button type="button" onclick="openHelp('help-block_drop.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 操作方法ヘルプ</button>
-
-    <div class="info-board block_drop-info" style="margin-bottom: 5px;">
-      <span id="block_drop-score">スコア: 0</span>
-      <span id="block_drop-lines">ライン: 0</span>
-    </div>
-    
-    <div class="game-board-container">
-      <div class="block_drop-wrapper">
-        <canvas id="block_drop-board" width="180" height="360"></canvas>
-        <div class="block_drop-side-panel">
-          <div class="block_drop-sub-box">
-            <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 2px; color: #555;">NEXT</span>
-            <canvas id="block_drop-next" width="60" height="60"></canvas>
-          </div>
-          <div class="block_drop-sub-box">
-            <span style="font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 2px; color: #555;">HOLD</span>
-            <canvas id="block_drop-hold" width="60" height="60"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="block_drop-guide step-container" style="padding: 10px; font-size: clamp(10px, 2vw, 12px); color: #333; margin-bottom: 10px;">
-      <p style="margin: 2px 0;">🖱 <b>PC:</b> 左右/下キー, <b>C/Shiftキー(HOLD)</b>, クリック:落下, 右クリック:回転</p>
-      <p style="margin: 2px 0;">📱 <b>スマホ:</b> 左右/下ドラッグ, <b>上スワイプ(HOLD)</b>, タップ:回転, Wタップ:落下</p>
-    </div>
-    
-    <div class="button-group-col">
-      <button id="btn-rematch-block_drop" class="btn-action" style="display:none; background-color: #fbc02d; color: #000;">もう一度遊ぶ</button>
-      <button id="btn-quit-block_drop" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ゲーム本体画面（マインスイーパー） -->
-  <div id="minesweeper-game-screen" class="screen">
-    <h2>マインスイーパー</h2>
-    <button type="button" onclick="openHelp('help-minesweeper.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
-
-    <h3 id="mine-turn-text">通信待機中...</h3>
-
-    <div id="mine-count-board" class="info-board" style="background: #e0e0e0; justify-content: space-around;">
-      <span>💣 残り: <span id="mine-remaining-count">10</span></span>
-      <span id="mine-timer-display" style="color: #d32f2f; display: none;">⏱️ <span id="mine-timer-sec">10</span>秒</span>
-    </div>
-
-    <div id="mine-score-board" class="info-board">
-      <span id="mine-score-host" style="color: #d32f2f;">ホスト: 0点</span>
-      <span id="mine-score-guest" style="color: #1976d2;">ゲスト: 0点</span>
-    </div>
-
-    <div class="button-group" style="margin-bottom: 5px;">
-      <button id="btn-mine-mode" class="btn-action" style="background-color: #4caf50; min-height: 40px; padding: 8px;">モード: ⛏️ 開く</button>
-      <button id="btn-mine-end-turn" class="btn-action" style="background-color: #ff9800; display: none; min-height: 40px; padding: 8px;">ターン終了 ➔</button>
-    </div>
-
-    <div class="game-board-container">
-      <div id="mine-board"></div>
-    </div>
-
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-mine" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-mine" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ゲーム本体画面（エアホッケー） -->
-  <div id="airhockey-game-screen" class="screen">
-    <h2>エアホッケー</h2>
-    <button type="button" onclick="openHelp('help-airhockey.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
+  <!-- ゲーム本体画面 (色分けゲーム) -->
+  <div id="colorsort-game-screen" class="screen">
+    <h2>色分けゲーム</h2>
     
     <!-- フレームレートの選択（ゲスト用） -->
-    <div id="ah-guest-settings" style="display: none; text-align: center; margin-bottom: 10px;">
+    <div id="cs-guest-settings" style="display: none; text-align: center; margin-bottom: 10px;">
       <label style="color: #ccc; font-size: 13px;">📡 通信フレームレート:</label>
-      <select id="ah-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
+      <select id="cs-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
         <option value="1">最高 (毎フレーム同期 / Wi-Fi推奨)</option>
         <option value="2">高 (2フレームごと)</option>
         <option value="3" selected>中 (3フレームごと / 標準)</option>
@@ -404,21 +251,64 @@
       </select>
     </div>
 
-    <h3 id="airhockey-status-text">通信待機中...</h3>
+    <h3 id="colorsort-status-text">通信待機中...</h3>
 
+    <div id="colorsort-score-board" class="info-board">
+      <span id="colorsort-score-host" style="color: #d32f2f;">ホスト(赤箱): 0点</span>
+      <span id="colorsort-score-guest" style="color: #1976d2;">ゲスト(青箱): 0点</span>
+    </div>
+
+    <div class="game-board-container" style="position: relative;">
+      <canvas id="colorsort-board" width="300" height="500" style="touch-action: none;"></canvas>
+      <div id="cs-start-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 20; border-radius: 8px;">
+        <button id="btn-start-colorsort" class="btn-action" style="background-color: #4caf50; font-size: 22px; padding: 16px 32px; width: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">🎮 ゲーム開始</button>
+      </div>
+    </div>
+
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
+      <button id="btn-rematch-colorsort" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-colorsort" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ゲーム本体画面 (リバーシ/エアホッケー等他の画面は同様に維持) -->
+  <div id="game-screen" class="screen">
+    <h2 id="turn-text">通信待機中...</h2>
+    <div id="score-board" class="info-board" style="background: #e8f5e9;">
+      <span id="score-black">黒: 2</span><span id="score-white">白: 2</span>
+    </div>
+    <div class="game-board-container"><div id="board"></div></div>
+    <div class="button-group-col" style="margin-top: 15px;">
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
+      <button id="btn-rematch-reversi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-game" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- エアホッケー画面 -->
+  <div id="airhockey-game-screen" class="screen">
+    <h2>エアホッケー</h2>
+    <div id="ah-guest-settings" style="display: none; text-align: center; margin-bottom: 10px;">
+      <label style="color: #ccc; font-size: 13px;">📡 通信フレームレート:</label>
+      <select id="ah-sync-rate-select" style="background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 13px;">
+        <option value="1">最高 (毎フレーム同期)</option>
+        <option value="2">高 (2フレームごと)</option>
+        <option value="3" selected>中 (3フレームごと)</option>
+        <option value="5">低 (5フレームごと)</option>
+      </select>
+    </div>
+    <h3 id="airhockey-status-text">通信待機中...</h3>
     <div id="airhockey-score-board" class="info-board">
       <span id="airhockey-score-host" style="color: #d32f2f;">ホスト(赤): 0</span>
       <span id="airhockey-score-guest" style="color: #1976d2;">ゲスト(青): 0</span>
     </div>
-
-    <!-- コートの中央にスタートボタンを重ねるコンテナ -->
     <div class="game-board-container" style="position: relative;">
       <canvas id="airhockey-board" width="300" height="500" style="touch-action: none;"></canvas>
       <div id="ah-start-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); z-index: 20; border-radius: 8px;">
         <button id="btn-start-airhockey" class="btn-action" style="background-color: #4caf50; font-size: 22px; padding: 16px 32px; width: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">🎮 ゲーム開始</button>
       </div>
     </div>
-
     <div class="button-group-col" style="margin-top: 15px;">
       <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-airhockey" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
@@ -426,120 +316,13 @@
     </div>
   </div>
 
-  <!-- ゲーム本体画面 (将棋) -->
-  <div id="shogi-game-screen" class="screen">
-    <button type="button" onclick="openHelp('help-shogi.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
-    <h2 id="shogi-turn-text">通信待機中...</h2>
-    
-    <div class="shogi-layout-wrapper">
-      <div id="shogi-captured-top" class="shogi-captured-side">
-        相手持ち駒: なし
-      </div>
-
-      <div class="game-board-container shogi-board-container">
-        <div id="shogi-board"></div>
-      </div>
-
-      <div id="shogi-captured-bottom" class="shogi-captured-side">
-        自分持ち駒: なし
-      </div>
-    </div>
-
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-shogi" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-shogi" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-
-    <div id="shogi-effect-overlay" style="display: none;">
-      <div id="shogi-effect-text"></div>
-    </div>
-  </div>
-
-  <!-- ==================================
-       ゲーム本体画面 (回り将棋)
-  ================================== -->
-  <div id="mawari-game-screen" class="screen" style="background: #f0e6d2; box-sizing: border-box; padding-bottom: 30px; overflow-y: auto;">
-    
-    <button type="button" onclick="openHelp('help-mawari.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 10px auto 0 auto; width: auto;">❓ 遊び方ヘルプ</button>
-
-    <div style="max-width: 480px; margin: 0 auto; padding: 5px 10px 5px 10px; display: flex; justify-content: space-between; align-items: center;">
-      <h2 style="margin: 0 auto; color: #333; font-size: clamp(20px, 5vw, 24px); text-align: center; text-shadow: 1px 1px 0 rgba(255,255,255,0.6);">🎲 回り将棋</h2>
-    </div>
-
-    <div id="mawari-game-container" style="display: none; flex-direction: column; align-items: center; position: relative; width: 100%; margin-top: 5px;">
-      <div id="mawari-shokaku-overlay">
-        <div id="mawari-shokaku-text">昇 級 ！</div>
-        <div id="mawari-shokaku-detail">歩 ➔ 香</div>
-      </div>
-
-      <div id="mawari-board">
-        <div id="mawari-center-panel">
-          <div id="mawari-turn-badge">1P (赤) の番です</div>
-
-          <div id="mawari-koma-area">
-            <div class="mawari-koma">金</div>
-            <div class="mawari-koma">金</div>
-            <div class="mawari-koma">金</div>
-            <div class="mawari-koma">金</div>
-          </div>
-
-          <div id="mawari-log-text">「金を振る」を押してください</div>
-
-          <button id="btn-mawari-dice" class="mawari-btn">金を振る！</button>
-        </div>
-      </div>
-
-      <div id="mawari-player-list"></div>
-    </div>
-    <div class="button-group-col" style="margin-top: 15px;">
-      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
-      <button id="btn-rematch-mawari" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
-      <button id="btn-quit-mawari" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- ==================================
-       ヘルプ表示用モーダル（共通）
-  ================================== -->
+  <!-- モーダル・ヘルプ -->
   <div id="help-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <button type="button" class="modal-close-btn" onclick="closeHelp()">✕ 閉じる</button>
       <div id="help-body">読み込み中...</div>
     </div>
   </div>
-
-  <script>
-    async function openHelp(filename) {
-      const modal = document.getElementById('help-modal');
-      const helpBody = document.getElementById('help-body');
-      
-      modal.style.display = 'flex';
-      helpBody.innerHTML = '読み込み中...';
-
-      try {
-        const response = await fetch(filename);
-        if (!response.ok) throw new Error('ファイルの読み込みに失敗しました');
-        const htmlText = await response.text();
-        helpBody.innerHTML = htmlText;
-      } catch (error) {
-        helpBody.innerHTML = '<p style="color: #ff6b6b; padding: 20px; text-align: center;">ヘルプの読み込みに失敗しました。<br>(' + filename + ')</p>';
-        console.error(error);
-      }
-    }
-
-    function closeHelp() {
-      document.getElementById('help-modal').style.display = 'none';
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('help-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'help-modal') {
-          closeHelp();
-        }
-      });
-    });
-  </script>
 
 </body>
 </html>

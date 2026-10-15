@@ -656,3 +656,19 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   z-index: 3000;
   overflow-y: auto;
 }
+
+/* ==================================
+   色分けゲーム用スタイル
+================================== */
+#colorsort-game-screen .game-board-container {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+#colorsort-game-screen h3 {
+  margin: 4px 0;
+  font-size: 15px;
+}
+#colorsort-score-board {
+  margin: 4px auto;
+  padding: 4px 10px;
+}
