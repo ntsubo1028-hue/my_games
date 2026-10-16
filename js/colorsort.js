@@ -1,4 +1,4 @@
-// colorsort.js - 色分けおはじき対戦ゲーム（完全修正版）
+// colorsort.js - 色分けおはじき対戦ゲーム（操作性改善・完全版）
 import { playSound } from './sounds.js';
 
 // DOM要素（遅延初期化）
@@ -14,23 +14,19 @@ let csGuestSettings = null;
 let csSyncRateSelect = null;
 let csScoreBoard = null;
 
-// ホスト用設定要素
 let hostSettingsContainer = null;
 let bubbleCountSlider = null;
 let bubbleCountLabel = null;
 
 let isDOMInitialized = false;
 
-// 描画・物理演算の定数
 const CS_WIDTH = 300;
 const CS_HEIGHT = 500;
 const BUBBLE_RADIUS = 12;
 
-// ゲーム設定
 let currentSyncRate = 3;
 let totalBubbles = 20;
 
-// ゲーム状態
 let csState = {
   bubbles: [],
   boxes: {},
@@ -51,15 +47,10 @@ let csFrameCount = 0;
 let isHost = false;
 let sendData = null;
 
-// タッチ・マウス・ドラッグ・シュート管理
 let draggedBubbleId = null;
-let touchPos = { x: 0, y: 0 };
-let lastTouchPos = { x: 0, y: 0 };
+let touchLogicalPos = { x: 0, y: 0 };
+let startLogicalPos = { x: 0, y: 0 };
 let isTouching = false;
-let dragVelocityX = 0;
-let dragVelocityY = 0;
-let mouseCanvasPos = null;
-let isMouseActive = false;
 
 let hostReady = false;
 let guestReady = false;
@@ -68,7 +59,23 @@ let totalBytesSent = 0;
 let totalBytesReceived = 0;
 let trafficBadge = null;
 
-// DOMの安全な初期化
+// 座標変換ヘルパー：ゲーム論理座標 ⇔ 画面描画座標
+function logicalToScreen(logicalX, logicalY) {
+  if (isHost) {
+    return { x: logicalX, y: logicalY };
+  } else {
+    return { x: CS_WIDTH - logicalX, y: CS_HEIGHT - logicalY };
+  }
+}
+
+function screenToLogical(screenX, screenY) {
+  if (isHost) {
+    return { x: screenX, y: screenY };
+  } else {
+    return { x: CS_WIDTH - screenX, y: CS_HEIGHT - screenY };
+  }
+}
+
 function ensureDOM() {
   if (isDOMInitialized && ctxCS) return true;
 
@@ -92,10 +99,8 @@ function ensureDOM() {
   return true;
 }
 
-// ホスト用スケーラーUIの動的構築
 function setupUIControls() {
   if (!csStartOverlay) return;
-
   csStartOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; gap: 16px;';
 
   if (!document.getElementById('cs-host-settings-container')) {
@@ -158,32 +163,31 @@ function setupEventListeners() {
   }
 
   if (canvasCS) {
-    const getPos = (clientX, clientY) => {
+    const getScreenPos = (clientX, clientY) => {
       let rect = canvasCS.getBoundingClientRect();
       let scaleX = CS_WIDTH / rect.width;
       let scaleY = CS_HEIGHT / rect.height;
       let x = (clientX - rect.left) * scaleX;
       let y = (clientY - rect.top) * scaleY;
-      if (!isHost) {
-        x = CS_WIDTH - x;
-        y = CS_HEIGHT - y;
-      }
-      return { x, y };
+      return {
+        x: Math.max(0, Math.min(CS_WIDTH, x)),
+        y: Math.max(0, Math.min(CS_HEIGHT, y))
+      };
     };
 
     const handleStart = (clientX, clientY) => {
       if (!csState.isPlaying || csState.isPlayballEffect || csState.isEndingFlow || csState.isCounting) return;
-      let pos = getPos(clientX, clientY);
-      touchPos = pos;
-      lastTouchPos = pos;
+      let screenPos = getScreenPos(clientX, clientY);
+      let logicalPos = screenToLogical(screenPos.x, screenPos.y);
+
+      touchLogicalPos = logicalPos;
+      startLogicalPos = logicalPos;
       isTouching = true;
-      dragVelocityX = 0;
-      dragVelocityY = 0;
 
       let clickedBubble = null;
       for (let b of csState.bubbles) {
         if (b.inBox !== null) continue;
-        let dist = Math.hypot(b.x - pos.x, b.y - pos.y);
+        let dist = Math.hypot(b.x - logicalPos.x, b.y - logicalPos.y);
         if (dist <= BUBBLE_RADIUS * 2.2) {
           clickedBubble = b;
           break;
@@ -199,27 +203,10 @@ function setupEventListeners() {
     };
 
     const handleMove = (clientX, clientY) => {
-      let pos = getPos(clientX, clientY);
-      mouseCanvasPos = pos;
-      isMouseActive = true;
-
+      let screenPos = getScreenPos(clientX, clientY);
       if (!isTouching) return;
-
-      if (draggedBubbleId !== null) {
-        let b = csState.bubbles.find(item => item.id === draggedBubbleId);
-        if (b && b.inBox === null) {
-          // 移動量からシュート速度を正確に算出
-          dragVelocityX = (pos.x - lastTouchPos.x) * 0.7;
-          dragVelocityY = (pos.y - lastTouchPos.y) * 0.7;
-
-          b.x = pos.x;
-          b.y = pos.y;
-          b.vx = 0;
-          b.vy = 0;
-        }
-      }
-      lastTouchPos = touchPos;
-      touchPos = pos;
+      let logicalPos = screenToLogical(screenPos.x, screenPos.y);
+      touchLogicalPos = logicalPos;
     };
 
     const handleEnd = () => {
@@ -230,9 +217,32 @@ function setupEventListeners() {
         let b = csState.bubbles.find(item => item.id === draggedBubbleId);
         if (b) {
           b.grabbedBy = null;
-          // 離した瞬間の速度を適用してシュート
-          b.vx = dragVelocityX;
-          b.vy = dragVelocityY;
+          let pullX = startLogicalPos.x - touchLogicalPos.x;
+          let pullY = startLogicalPos.y - touchLogicalPos.y;
+          let powerMultiplier = 0.22;
+          
+          let vx = pullX * powerMultiplier;
+          let vy = pullY * powerMultiplier;
+
+          let speed = Math.hypot(vx, vy);
+          let maxSpeed = 16;
+          if (speed > maxSpeed) {
+            vx = (vx / speed) * maxSpeed;
+            vy = (vy / speed) * maxSpeed;
+          }
+
+          if (isHost) {
+            b.vx = vx;
+            b.vy = vy;
+          } else {
+            sendDataWrapper({
+              type: 'cs_shoot',
+              dragId: draggedBubbleId,
+              vx: vx,
+              vy: vy
+            });
+          }
+          playSound('flip');
         }
         draggedBubbleId = null;
       }
@@ -240,7 +250,6 @@ function setupEventListeners() {
 
     canvasCS.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      isMouseActive = false;
       if (e.touches.length > 0) handleStart(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
 
@@ -253,15 +262,12 @@ function setupEventListeners() {
     canvasCS.addEventListener('touchcancel', handleEnd);
 
     canvasCS.addEventListener('mousedown', (e) => {
-      isMouseActive = true;
       handleStart(e.clientX, e.clientY);
     });
     window.addEventListener('mousemove', (e) => {
       let rect = canvasCS.getBoundingClientRect();
       if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
         handleMove(e.clientX, e.clientY);
-      } else {
-        isMouseActive = false;
       }
     });
     window.addEventListener('mouseup', handleEnd);
@@ -353,12 +359,12 @@ export function startColorSort() {
 }
 
 function initBoxes() {
-  // 赤を右、青を左に統一（ホスト視点基準：赤=右, 青=左）
+  // クロス配置：自分（手前）は左青・右赤（top）、相手（奥）は左赤・右青（bottom）
   csState.boxes = {
     myBlue: { x: 30, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#74b9ff', owner: 'me', type: 'blue', openSide: 'top' },
     myRed: { x: CS_WIDTH - 100, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#ff7675', owner: 'me', type: 'red', openSide: 'top' },
-    opBlue: { x: 30, y: 0, w: 70, h: 45, color: '#74b9ff', owner: 'op', type: 'blue', openSide: 'bottom' },
-    opRed: { x: CS_WIDTH - 100, y: 0, w: 70, h: 45, color: '#ff7675', owner: 'op', type: 'red', openSide: 'bottom' }
+    opRed: { x: 30, y: 0, w: 70, h: 45, color: '#ff7675', owner: 'op', type: 'red', openSide: 'bottom' },
+    opBlue: { x: CS_WIDTH - 100, y: 0, w: 70, h: 45, color: '#74b9ff', owner: 'op', type: 'blue', openSide: 'bottom' }
   };
 }
 
@@ -399,15 +405,18 @@ function initBubbles() {
 
 function checkBothReady() {
   if (isHost && hostReady && guestReady) {
-    sendDataWrapper({ type: 'cs_start', count: totalBubbles });
+    initBubbles();
+    sendDataWrapper({ 
+      type: 'cs_start', 
+      count: totalBubbles,
+      bubbles: csState.bubbles 
+    });
     triggerPlayball();
   }
 }
 
 function triggerPlayball() {
   if (csStartOverlay) csStartOverlay.style.display = 'none';
-  
-  initBubbles();
 
   csState.isPlayballEffect = true;
   csState.playballScale = 0.3;
@@ -465,28 +474,24 @@ function createBurstParticles(x, y, color) {
 }
 
 function csLoop() {
+  // 物理演算はホスト側のみで実行
   if (csState.isPlaying && isHost && !csState.isPlayballEffect && !csState.isEndingFlow && !csState.isCounting) {
     for (let b of csState.bubbles) {
       if (b.inBox !== null) continue;
 
-      // 掴まれているおはじきは物理演算をスキップ（マウス/タッチに追従）
-      if (b.id === draggedBubbleId) {
-        continue;
-      }
-
       b.prevX = b.x;
       b.prevY = b.y;
 
-      b.vx *= 0.94;
-      b.vy *= 0.94;
+      b.vx *= 0.98;
+      b.vy *= 0.98;
       b.x += b.vx;
       b.y += b.vy;
 
       let m = BUBBLE_RADIUS;
-      if (b.x < m) { b.x = m; b.vx *= -0.5; }
-      if (b.x > CS_WIDTH - m) { b.x = CS_WIDTH - m; b.vx *= -0.5; }
-      if (b.y < m) { b.y = m; b.vy *= -0.5; }
-      if (b.y > CS_HEIGHT - m) { b.y = CS_HEIGHT - m; b.vy *= -0.5; }
+      if (b.x < m) { b.x = m; b.vx *= -0.7; }
+      if (b.x > CS_WIDTH - m) { b.x = CS_WIDTH - m; b.vx *= -0.7; }
+      if (b.y < m) { b.y = m; b.vy *= -0.7; }
+      if (b.y > CS_HEIGHT - m) { b.y = CS_HEIGHT - m; b.vy *= -0.7; }
 
       for (let key in csState.boxes) {
         let box = csState.boxes[key];
@@ -495,11 +500,11 @@ function csLoop() {
           let entered = false;
           
           if (box.openSide === 'top') {
-            if (b.prevY <= box.y && b.y >= box.y) {
+            if (b.prevY <= box.y && b.y > box.y) {
               entered = true;
             }
           } else if (box.openSide === 'bottom') {
-            if (b.prevY >= box.y + box.h && b.y <= box.y + box.h) {
+            if (b.prevY >= box.y + box.h && b.y < box.y + box.h) {
               entered = true;
             }
           }
@@ -513,29 +518,29 @@ function csLoop() {
             break;
           } else {
             if (box.openSide === 'top') {
-              if (b.y > box.y + box.h - 8) {
-                b.y = box.y + box.h + BUBBLE_RADIUS;
-                b.vy = Math.abs(b.vy) * 0.6 + 2;
+              if (b.y < box.y + box.h / 2) {
+                b.y = box.y - BUBBLE_RADIUS;
+                b.vy *= -0.6;
               } else {
                 if (b.x < box.x + box.w / 2) {
                   b.x = box.x - BUBBLE_RADIUS;
-                  b.vx *= -0.5;
+                  b.vx *= -0.6;
                 } else {
                   b.x = box.x + box.w + BUBBLE_RADIUS;
-                  b.vx *= -0.5;
+                  b.vx *= -0.6;
                 }
               }
             } else {
-              if (b.y < box.y + 8) {
-                b.y = box.y - BUBBLE_RADIUS;
-                b.vy = -Math.abs(b.vy) * 0.6 - 2;
+              if (b.y > box.y + box.h / 2) {
+                b.y = box.y + box.h + BUBBLE_RADIUS;
+                b.vy *= -0.6;
               } else {
                 if (b.x < box.x + box.w / 2) {
                   b.x = box.x - BUBBLE_RADIUS;
-                  b.vx *= -0.5;
+                  b.vx *= -0.6;
                 } else {
                   b.x = box.x + box.w + BUBBLE_RADIUS;
-                  b.vx *= -0.5;
+                  b.vx *= -0.6;
                 }
               }
             }
@@ -544,12 +549,12 @@ function csLoop() {
       }
     }
 
+    // おはじき同士の弾性衝突
     for (let i = 0; i < csState.bubbles.length; i++) {
       for (let j = i + 1; j < csState.bubbles.length; j++) {
         let b1 = csState.bubbles[i];
         let b2 = csState.bubbles[j];
         if (b1.inBox !== null || b2.inBox !== null) continue;
-        if (b1.id === draggedBubbleId || b2.id === draggedBubbleId) continue; // ドラッグ中は衝突除外
 
         let dx = b2.x - b1.x;
         let dy = b2.y - b1.y;
@@ -570,10 +575,10 @@ function csLoop() {
           let ky = b1.vy - b2.vy;
           let p = 2 * (nx * kx + ny * ky) / 2;
 
-          b1.vx -= p * nx * 0.8;
-          b1.vy -= p * ny * 0.8;
-          b2.vx += p * nx * 0.8;
-          b2.vy += p * ny * 0.8;
+          b1.vx -= p * nx * 0.9;
+          b1.vy -= p * ny * 0.9;
+          b2.vx += p * nx * 0.9;
+          b2.vy += p * ny * 0.9;
         }
       }
     }
@@ -598,16 +603,18 @@ function csLoop() {
     if (csFrameCount % currentSyncRate === 0 && sendData && isHost) {
       sendDataWrapper({
         type: 'cs_sync_host',
-        d: csState.bubbles.map(b => [Math.round(b.x), Math.round(b.y), b.inBox])
+        d: csState.bubbles.map(b => [Math.round(b.x), Math.round(b.y), b.inBox, b.grabbedBy])
       });
       updateTrafficBadge();
     } else if (csState.isPlaying && !isHost && sendData) {
-      sendDataWrapper({
-        type: 'cs_sync_guest',
-        dragId: draggedBubbleId,
-        tx: Math.round(touchPos.x),
-        ty: Math.round(touchPos.y)
-      });
+      if (isTouching && draggedBubbleId !== null) {
+        sendDataWrapper({
+          type: 'cs_sync_guest_pull',
+          dragId: draggedBubbleId,
+          x: Math.round(touchLogicalPos.x),
+          y: Math.round(touchLogicalPos.y)
+        });
+      }
     }
   }
 
@@ -731,7 +738,6 @@ function drawCSBoard() {
 
   ctxCS.clearRect(0, 0, CS_WIDTH, CS_HEIGHT);
 
-  // フィールド背景
   ctxCS.fillStyle = '#f5f6fa';
   ctxCS.fillRect(0, 0, CS_WIDTH, CS_HEIGHT);
 
@@ -742,11 +748,17 @@ function drawCSBoard() {
   ctxCS.lineTo(CS_WIDTH, CS_HEIGHT / 2);
   ctxCS.stroke();
 
-  // 箱の描画
+  // 箱の描画（画面上の位置を基準に、手前＝上向き、奥＝下向きの開口部を確実に適用）
   for (let key in csState.boxes) {
     let box = csState.boxes[key];
-    let bx = isHost ? box.x : CS_WIDTH - (box.x + box.w);
-    let by = isHost ? box.y : CS_HEIGHT - (box.y + box.h);
+    let screenPos = logicalToScreen(box.x, box.y);
+    let bx = screenPos.x;
+    let by = screenPos.y;
+
+    if (!isHost) {
+      bx = box.x;
+      by = box.y;
+    }
 
     ctxCS.save();
     let boxGrad = ctxCS.createLinearGradient(bx, by, bx, by + box.h);
@@ -764,42 +776,45 @@ function drawCSBoard() {
     ctxCS.shadowBlur = 6;
     ctxCS.beginPath();
 
-    if (box.openSide === 'top') {
+    // 画面上の位置（by）が下半分（手前）なら上向き、上半分（奥）なら下向きに開く
+    let drawOpenSide = (by > CS_HEIGHT / 2) ? 'top' : 'bottom';
+
+    if (drawOpenSide === 'top') {
       ctxCS.moveTo(bx, by + box.h);
       ctxCS.lineTo(bx, by);
-      ctxCS.lineTo(bx + box.w, by);
+      ctxCS.moveTo(bx + box.w, by);
       ctxCS.lineTo(bx + box.w, by + box.h);
+      ctxCS.lineTo(bx, by + box.h);
     } else {
       ctxCS.moveTo(bx, by);
       ctxCS.lineTo(bx, by + box.h);
-      ctxCS.lineTo(bx + box.w, by + box.h);
+      ctxCS.moveTo(bx + box.w, by + box.h);
       ctxCS.lineTo(bx + box.w, by);
+      ctxCS.lineTo(bx, by);
     }
     ctxCS.stroke();
     ctxCS.restore();
   }
 
-  // 引っ張りエフェクト（ゴム紐ライン）
+  // 引っ張りゴム紐ライン（※自画面で操作している時のみ描画）
   if (isTouching && draggedBubbleId !== null) {
     let b = csState.bubbles.find(item => item.id === draggedBubbleId);
     if (b && b.inBox === null) {
-      let rx = isHost ? b.x : CS_WIDTH - b.x;
-      let ry = isHost ? b.y : CS_HEIGHT - b.y;
-      let tpx = isHost ? touchPos.x : CS_WIDTH - touchPos.x;
-      let tpy = isHost ? touchPos.y : CS_HEIGHT - touchPos.y;
+      let bScreen = logicalToScreen(b.x, b.y);
+      let touchScreen = logicalToScreen(touchLogicalPos.x, touchLogicalPos.y);
 
       ctxCS.save();
       ctxCS.strokeStyle = '#ff7675';
       ctxCS.lineWidth = 2.5;
       ctxCS.setLineDash([4, 4]);
       ctxCS.beginPath();
-      ctxCS.moveTo(rx, ry);
-      ctxCS.lineTo(tpx, tpy);
+      ctxCS.moveTo(bScreen.x, bScreen.y);
+      ctxCS.lineTo(touchScreen.x, touchScreen.y);
       ctxCS.stroke();
 
       ctxCS.fillStyle = '#ff7675';
       ctxCS.beginPath();
-      ctxCS.arc(tpx, tpy, 5, 0, Math.PI * 2);
+      ctxCS.arc(touchScreen.x, touchScreen.y, 5, 0, Math.PI * 2);
       ctxCS.fill();
       ctxCS.restore();
     }
@@ -809,8 +824,9 @@ function drawCSBoard() {
   csState.bubbles.forEach(b => {
     if (b.inBox !== null) return;
 
-    let rx = isHost ? b.x : CS_WIDTH - b.x;
-    let ry = isHost ? b.y : CS_HEIGHT - b.y;
+    let screenPos = logicalToScreen(b.x, b.y);
+    let rx = screenPos.x;
+    let ry = screenPos.y;
 
     let baseColor = b.type === 'red' ? '#ff7675' : '#74b9ff';
     let highlightColor = b.type === 'red' ? '#ffcccc' : '#d2f8ff';
@@ -838,6 +854,7 @@ function drawCSBoard() {
     ctxCS.fill();
     ctxCS.closePath();
 
+    // つまんでいる状態の表示（自分または相手が掴んでいる場合、おはじきの上部に「✋」を表示）
     if (b.grabbedBy) {
       let isMyGrab = (isHost && b.grabbedBy === 'host') || (!isHost && b.grabbedBy === 'guest');
       ctxCS.save();
@@ -858,25 +875,15 @@ function drawCSBoard() {
     }
   });
 
-  if (isMouseActive && mouseCanvasPos && csState.isPlaying) {
-    let mtx = isHost ? mouseCanvasPos.x : CS_WIDTH - mouseCanvasPos.x;
-    let mty = isHost ? mouseCanvasPos.y : CS_HEIGHT - mouseCanvasPos.y;
-    ctxCS.save();
-    ctxCS.font = '18px sans-serif';
-    ctxCS.textAlign = 'center';
-    ctxCS.textBaseline = 'middle';
-    ctxCS.fillText('👆', mtx, mty);
-    ctxCS.restore();
-  }
+  // （※マウス操作時の指アイコン描画処理は削除しました）
 
   csState.particles.forEach(p => {
-    let prx = isHost ? p.x : CS_WIDTH - p.x;
-    let pry = isHost ? p.y : CS_HEIGHT - p.y;
+    let screenPos = logicalToScreen(p.x, p.y);
     ctxCS.save();
     ctxCS.globalAlpha = p.alpha;
     ctxCS.fillStyle = p.color;
     ctxCS.beginPath();
-    ctxCS.arc(prx, pry, p.radius, 0, Math.PI * 2);
+    ctxCS.arc(screenPos.x, screenPos.y, p.radius, 0, Math.PI * 2);
     ctxCS.fill();
     ctxCS.restore();
   });
@@ -928,6 +935,11 @@ export function processColorSortData(data) {
     case 'cs_start':
       if (!isHost) {
         if (data.count) totalBubbles = data.count;
+        if (data.bubbles) {
+          csState.bubbles = data.bubbles.map(b => ({...b}));
+        } else {
+          initBubbles();
+        }
         startColorSort();
         triggerPlayball();
       }
@@ -953,20 +965,37 @@ export function processColorSortData(data) {
               csState.bubbles[idx].x = item[0];
               csState.bubbles[idx].y = item[1];
               csState.bubbles[idx].inBox = item[2];
+              csState.bubbles[idx].grabbedBy = item[3] || null;
             }
           });
         }
       }
       break;
-    case 'cs_sync_guest':
+    case 'cs_sync_guest_pull':
       if (isHost && csState.isPlaying) {
         if (data.dragId !== undefined) {
           draggedBubbleId = data.dragId;
-          touchPos = { x: data.tx, y: data.ty };
+          touchLogicalPos = { x: data.x, y: data.y };
           csState.bubbles.forEach(b => {
             b.grabbedBy = (b.id === draggedBubbleId) ? 'guest' : null;
           });
         }
+      }
+      break;
+    case 'cs_shoot':
+      if (isHost && csState.isPlaying) {
+        let b = csState.bubbles.find(item => item.id === data.dragId);
+        if (b && b.inBox === null) {
+          b.vx = data.vx;
+          b.vy = data.vy;
+          draggedBubbleId = null;
+          b.grabbedBy = null;
+        }
+      }
+      break;
+    case 'cs_end_flow':
+      if (!isHost) {
+        triggerEndingFlow();
       }
       break;
   }
