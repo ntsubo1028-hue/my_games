@@ -1,4 +1,4 @@
-// colorsort.js - 色分けおはじき対戦ゲーム（安定版）
+// colorsort.js - 色分けおはじき対戦ゲーム（完全修正版）
 import { playSound } from './sounds.js';
 
 // DOM要素（遅延初期化）
@@ -54,6 +54,7 @@ let sendData = null;
 // タッチ・マウス・ドラッグ・シュート管理
 let draggedBubbleId = null;
 let touchPos = { x: 0, y: 0 };
+let lastTouchPos = { x: 0, y: 0 };
 let isTouching = false;
 let dragVelocityX = 0;
 let dragVelocityY = 0;
@@ -174,6 +175,7 @@ function setupEventListeners() {
       if (!csState.isPlaying || csState.isPlayballEffect || csState.isEndingFlow || csState.isCounting) return;
       let pos = getPos(clientX, clientY);
       touchPos = pos;
+      lastTouchPos = pos;
       isTouching = true;
       dragVelocityX = 0;
       dragVelocityY = 0;
@@ -206,8 +208,9 @@ function setupEventListeners() {
       if (draggedBubbleId !== null) {
         let b = csState.bubbles.find(item => item.id === draggedBubbleId);
         if (b && b.inBox === null) {
-          dragVelocityX = (pos.x - b.x) * 0.8;
-          dragVelocityY = (pos.y - b.y) * 0.8;
+          // 移動量からシュート速度を正確に算出
+          dragVelocityX = (pos.x - lastTouchPos.x) * 0.7;
+          dragVelocityY = (pos.y - lastTouchPos.y) * 0.7;
 
           b.x = pos.x;
           b.y = pos.y;
@@ -215,6 +218,7 @@ function setupEventListeners() {
           b.vy = 0;
         }
       }
+      lastTouchPos = touchPos;
       touchPos = pos;
     };
 
@@ -226,6 +230,7 @@ function setupEventListeners() {
         let b = csState.bubbles.find(item => item.id === draggedBubbleId);
         if (b) {
           b.grabbedBy = null;
+          // 離した瞬間の速度を適用してシュート
           b.vx = dragVelocityX;
           b.vy = dragVelocityY;
         }
@@ -348,11 +353,12 @@ export function startColorSort() {
 }
 
 function initBoxes() {
+  // 赤を右、青を左に統一（ホスト視点基準：赤=右, 青=左）
   csState.boxes = {
-    myRed: { x: 30, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#ff7675', owner: 'me', type: 'red', openSide: 'top' },
-    myBlue: { x: CS_WIDTH - 100, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#74b9ff', owner: 'me', type: 'blue', openSide: 'top' },
-    opRed: { x: 30, y: 0, w: 70, h: 45, color: '#ff7675', owner: 'op', type: 'red', openSide: 'bottom' },
-    opBlue: { x: CS_WIDTH - 100, y: 0, w: 70, h: 45, color: '#74b9ff', owner: 'op', type: 'blue', openSide: 'bottom' }
+    myBlue: { x: 30, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#74b9ff', owner: 'me', type: 'blue', openSide: 'top' },
+    myRed: { x: CS_WIDTH - 100, y: CS_HEIGHT - 45, w: 70, h: 45, color: '#ff7675', owner: 'me', type: 'red', openSide: 'top' },
+    opBlue: { x: 30, y: 0, w: 70, h: 45, color: '#74b9ff', owner: 'op', type: 'blue', openSide: 'bottom' },
+    opRed: { x: CS_WIDTH - 100, y: 0, w: 70, h: 45, color: '#ff7675', owner: 'op', type: 'red', openSide: 'bottom' }
   };
 }
 
@@ -463,15 +469,18 @@ function csLoop() {
     for (let b of csState.bubbles) {
       if (b.inBox !== null) continue;
 
-      if (b.id !== draggedBubbleId) {
-        b.prevX = b.x;
-        b.prevY = b.y;
-
-        b.vx *= 0.94;
-        b.vy *= 0.94;
-        b.x += b.vx;
-        b.y += b.vy;
+      // 掴まれているおはじきは物理演算をスキップ（マウス/タッチに追従）
+      if (b.id === draggedBubbleId) {
+        continue;
       }
+
+      b.prevX = b.x;
+      b.prevY = b.y;
+
+      b.vx *= 0.94;
+      b.vy *= 0.94;
+      b.x += b.vx;
+      b.y += b.vy;
 
       let m = BUBBLE_RADIUS;
       if (b.x < m) { b.x = m; b.vx *= -0.5; }
@@ -540,6 +549,7 @@ function csLoop() {
         let b1 = csState.bubbles[i];
         let b2 = csState.bubbles[j];
         if (b1.inBox !== null || b2.inBox !== null) continue;
+        if (b1.id === draggedBubbleId || b2.id === draggedBubbleId) continue; // ドラッグ中は衝突除外
 
         let dx = b2.x - b1.x;
         let dy = b2.y - b1.y;
@@ -575,8 +585,8 @@ function csLoop() {
     }
     csState.particles = csState.particles.filter(p => p.alpha > 0);
 
-    let allFinished = csState.bubbles.every(b => b.inBox !== null);
-    if (allFinished && csState.bubbles.length > 0) {
+    let finishedAll = csState.bubbles.every(b => b.inBox !== null);
+    if (finishedAll && csState.bubbles.length > 0) {
       triggerEndingFlow();
     }
   }
