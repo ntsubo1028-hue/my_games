@@ -25,6 +25,7 @@ import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, 
 import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
+import { initColorSortSystem, startColorSort, processColorSortData, stopColorSort, resumeColorSort } from './colorsort.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -372,6 +373,7 @@ function showGameScreenForHost(game) {
   else if (game === 'concentration') { showScreen('concentration-game-screen'); initConcentrationGame(true); syncConcentrationStateToGuest(); }
   else if (game === 'minesweeper') { showScreen('minesweeper-game-screen'); initPvPGame(true); syncMineStateToGuest(); }
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
+  else if (game === 'colorsort') { showScreen('colorsort-game-screen'); initColorSortSystem(true, sendData); startColorSort(); }
   else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
   else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(true); }
 }
@@ -865,6 +867,7 @@ function initApp() {
   setClick('btn-select-concentration', () => { selectGameFlow('concentration'); });
   setClick('btn-select-minesweeper', () => { selectGameFlow('minesweeper'); });
   setClick('btn-select-airhockey', () => { selectGameFlow('airhockey'); });
+  setClick('btn-select-colorsort', () => { selectGameFlow('colorsort'); });
   setClick('btn-select-shogi', () => { selectGameFlow('shogi'); });
   setClick('btn-select-mawari', () => { selectGameFlow('mawari'); });
 
@@ -932,10 +935,30 @@ function initApp() {
     }, 50);
   });
 
+  setClick('btn-quit-colorsort', () => { 
+    stopColorSort();
+    setTimeout(() => {
+      if (confirm("ゲームを終了してロビーに戻りますか？")) {
+        setStampButtonVisible(false);
+        if (isConnected) {
+          sendData({ type: "QUIT_TO_LOBBY" });
+        }
+        showScreen('lobby-screen');
+        if (isHost) {
+          renderLobbyUI();
+          broadcastLobbyState();
+        }
+      } else {
+        resumeColorSort();
+      }
+    }, 50);
+  });
+
   setClick('btn-rematch-reversi', () => requestRematch());
   setClick('btn-rematch-dots', () => requestRematchDots());
   setClick('btn-rematch-concentration', () => requestConcentrationRematch());
   setClick('btn-rematch-airhockey', () => { sendData({ type: 'start_airhockey' }); startAirHockey(); });
+  setClick('btn-rematch-colorsort', () => { sendData({ type: 'start_colorsort' }); startColorSort(); });
   setClick('btn-rematch-shogi', () => requestShogiRematch());
   setClick('btn-rematch-mawari', () => initMawariShogi());
 
@@ -1052,6 +1075,12 @@ function initApp() {
         else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
         else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
         else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
+        // ★【ここにcolorsortの処理を追加してください】
+        else if (selectedGame === 'colorsort') { 
+          showScreen('colorsort-game-screen'); 
+          initColorSortSystem(false, sendData); 
+          startColorSort();
+        }
       });
       return;
     }
@@ -1087,6 +1116,13 @@ function initApp() {
         processAirHockeyData(data);
       } else if (data.type === "start_airhockey") {
         startAirHockey();
+      }
+    } else if (selectedGame === 'colorsort') {
+      // ★ イベントタイプに cs_config や cs_end_flow も含めるようにします
+      if (data.type === "cs_sync_host" || data.type === "cs_sync_guest" || data.type === "cs_score" || data.type === "cs_ready" || data.type === "cs_start" || data.type === "cs_config" || data.type === "cs_end_flow") {
+        processColorSortData(data);
+      } else if (data.type === "start_colorsort") {
+        startColorSort();
       }
     } else if (selectedGame === 'shogi') {
       if (data.type === "ACTION_SHOGI_MOVE") processShogiAction(data);
