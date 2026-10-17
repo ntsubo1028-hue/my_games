@@ -66,8 +66,11 @@
           <span class="tile-icon">💣</span>
           <span class="tile-name">マインスイーパー<br><small>(一人用)</small></span>
         </button>
+        <button id="btn-play-memory" class="btn-tile" style="background-color: #e91e63;">
+          <span class="tile-icon">🧠</span>
+          <span class="tile-name">記憶力ゲーム<br><small>(一人用)</small></span>
+        </button>
       </div>
-      
       <!-- ★ 全ゲームのランキング閲覧メニューを追加 ★ -->
       <div style="margin-top: 10px;">
         <button id="btn-open-ranking-modal" class="btn-action" style="background-color: #ff9800; font-weight: bold;">🏆 オンラインランキングを見る</button>
@@ -498,6 +501,31 @@
       <button id="btn-quit-mawari" class="btn-action secondary-btn">メニューに戻る</button>
     </div>
   </div>
+
+<!-- ゲーム本体画面 (記憶力ゲーム・一人用) -->
+<div id="memory-game-screen" class="screen">
+  <h2>記憶力ゲーム</h2>
+  
+  <div id="memory-status-text" style="font-weight: bold; margin-bottom: 5px; color: #2c3e50;">
+    「スタート」を押すとカードが開きます
+  </div>
+
+  <div class="info-board" style="background: #fff3e0; justify-content: center; gap: 10px;">
+    <span>⏱️ 暗記タイム:</span>
+    <span id="memory-timer-display" style="font-size: 20px; color: #e65100; font-weight: bold;">0.00秒</span>
+  </div>
+
+  <div class="game-board-container">
+    <div id="memory-board"></div>
+  </div>
+
+  <div class="button-group-col" style="margin-top: 10px;">
+    <button id="btn-memory-start" class="btn-action" style="background-color: #4caf50;">▶ 開始 (カードを見る)</button>
+    <button id="btn-memory-memorized" class="btn-action" style="display: none; background-color: #ff9800;">🧠 覚えた！ (回答する)</button>
+    <button id="btn-memory-retry" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度挑戦</button>
+    <button id="btn-quit-memory" class="btn-action secondary-btn">メニューに戻る</button>
+  </div>
+</div>
 
   <!-- ==================================
        ヘルプ表示用モーダル（共通）

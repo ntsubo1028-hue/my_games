@@ -25,6 +25,7 @@ import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, 
 import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
+import { initMemoryGame, handleStartButton, handleMemorizedButton } from './memory_game.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -859,6 +860,21 @@ function initApp() {
     showScreen('minesweeper-game-screen'); 
     initSoloGame(); 
   });
+  setClick('btn-play-memory', () => { 
+    showScreen('memory-game-screen'); 
+    initMemoryGame(); 
+  });
+
+  setClick('btn-memory-start', handleStartButton);
+  setClick('btn-memory-memorized', handleMemorizedButton);
+  setClick('btn-memory-retry', initMemoryGame);
+
+  setClick('btn-quit-memory', () => {
+    if (confirm("ゲームを終了してメニューに戻りますか？")) {
+      showScreen('menu-screen');
+    }
+  });
+
 
   setClick('btn-select-reversi', () => { selectGameFlow('reversi'); });
   setClick('btn-select-dots', () => { selectGameFlow('dots'); });
