@@ -25,7 +25,7 @@ import { initMawariShogi, stopMawariShogi, rollMawariDice, processMawariAction, 
 import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateFromHost, setMyConnId, broadcastLobbyState, currentGameState, resetLobby, renderLobbyUI, updateMyName, updateGuestName} from './lobby.js';
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
-import { initMemoryGame, handleStartButton, handleMemorizedButton } from './memory_game.js';
+import { initMemoryGame, handleStartButton, handleMemorizedButton, startMemoryGame } from './memory_game.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -861,13 +861,24 @@ function initApp() {
     initSoloGame(); 
   });
   setClick('btn-play-memory', () => { 
+    setStampButtonVisible(false);
     showScreen('memory-game-screen'); 
     initMemoryGame(); 
   });
 
+  // レベル選択ボタン（setClickを使って確実に登録）
+  setClick('btn-mem-level-1', () => startMemoryGame(1));
+  setClick('btn-mem-level-2', () => startMemoryGame(2));
+  setClick('btn-mem-level-3', () => startMemoryGame(3));
+  setClick('btn-mem-level-4', () => startMemoryGame(4));
+
+  setClick('btn-memory-back-level', initMemoryGame);
   setClick('btn-memory-start', handleStartButton);
   setClick('btn-memory-memorized', handleMemorizedButton);
-  setClick('btn-memory-retry', initMemoryGame);
+  setClick('btn-memory-retry', () => {
+    // 現在のレベルを維持してリトライする場合、memory_game.js側に関数を生やすか、またはレベル選択に戻すなど
+    initMemoryGame();
+  });
 
   setClick('btn-quit-memory', () => {
     if (confirm("ゲームを終了してメニューに戻りますか？")) {

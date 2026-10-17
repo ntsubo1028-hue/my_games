@@ -12,7 +12,11 @@ const RANKING_API_URL = GAS_URL;
 
 const RANKING_GAMES = [
   { key: 'block_drop', name: '🧱 ブロックドロップ', unit: '点', type: 'score' },
-  { key: 'minesweeper', name: '💣 マインスイーパー', unit: '秒', type: 'time' }
+  { key: 'minesweeper', name: '💣 マインスイーパー', unit: '秒', type: 'time' },
+  { key: 'memory_lv1', name: '🧠 記憶力 (Lv.1)', unit: '秒', type: 'time' },
+  { key: 'memory_lv2', name: '🧠 記憶力 (Lv.2)', unit: '秒', type: 'time' },
+  { key: 'memory_lv3', name: '🧠 記憶力 (Lv.3)', unit: '秒', type: 'time' },
+  { key: 'memory_lv4', name: '🧠 記憶力 (Lv.4)', unit: '秒', type: 'time' }
 ];
 
 let currentSlideIndex = 0;
@@ -145,11 +149,16 @@ async function sendRankingData(gameKey, value, name, comment, extraData) {
     finalComment = finalComment ? `${finalComment} (${lineText})` : lineText;
   }
 
+  // 日本時間（JST / UTC+9）に補正した日時文字列を作成
+  const now = new Date();
+  const jstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  const datetimeStr = jstDate.toISOString().replace('T', ' ').substring(0, 16);
+
   const payload = {
     action: "register",
     gameKey: gameKey,
     name: name,
-    datetime: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    datetime: datetimeStr,
     value: value,
     comment: finalComment
   };
@@ -173,10 +182,12 @@ async function sendRankingData(gameKey, value, name, comment, extraData) {
         rankingCache[gameKey] = result.rankings;
       }
 
-      if (result.isRankedIn) {
-        alert(`🎉 おめでとうございます！第 ${result.rank} 位にランクインしました！`);
+      // サーバーから返された正確な順位 (result.rank) を表示する
+      const rank = result.rank;
+      if (rank <= 10) {
+        alert(`🎉 おめでとうございます！第 ${rank} 位にランクインしました！`);
       } else {
-        alert("スコアを登録しました！（トップ10圏外でした）");
+        alert(`スコアを登録しました！あなたの順位は第 ${rank} 位でした！`);
       }
       
       openRankingViewModal(gameKey);
@@ -215,10 +226,10 @@ async function fetchRankings(gameKey) {
 // ==========================================
 // 4. スライド式ランキング閲覧モーダルの制御
 // ==========================================
-export function openRankingViewModal(initialGameKey = 'block_drop', skipCache = false) {
+export async function openRankingViewModal(initialGameKey = 'block_drop', skipCache = false) {
   initRankingSystem();
   
-  // ★ メニュー等から開いた場合（skipCache=true）はキャッシュをクリアして最新をフェッチする
+  // ★ メニュー等から開いた場合（skipCache=true）はキャッシュをクリアして最新を一括取得する
   if (skipCache) {
     rankingCache = {};
   }
@@ -226,7 +237,23 @@ export function openRankingViewModal(initialGameKey = 'block_drop', skipCache = 
   const foundIdx = RANKING_GAMES.findIndex(g => g.key === initialGameKey);
   currentSlideIndex = foundIdx !== -1 ? foundIdx : 0;
 
-  document.getElementById('ranking-view-modal').style.display = 'flex';
+  const modal = document.getElementById('ranking-view-modal');
+  const listBody = document.getElementById('rankings-list-body');
+  modal.style.display = 'flex';
+
+  // まだキャッシュされていないゲームがあれば、すべてのゲームのランキングを一括で並列取得する
+  const uncachedGames = RANKING_GAMES.filter(g => !rankingCache[g.key]);
+  if (uncachedGames.length > 0) {
+    listBody.innerHTML = '<p style="text-align: center; color: #888; margin-top: 50px;">すべてのランキングを読み込み中...</p>';
+    
+    // 全ゲーム分を並列フェッチで一括取得
+    await Promise.all(RANKING_GAMES.map(async (g) => {
+      if (!rankingCache[g.key]) {
+        await fetchRankings(g.key);
+      }
+    }));
+  }
+
   renderRankingSlide();
 }
 
@@ -234,16 +261,14 @@ async function renderRankingSlide() {
   const gameConfig = RANKING_GAMES[currentSlideIndex];
   document.getElementById('rank-current-game-title').innerText = gameConfig.name;
 
-  const listBody = document.getElementById('rankings-list-body');
-  
-  if (!rankingCache[gameConfig.key]) {
-    listBody.innerHTML = '<p style="text-align: center; color: #888; margin-top: 50px;">読み込み中...</p>';
-  }
+  const listBody = id => document.getElementById('rankings-list-body');
+  const listBodyEl = listBody();
 
-  const rankings = await fetchRankings(gameConfig.key);
+  // すでに一括キャッシュされているため、ここでの非同期待ちやロード表示は不要になります
+  const rankings = rankingCache[gameConfig.key] || [];
 
   if (!rankings || rankings.length === 0) {
-    listBody.innerHTML = '<p style="text-align: center; color: #888; margin-top: 50px;">まだランキングデータがありません。</p>';
+    listBodyEl.innerHTML = '<p style="text-align: center; color: #888; margin-top: 50px;">まだランキングデータがありません。</p>';
     return;
   }
 
@@ -273,7 +298,7 @@ async function renderRankingSlide() {
   });
   html += '</table>';
 
-  listBody.innerHTML = html;
+  listBodyEl.innerHTML = html;
 }
 
 function escapeHTML(str) {

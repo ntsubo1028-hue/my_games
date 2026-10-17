@@ -262,12 +262,69 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .box.guest { background-color: rgba(25, 118, 210, 0.2); }
 
 /* ==================================
-    (神経衰弱・記憶力ゲーム共通)
+   (神経衰弱・記憶力ゲーム共通)
 ================================== */
-#concentration-board, #memory-board { width: 100%; height: auto; max-width: 360px; max-height: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.concentration-card { width: 100%; height: 100%; background: #3f51b5; color: white; font-size: clamp(16px, 5vw, 24px); display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; user-select: none; transition: transform 0.2s, background 0.2s; }
-.concentration-card.flipped { background: #fff; color: #333; border: 2px solid #3f51b5; box-sizing: border-box; }
-.concentration-card.matched { background: #e8f5e9; color: #333; border: 2px solid #4caf50; opacity: 0.7; }
+#concentration-board, #memory-board { 
+  width: 100%; 
+  height: auto; 
+  max-width: 360px; 
+  max-height: 100%; 
+  display: grid; 
+  grid-template-columns: repeat(4, 1fr); 
+  gap: 8px; 
+}
+
+/* カード共通スタイル */
+.concentration-card { 
+  width: 100%; 
+  height: 100%; 
+  font-size: clamp(20px, 6vw, 32px); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  user-select: none; 
+  box-sizing: border-box;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; 
+}
+
+/* 1. カード裏面 (伏せられている状態：ストライプ柄＆立体グラデーション) */
+.concentration-card:not(.flipped):not(.matched) {
+  background: 
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 8px, transparent 0, transparent 16px),
+    linear-gradient(135deg, #3f51b5 0%, #1a237e 100%);
+  border: 2px solid #7986cb;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #ffeb3b; /* ❓マークなどの文字色 */
+}
+
+.concentration-card:not(.flipped):not(.matched):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.concentration-card:not(.flipped):not(.matched):active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 2. カード表面 (めくって見えている状態：白いカード＆くっきりした枠線) */
+.concentration-card.flipped { 
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%); 
+  color: #333; 
+  border: 2.5px solid #3f51b5; 
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), inset 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+/* 3. マッチ済みカード (揃った状態) */
+.concentration-card.matched { 
+  background: #e8f5e9; 
+  color: #2e7d32; 
+  border: 2px solid #81c784; 
+  opacity: 0.75; 
+  box-shadow: none;
+}
 
 /* ==================================
    ゲーム盤面 (テトリス)

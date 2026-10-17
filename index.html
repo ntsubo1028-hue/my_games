@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.10';
+    const VERSION = '2.1.11';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -502,30 +502,48 @@
     </div>
   </div>
 
-<!-- ゲーム本体画面 (記憶力ゲーム・一人用) -->
-<div id="memory-game-screen" class="screen">
-  <h2>記憶力ゲーム</h2>
-  
-  <div id="memory-status-text" style="font-weight: bold; margin-bottom: 5px; color: #2c3e50;">
-    「スタート」を押すとカードが開きます
-  </div>
+  <!-- ゲーム本体画面 (記憶力ゲーム・一人用) -->
+  <div id="memory-game-screen" class="screen">
+    <h2>🧠 記憶力ゲーム</h2>
+    
+    <!-- レベル選択エリア -->
+    <div id="memory-level-select-container" class="step-container" style="text-align: center; margin-bottom: 5px;">
+      <p style="font-weight: bold; margin-bottom: 8px; color: #2c3e50;">難易度（レベル）を選んでください</p>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+        <button id="btn-mem-level-1" class="btn-action" style="background-color: #26a69a;">レベル 1<br><small>4枚 (2ペア)</small></button>
+        <button id="btn-mem-level-2" class="btn-action" style="background-color: #29b6f6;">レベル 2<br><small>8枚 (4ペア)</small></button>
+        <button id="btn-mem-level-3" class="btn-action" style="background-color: #ffa726;">レベル 3<br><small>12枚 (6ペア)</small></button>
+        <button id="btn-mem-level-4" class="btn-action" style="background-color: #ab47bc;">レベル 4<br><small>16枚 (8ペア)</small></button>
+      </div>
+    </div>
 
-  <div class="info-board" style="background: #fff3e0; justify-content: center; gap: 10px;">
-    <span>⏱️ 暗記タイム:</span>
-    <span id="memory-timer-display" style="font-size: 20px; color: #e65100; font-weight: bold;">0.00秒</span>
-  </div>
+    <!-- ゲームプレイ中のUIエリア（最初は非表示） -->
+    <div id="memory-play-area" style="display: none; width: 100%; flex: 1; flex-direction: column; align-items: center; justify-content: space-between;">
+      <div style="display: flex; justify-content: space-between; width: 100%; max-width: 360px; align-items: center;">
+        <button id="btn-memory-back-level" class="btn-action secondary-btn" style="width: auto; padding: 4px 10px; font-size: 12px; margin: 0;">◀ レベル選択</button>
+        <div id="memory-status-text" style="font-weight: bold; font-size: 13px; color: #2c3e50;"></div>
+      </div>
 
-  <div class="game-board-container">
-    <div id="memory-board"></div>
-  </div>
+      <div class="info-board" style="background: #fff3e0; justify-content: center; gap: 10px; margin: 5px 0;">
+        <span>⏱️ 暗記タイム:</span>
+        <span id="memory-timer-display" style="font-size: 18px; color: #e65100; font-weight: bold;">0.00秒</span>
+      </div>
 
-  <div class="button-group-col" style="margin-top: 10px;">
-    <button id="btn-memory-start" class="btn-action" style="background-color: #4caf50;">▶ 開始 (カードを見る)</button>
-    <button id="btn-memory-memorized" class="btn-action" style="display: none; background-color: #ff9800;">🧠 覚えた！ (回答する)</button>
-    <button id="btn-memory-retry" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度挑戦</button>
-    <button id="btn-quit-memory" class="btn-action secondary-btn">メニューに戻る</button>
+      <div class="game-board-container">
+        <div id="memory-board"></div>
+      </div>
+
+      <div class="button-group-col" style="margin-top: 5px;">
+        <button id="btn-memory-start" class="btn-action" style="background-color: #4caf50;">▶ 開始 (カードを見る)</button>
+        <button id="btn-memory-memorized" class="btn-action" style="display: none; background-color: #ff9800;">🧠 覚えた！ (回答する)</button>
+        <button id="btn-memory-retry" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度挑戦</button>
+      </div>
+    </div>
+
+    <div class="button-group-col" style="margin-top: 5px;">
+      <button id="btn-quit-memory" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
   </div>
-</div>
 
   <!-- ==================================
        ヘルプ表示用モーダル（共通）
