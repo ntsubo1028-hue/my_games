@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.11';
+    const VERSION = '2.1.12';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -505,7 +505,7 @@
   <!-- ゲーム本体画面 (記憶力ゲーム・一人用) -->
   <div id="memory-game-screen" class="screen">
     <h2>🧠 記憶力ゲーム</h2>
-    
+    <button type="button" onclick="openHelp('help-memory.html')" class="btn-action" style="background-color: #607d8b; padding: 6px 16px; font-size: 12px; margin: 0 auto 10px auto; width: auto;">❓ 遊び方ヘルプ</button>
     <!-- レベル選択エリア -->
     <div id="memory-level-select-container" class="step-container" style="text-align: center; margin-bottom: 5px;">
       <p style="font-weight: bold; margin-bottom: 8px; color: #2c3e50;">難易度（レベル）を選んでください</p>
@@ -548,9 +548,17 @@
   <!-- ==================================
        ヘルプ表示用モーダル（共通）
   ================================== -->
+<!-- ==================================
+       ヘルプ表示用モーダル（共通）
+  ================================== -->
   <div id="help-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
-      <button type="button" class="modal-close-btn" onclick="closeHelp()">✕ 閉じる</button>
+      <!-- 📌 スクロールに関わらず常に右肩に固定されるヘッダー＆閉じるボタン -->
+      <div class="modal-header">
+        <span class="modal-title">📖 遊び方・接続ヘルプ</span>
+        <button type="button" class="modal-close-btn" onclick="closeHelp()">✕ 閉じる</button>
+      </div>
+      <!-- 📜 本文エリア（ここだけが独立してスクロールするため、上部が見切れません） -->
       <div id="help-body">読み込み中...</div>
     </div>
   </div>

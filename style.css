@@ -708,8 +708,66 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 50px 15px;
+  padding: 15px;
   box-sizing: border-box;
   z-index: 3000;
-  overflow-y: auto;
+}
+
+.modal-content {
+  background: #1e293b;
+  color: #fff;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh; /* 画面高さの85%以内に収める */
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid #475569;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-weight: bold;
+  font-size: 14px;
+  color: #38bdf8;
+}
+
+.modal-close-btn {
+  background: #ef4444 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 6px 14px !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  cursor: pointer;
+  min-height: auto !important;
+  width: auto !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.modal-close-btn:active {
+  transform: translateY(1px);
+}
+
+#help-body {
+  padding: 15px;
+  overflow-y: auto; /* 本文が長い場合はここだけでスクロール */
+  flex: 1;
+  box-sizing: border-box;
+  font-size: 14px;
+  line-height: 1.6;
 }
