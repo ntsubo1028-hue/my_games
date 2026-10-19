@@ -1,5 +1,6 @@
 // airhockey.js
 import { playSound } from './sounds.js';
+import { currentGameState } from './lobby.js'; // ★ ロビーの参加者情報を取得するためインポート
 
 // ゲーム設定定数
 const WINNING_SCORE = 5; // 勝利条件スコア
@@ -13,7 +14,7 @@ let btnQuitAirHockey = null;
 let btnRematchAirHockey = null;
 let btnStartAirHockey = null; 
 let ahStartOverlay = null; 
-let ahGuestSettings = null; // ★ ゲスト用設定に変更
+let ahGuestSettings = null; 
 let ahSyncRateSelect = null;
 
 let isDOMInitialized = false;
@@ -71,7 +72,7 @@ function ensureDOM() {
   btnRematchAirHockey = document.getElementById('btn-rematch-airhockey');
   btnStartAirHockey = document.getElementById('btn-start-airhockey');
   ahStartOverlay = document.getElementById('ah-start-overlay');
-  ahGuestSettings = document.getElementById('ah-guest-settings'); // ★ 取得要素を変更
+  ahGuestSettings = document.getElementById('ah-guest-settings');
   ahSyncRateSelect = document.getElementById('ah-sync-rate-select');
 
   if (!canvasAH) return false;
@@ -83,7 +84,6 @@ function ensureDOM() {
 }
 
 function setupEventListeners() {
-  // ★ ゲスト側で変更されたら、ホストへ設定を送信する
   if (ahSyncRateSelect) {
     ahSyncRateSelect.addEventListener('change', (e) => {
       if (!isHost) {
@@ -114,7 +114,6 @@ function setupEventListeners() {
   }
 
   if (canvasAH) {
-    // タッチ開始
     canvasAH.addEventListener('touchstart', (e) => {
       if (!ahState.isPlaying || ahState.isGoalEffect || ahState.isPlayballEffect) return;
       e.preventDefault();
@@ -127,7 +126,6 @@ function setupEventListeners() {
       isTouching = true;
     }, { passive: false });
 
-    // タッチ移動
     canvasAH.addEventListener('touchmove', (e) => {
       if (!ahState.isPlaying || ahState.isGoalEffect || ahState.isPlayballEffect || !isTouching) return;
       e.preventDefault();
@@ -173,7 +171,6 @@ function setupEventListeners() {
     canvasAH.addEventListener('touchend', () => { isTouching = false; });
     canvasAH.addEventListener('touchcancel', () => { isTouching = false; });
 
-    // マウス移動
     canvasAH.addEventListener('mousemove', (e) => {
       if (!ahState.isPlaying || ahState.isGoalEffect || ahState.isPlayballEffect) return;
       
@@ -260,7 +257,6 @@ export function startAirHockey() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   airhockeyScreen.classList.add('active');
   
-  // ★ ホストではなく「ゲスト側」に設定を表示する
   if (!isHost) {
     if (ahGuestSettings) ahGuestSettings.style.display = 'block';
     if (ahSyncRateSelect) currentSyncRate = parseInt(ahSyncRateSelect.value, 10);
@@ -302,6 +298,47 @@ function checkBothReady() {
   }
 }
 
+// ★ ロビーの名前を取得して「🔴 ホスト名 vs 🔵 ゲスト名」形式で表示するヘルパー関数
+function updateAirHockeyStatus() {
+  let hostName = "ホスト";
+  let guestName = "ゲスト";
+
+  if (currentGameState.slots && currentGameState.slots.length > 0) {
+    const hostSlot = currentGameState.slots.find(s => s.type === 'host');
+    const guestSlot = currentGameState.slots.find(s => s.type === 'guest');
+
+    if (hostSlot) hostName = hostSlot.name;
+    if (guestSlot) guestName = guestSlot.name;
+  }
+
+  if (airhockeyStatusText) {
+    if (isHost) {
+      airhockeyStatusText.innerHTML = `🔴 <strong>${hostName}（あなた）</strong> vs 🔵 <strong>${guestName}</strong>`;
+    } else {
+      airhockeyStatusText.innerHTML = `🔴 <strong>${hostName}</strong> vs 🔵 <strong>${guestName}（あなた）</strong>`;
+    }
+  }
+}
+
+// ★ スコアボード側にもロビーの名前と色を反映させる
+function updateAHScoreBoard() {
+  let hostName = "ホスト";
+  let guestName = "ゲスト";
+
+  if (currentGameState.slots && currentGameState.slots.length > 0) {
+    const hostSlot = currentGameState.slots.find(s => s.type === 'host');
+    const guestSlot = currentGameState.slots.find(s => s.type === 'guest');
+
+    if (hostSlot) hostName = hostSlot.name;
+    if (guestSlot) guestName = guestSlot.name;
+  }
+
+  const hostEl = document.getElementById('airhockey-score-host');
+  const guestEl = document.getElementById('airhockey-score-guest');
+  if (hostEl) hostEl.innerHTML = `🔴 ${hostName}: ${ahState.hostScore}`;
+  if (guestEl) guestEl.innerHTML = `🔵 ${guestName}: ${ahState.guestScore}`;
+}
+
 function triggerPlayball() {
   if (ahStartOverlay) ahStartOverlay.style.display = 'none';
   ahState.isPlayballEffect = true;
@@ -313,9 +350,10 @@ function triggerPlayball() {
   setTimeout(() => {
     ahState.isPlayballEffect = false;
     ahState.isPlaying = true;
-    if (airhockeyStatusText) {
-      airhockeyStatusText.innerText = isHost ? "あなたのターン（赤）" : "あなたのターン（青）";
-    }
+    
+    // ★ ターン表示ではなく、ロビーの名前が入った「A vs B」の対戦表示に切り替える
+    updateAirHockeyStatus();
+    
     resetPuck(true);
     resetMallets();
   }, 1000); 
@@ -479,13 +517,6 @@ function goalScored(isHostScored) {
   }
 }
 
-function updateAHScoreBoard() {
-  const hostEl = document.getElementById('airhockey-score-host');
-  const guestEl = document.getElementById('airhockey-score-guest');
-  if (hostEl) hostEl.innerText = `ホスト(赤): ${ahState.hostScore}`;
-  if (guestEl) guestEl.innerText = `ゲスト(青): ${ahState.guestScore}`;
-}
-
 function endAirHockey(winner) {
   ahState.isPlaying = false;
   ahState.isGoalEffect = false;
@@ -599,7 +630,6 @@ function drawAHBoard() {
   ctxAH.arc(guestX, guestY, MALLET_RADIUS * 0.5, 0, Math.PI * 2);
   ctxAH.stroke();
 
-  // PLAYBALL! 演出の描画
   if (ahState.isPlayballEffect) {
     ctxAH.save();
     ctxAH.translate(AH_WIDTH / 2, AH_HEIGHT / 2);
@@ -676,7 +706,6 @@ export function processAirHockeyData(data) {
       }
       break;
     case 'ah_config':
-      // ★ ゲスト側から送られてきた設定変更をホスト側が反映する
       if (isHost && data.rate) {
         currentSyncRate = parseInt(data.rate, 10);
       }
