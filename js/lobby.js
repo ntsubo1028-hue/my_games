@@ -7,7 +7,8 @@ export const GAME_CONFIG = {
   minesweeper:   { minPlayers: 2, maxPlayers: 4, name: '💣 マインスイーパー',   allowCom: false },
   airhockey:     { minPlayers: 2, maxPlayers: 2, name: '🏑 エアホッケー',       allowCom: false },
   shogi:         { minPlayers: 2, maxPlayers: 2, name: '☖ 将棋',               allowCom: false },
-  mawari:        { minPlayers: 2, maxPlayers: 4, name: '🎲 回り将棋',           allowCom: true }
+  mawari:        { minPlayers: 2, maxPlayers: 4, name: '🎲 回り将棋',           allowCom: true },
+  eishiri:       { minPlayers: 2, maxPlayers: 4, name: '🎨 絵しりとり',         allowCom: true }
 };
 
 // ホストの端末に保存されている名前を取得（なければ「ホスト」）

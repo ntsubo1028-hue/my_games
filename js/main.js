@@ -26,6 +26,7 @@ import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateF
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
 import { initMemoryGame, handleStartButton, handleMemorizedButton, startMemoryGame } from './memory_game.js';
+import { initEishiriSystem, startEishiriGame, stopEishiriGame, processEishiriData, requestRematchEishiri, passEishiriTurn } from './eishiri.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -375,6 +376,7 @@ function showGameScreenForHost(game) {
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
   else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
   else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(true); }
+  else if (game === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(true, sendData); startEishiriGame(true, 'multi'); } // ★ ここを追加
 }
 
 function startGuestScanFlow() {
@@ -886,6 +888,35 @@ function initApp() {
     }
   });
 
+  // --- 絵しりとり関連のボタン登録 ---
+  setClick('btn-select-eishiri', () => { selectGameFlow('eishiri'); }); // ホスト選択画面の絵しりとりタイル
+  
+  setClick('btn-play-solo-eishiri', () => { 
+    setStampButtonVisible(false); 
+    initEishiriSystem(true, sendData);
+    startEishiriGame(true, 'solo'); 
+  }); // 一人用サバイバルボタン
+
+  setClick('btn-pass-eishiri', () => {
+    passEishiriTurn();
+  }); // ゲーム中のパスボタン
+
+  // --- 絵しりとり：リマッチ・終了ボタンの登録 ---
+  setClick('btn-rematch-eishiri', () => {
+    requestRematchEishiri();
+  });
+
+  setClick('btn-quit-eishiri', () => {
+    if (confirm("ゲームを終了してメニューに戻りますか？")) {
+      stopEishiriGame();
+      if (isConnected) {
+        sendData({ type: "QUIT_TO_LOBBY" });
+        showScreen('lobby-screen');
+      } else {
+        showScreen('menu-screen');
+      }
+    }
+  });
 
   setClick('btn-select-reversi', () => { selectGameFlow('reversi'); });
   setClick('btn-select-dots', () => { selectGameFlow('dots'); });
@@ -1079,6 +1110,7 @@ function initApp() {
         else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
         else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
         else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
+        else if (selectedGame === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(false, sendData); startEishiriGame(false, 'multi'); } // ★ ここを追加
       });
       return;
     }

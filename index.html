@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.1.13';
+    const VERSION = '2.2.0';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -70,6 +70,10 @@
           <span class="tile-icon">🧠</span>
           <span class="tile-name">記憶力ゲーム<br><small>(一人用)</small></span>
         </button>
+        <button id="btn-play-solo-eishiri" class="btn-tile" style="background-color: #e91e63;">
+          <span class="tile-icon">🎨</span>
+          <span class="tile-name">絵しりとり<br><small>(一人用サバイバル)</small></span>
+        </button>
       </div>
       <!-- ★ 全ゲームのランキング閲覧メニューを追加 ★ -->
       <div style="margin-top: 10px;">
@@ -112,6 +116,10 @@
       <button id="btn-select-mawari" class="btn-tile" style="background-color: #8d6e63;">
         <span class="tile-icon">🎲</span>
         <span class="tile-name">回り将棋<br><small>(2〜4人)</small></span>
+      </button>
+      <button id="btn-select-eishiri" class="btn-tile" style="background-color: #e91e63;">
+        <span class="tile-icon">🎨</span>
+        <span class="tile-name">絵しりとり<br><small>(2〜4人)</small></span>
       </button>
     </div>
     <div class="button-group-col" style="margin-top: auto; padding-bottom: 5px;">
@@ -546,9 +554,40 @@
   </div>
 
   <!-- ==================================
-       ヘルプ表示用モーダル（共通）
+       ゲーム本体画面 (絵しりとり)
   ================================== -->
-<!-- ==================================
+  <div id="eishiri-game-screen" class="screen">
+    <h2>🎨 絵しりとり</h2>
+
+    <!-- ★ 参加プレイヤー全員の残り時間＆スコア表示エリア -->
+    <div id="eishiri-players-container" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap;"></div>
+
+    <div id="eishiri-status-board" class="info-board" style="background: #fce4ec; color: #880e4f; margin-bottom: 8px; text-align: center;">
+      <span id="eishiri-current-char-display">次の文字: <b>あ</b></span>
+    </div>
+    
+    <div id="eishiri-turn-indicator" style="font-weight: bold; text-align: center; margin-bottom: 8px; color: #333;">
+      繋がる絵を選んでね！
+    </div>
+
+    <div class="game-board-container">
+      <div id="eishiri-board" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 360px;">
+        <!-- JSで16枚のタイルを動的生成 -->
+      </div>
+    </div>
+
+    <!-- 読み方表示用バナー -->
+    <div id="eishiri-reading-banner" style="text-align: center; height: 45px; line-height: 45px; margin: 10px 0; font-size: 26px; font-weight: bold; color: #ad1457; background: #fff0f5; border-radius: 8px; letter-spacing: 3px; border: 2px dashed #f48fb1;"></div>
+
+    <div class="button-group-col" style="margin-top: 5px;">
+      <button id="btn-pass-eishiri" class="btn-action" style="background-color: #ff9800; color: #fff; margin-bottom: 6px;">🔄 パス (-10秒して盤面リフレッシュ)</button>
+      <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
+      <button id="btn-rematch-eishiri" class="btn-action" style="display: none; background-color: #fbc02d; color: #000;">🔄 もう一度遊ぶ</button>
+      <button id="btn-quit-eishiri" class="btn-action secondary-btn">メニューに戻る</button>
+    </div>
+  </div>
+
+  <!-- ==================================
        ヘルプ表示用モーダル（共通）
   ================================== -->
   <div id="help-modal" class="modal-overlay" style="display: none;">
