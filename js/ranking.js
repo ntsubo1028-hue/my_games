@@ -16,7 +16,8 @@ const RANKING_GAMES = [
   { key: 'memory_lv1', name: '🧠 記憶力 (Lv.1)', unit: '秒', type: 'time' },
   { key: 'memory_lv2', name: '🧠 記憶力 (Lv.2)', unit: '秒', type: 'time' },
   { key: 'memory_lv3', name: '🧠 記憶力 (Lv.3)', unit: '秒', type: 'time' },
-  { key: 'memory_lv4', name: '🧠 記憶力 (Lv.4)', unit: '秒', type: 'time' }
+  { key: 'memory_lv4', name: '🧠 記憶力 (Lv.4)', unit: '秒', type: 'time' },
+  { key: 'eishiri', name: '🎨 絵しりとり', unit: '秒', type: 'time' } // 👈 追加
 ];
 
 let currentSlideIndex = 0;

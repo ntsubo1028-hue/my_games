@@ -1,10 +1,21 @@
-// eishiri.js - 絵しりとり（正解パネル強調・ゆっくり読ませる演出・バナー動的枠表示対応）
+// js/eishiri.js - 絵しりとり（リマッチボタン追加・完全同期版）
 
+import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
 import { currentGameState } from './lobby.js';
+import { openRankingRegisterModal } from './ranking.js';
 
 export let EISHIRI_DICTIONARY = [];
 let isDictionaryLoaded = false;
+
+// ⚙️ 持ち時間やゲームバランスの定数設定
+export const EISHIRI_CONFIG = {
+  INITIAL_TIME: 50,       // 初期持ち時間（秒）
+  CORRECT_BONUS: 5,       // 正解時の加算秒数
+  MISTAKE_PENALTY: 3,     // ミス（不正解）時の減算秒数
+  PASS_PENALTY: 10,       // パス時の減算秒数
+  BOARD_SIZE: 16          // 盤面のタイル枚数
+};
 
 const PLAYER_COLORS = [
   { bg: "#e3f2fd", border: "#2196f3", text: "#0d47a1" }, // 1P
@@ -43,18 +54,23 @@ export async function loadEishiriDictionary() {
     const csvText = await response.text();
     const lines = csvText.trim().split('\n');
     const loadedDict = [];
+    
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
-      const firstCommaIndex = line.indexOf(',');
-      if (firstCommaIndex === -1) continue;
-      const emoji = line.substring(0, firstCommaIndex).trim();
-      const readingsStr = line.substring(firstCommaIndex + 1).trim();
-      const readings = readingsStr.split('|').map(r => r.trim()).filter(r => r.length > 0);
+      
+      // カンマで分割して、空でない要素をすべて抽出する
+      const cols = line.split(',').map(c => c.trim());
+      const emoji = cols[0];
+      
+      // 2列目以降（index 1以降）に存在する読み方をすべて配列に格納する
+      const readings = cols.slice(1).filter(r => r.length > 0);
+      
       if (emoji && readings.length > 0) {
         loadedDict.push({ emoji, readings });
       }
     }
+    
     if (loadedDict.length > 0) {
       EISHIRI_DICTIONARY = loadedDict;
       isDictionaryLoaded = true;
@@ -88,6 +104,7 @@ let eishiriState = {
   currentLastChar: 'あ',
   boardTiles: [],
   score: 0,
+  survivalTime: 0,
   players: [],
   currentTurnIndex: 0,
   eliminatedOrder: []
@@ -95,42 +112,56 @@ let eishiriState = {
 
 let eishiriTimer = null;
 let comThinkingTimeout = null;
-let isHost = false;
-let sendDataFunc = null;
+let isHostPlayer = false;
+let customSendFunc = null;
 
 export function initEishiriSystem(hostFlag, sendFunc) {
-  isHost = hostFlag;
-  sendDataFunc = sendFunc;
+  isHostPlayer = hostFlag;
+  customSendFunc = sendFunc;
+}
+
+export function getEishiriMode() {
+  return eishiriState.mode;
 }
 
 export async function startEishiriGame(isHostFlag, mode = 'solo') {
-  isHost = isHostFlag;
+  isHostPlayer = isHostFlag;
   eishiriState.mode = mode;
   await loadEishiriDictionary();
 
   eishiriState.isPlaying = true;
   eishiriState.isPaused = false;
   eishiriState.score = 0;
+  eishiriState.survivalTime = 0;
   eishiriState.currentTurnIndex = 0;
   eishiriState.eliminatedOrder = [];
 
   hideResultOverlay();
+  resetReadingBanner();
 
   eishiriState.players = [];
   if (mode === 'solo') {
     eishiriState.players = [
-      { id: 'solo-player', name: 'あなた', type: 'human', timeRemaining: 50, score: 0, isEliminated: false, color: PLAYER_COLORS[0] }
+      { id: 'solo-player', name: 'あなた', type: 'human', timeRemaining: EISHIRI_CONFIG.INITIAL_TIME, score: 0, isEliminated: false, color: PLAYER_COLORS[0] }
     ];
   } else {
     if (typeof currentGameState !== 'undefined' && currentGameState && currentGameState.slots) {
       let colorIdx = 0;
       currentGameState.slots.forEach(slot => {
         if (slot.type !== 'none') {
+          let playerId = slot.connId;
+          if (!playerId) {
+            if (slot.type === 'host') playerId = 'host';
+            else if (slot.type === 'guest') playerId = `guest-${slot.slotId}`;
+            else playerId = `com-${slot.slotId}`;
+          }
+          
           eishiriState.players.push({
-            id: slot.connId || `slot-${slot.slotId}`,
-            name: slot.name || `P${slot.slotId + 1}`,
+            id: playerId,
+            slotId: slot.slotId,
+            name: slot.name || `${slot.slotId + 1}P`,
             type: slot.type,
-            timeRemaining: 50,
+            timeRemaining: EISHIRI_CONFIG.INITIAL_TIME,
             score: 0,
             isEliminated: false,
             color: PLAYER_COLORS[colorIdx % PLAYER_COLORS.length]
@@ -141,9 +172,8 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
     }
     if (eishiriState.players.length === 0) {
       eishiriState.players = [
-        { id: 'host', name: 'あなた', type: 'human', timeRemaining: 50, score: 0, isEliminated: false, color: PLAYER_COLORS[0] },
-        { id: 'com-1', name: 'COM1', type: 'com', timeRemaining: 50, score: 0, isEliminated: false, color: PLAYER_COLORS[1] },
-        { id: 'com-2', name: 'COM2', type: 'com', timeRemaining: 50, score: 0, isEliminated: false, color: PLAYER_COLORS[2] }
+        { id: 'host', slotId: 0, name: '1P (あなた)', type: 'human', timeRemaining: EISHIRI_CONFIG.INITIAL_TIME, score: 0, isEliminated: false, color: PLAYER_COLORS[0] },
+        { id: 'guest-1', slotId: 1, name: '2P (ゲスト)', type: 'human', timeRemaining: EISHIRI_CONFIG.INITIAL_TIME, score: 0, isEliminated: false, color: PLAYER_COLORS[1] }
       ];
     }
   }
@@ -154,9 +184,6 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
   const passBtn = document.getElementById('btn-pass-eishiri');
   if (passBtn) passBtn.style.display = 'inline-block';
 
-  // バナーの枠線・背景・文字をクリア
-  resetReadingBanner();
-
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('eishiri-game-screen').classList.add('active');
 
@@ -166,8 +193,7 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
     document.getElementById('eishiri-game-screen').appendChild(popup);
   }
 
-  generateBoardTiles(16);
-
+  generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
   const randomTile = eishiriState.boardTiles[Math.floor(Math.random() * eishiriState.boardTiles.length)];
   const initialReading = randomTile.readings[0];
   eishiriState.currentLastChar = initialReading.charAt(0);
@@ -175,22 +201,82 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
   renderEishiriUI();
 
   if (eishiriTimer) clearInterval(eishiriTimer);
-  eishiriTimer = setInterval(() => {
-    if (!eishiriState.isPlaying || eishiriState.isPaused) return;
+  
+  if (isHostPlayer || mode === 'solo') {
+    eishiriTimer = setInterval(() => {
+      if (!eishiriState.isPlaying || eishiriState.isPaused) return;
 
-    const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
-    if (activePlayer && !activePlayer.isEliminated) {
-      activePlayer.timeRemaining--;
-      updateTimerUI();
-
-      if (activePlayer.timeRemaining <= 0) {
-        activePlayer.timeRemaining = 0;
-        eliminatePlayer(activePlayer, "時間切れ");
+      if (eishiriState.mode === 'solo') {
+        eishiriState.survivalTime++;
       }
-    }
-  }, 1000);
 
-  checkAndRunComTurn();
+      const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
+      if (activePlayer && !activePlayer.isEliminated) {
+        activePlayer.timeRemaining--;
+        
+        if (eishiriState.mode === 'multi') {
+          syncStateToClients();
+          renderEishiriUI();
+        } else {
+          updateTimerUI();
+        }
+
+        if (activePlayer.timeRemaining <= 0) {
+          activePlayer.timeRemaining = 0;
+          if (eishiriState.mode === 'solo') {
+            endSoloGame("タイムアップ！ゲームオーバー…");
+          } else {
+            eliminatePlayer(activePlayer, "時間切れ");
+          }
+        }
+      }
+    }, 1000);
+
+    if (eishiriState.mode === 'multi') {
+      syncStateToClients();
+    }
+    checkAndRunComTurn();
+  }
+}
+
+function getMyPlayerId() {
+  if (currentGameState && currentGameState.myConnId) {
+    return currentGameState.myConnId;
+  }
+  return isHostPlayer ? 'host' : 'guest-1';
+}
+
+function isMyTurn() {
+  if (eishiriState.mode === 'solo') return true;
+  const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
+  if (!activePlayer) return false;
+  
+  const myId = getMyPlayerId();
+  return activePlayer.id === myId || (isHostPlayer && activePlayer.id === 'host');
+}
+
+function endSoloGame(message) {
+  eishiriState.isPlaying = false;
+  eishiriState.isPaused = false;
+  if (eishiriTimer) clearInterval(eishiriTimer);
+  if (comThinkingTimeout) clearTimeout(comThinkingTimeout);
+
+  playSound('gameover');
+  const turnEl = document.getElementById('eishiri-turn-indicator');
+  if (turnEl) {
+    turnEl.innerText = `${message} (生存時間: ${eishiriState.survivalTime}秒)`;
+    turnEl.style.color = '#d32f2f';
+  }
+
+  const passBtn = document.getElementById('btn-pass-eishiri');
+  if (passBtn) passBtn.style.display = 'none';
+
+  const rematchBtn = document.getElementById('btn-rematch-eishiri');
+  if (rematchBtn) rematchBtn.style.display = 'inline-block';
+
+  if (typeof openRankingRegisterModal === 'function') {
+    openRankingRegisterModal('eishiri', eishiriState.survivalTime);
+  }
 }
 
 function eliminatePlayer(player, reason) {
@@ -198,11 +284,11 @@ function eliminatePlayer(player, reason) {
   player.isEliminated = true;
   eishiriState.eliminatedOrder.push(player);
 
-  showBigPopup(`💀 ${player.name} 脱落！ (${reason})`, "#d32f2f", "#fff");
+  triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `💀 ${player.name} 脱落！ (${reason})`, bg: "#d32f2f" });
 
   const activePlayers = eishiriState.players.filter(p => !p.isEliminated);
 
-  if (eishiriState.mode === 'solo' || activePlayers.length <= 1) {
+  if (activePlayers.length <= 1) {
     setTimeout(() => {
       finishBattleGame(activePlayers[0]);
     }, 1200);
@@ -220,7 +306,6 @@ function finishBattleGame(winner) {
   if (comThinkingTimeout) clearTimeout(comThinkingTimeout);
 
   const totalPlayers = eishiriState.players.length;
-
   eishiriState.players.forEach(p => {
     if (winner && p.id === winner.id) {
       p.rank = 1;
@@ -230,16 +315,18 @@ function finishBattleGame(winner) {
     }
   });
 
-  const myPlayer = eishiriState.players.find(p => p.id === 'solo-player' || p.id === 'host' || p.id === eishiriState.players[0].id);
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients({ type: 'EISHIRI_FINISH', winnerId: winner ? winner.id : null });
+  }
+
+  const myId = getMyPlayerId();
+  const myPlayer = eishiriState.players.find(p => p.id === myId || p.id === 'solo-player' || (isHostPlayer && p.id === 'host'));
   const myRank = myPlayer ? myPlayer.rank : 1;
 
   showResultOverlay(myRank, winner);
 
   const passBtn = document.getElementById('btn-pass-eishiri');
   if (passBtn) passBtn.style.display = 'none';
-
-  const rematchBtn = document.getElementById('btn-rematch-eishiri');
-  if (rematchBtn) rematchBtn.style.display = 'inline-block';
 }
 
 function showResultOverlay(rank, winner) {
@@ -251,33 +338,63 @@ function showResultOverlay(rank, winner) {
   }
 
   overlay.innerHTML = '';
+  const card = document.createElement('div');
+  card.style.cssText = "background: #fff; padding: 25px 30px; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.4); max-width: 320px; width: 90%; color: #333;";
 
   const title = document.createElement('div');
-  title.id = 'eishiri-rank-title';
-
   if (rank === 1) {
     title.innerText = "👑 勝利！";
-    title.style.color = "#ffd700";
+    title.style.cssText = "font-size: 38px; font-weight: 900; color: #f57f17; margin-bottom: 5px;";
     spawnConfetti(overlay);
     playSound('win');
   } else {
     title.innerText = `${rank}位`;
-    title.style.color = rank === 2 ? "#c0c0c0" : (rank === 3 ? "#cd7f32" : "#ffffff");
+    title.style.cssText = `font-size: 38px; font-weight: 900; color: ${rank === 2 ? '#78909c' : '#8d6e63'}; margin-bottom: 5px;`;
     playSound('gameover');
   }
 
   const sub = document.createElement('div');
-  sub.style.cssText = "font-size: 20px; color: #fff; margin-top: 10px; font-weight: bold;";
+  sub.style.cssText = "font-size: 15px; color: #666; margin-bottom: 20px; font-weight: bold;";
   sub.innerText = winner ? `勝者: ${winner.name}` : '';
 
-  overlay.appendChild(title);
-  overlay.appendChild(sub);
+  // ボタンエリアの作成（もう一度遊ぶ ＆ ロビーに戻る）
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = "display: flex; flex-direction: column; gap: 10px;";
+
+  const rematchBtn = document.createElement('button');
+  rematchBtn.innerText = "🔄 もう一度遊ぶ";
+  rematchBtn.style.cssText = "background: #4caf50; color: white; padding: 10px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 16px;";
+  rematchBtn.onclick = () => {
+    hideResultOverlay();
+    requestRematchEishiri();
+  };
+
+  const lobbyBtn = document.createElement('button');
+  lobbyBtn.innerText = "🏠 ロビーに戻る";
+  lobbyBtn.style.cssText = "background: #78909c; color: white; padding: 10px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; font-size: 16px;";
+  lobbyBtn.onclick = () => {
+    hideResultOverlay();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const lobbyScreen = document.getElementById('lobby-screen');
+    if (lobbyScreen) lobbyScreen.classList.add('active');
+  };
+
+  btnContainer.appendChild(rematchBtn);
+  btnContainer.appendChild(lobbyBtn);
+
+  card.appendChild(title);
+  card.appendChild(sub);
+  card.appendChild(btnContainer);
+  overlay.appendChild(card);
   overlay.classList.add('show');
 }
 
 function hideResultOverlay() {
   const overlay = document.getElementById('eishiri-result-overlay');
-  if (overlay) overlay.classList.remove('show');
+  if (overlay) {
+    overlay.classList.remove('show');
+    overlay.innerHTML = '';
+  }
 }
 
 function spawnConfetti(container) {
@@ -294,7 +411,7 @@ function spawnConfetti(container) {
 }
 
 function checkAndRunComTurn() {
-  if (!eishiriState.isPlaying || eishiriState.isPaused) return;
+  if (!isHostPlayer || !eishiriState.isPlaying || eishiriState.isPaused) return;
 
   const currentPlayer = eishiriState.players[eishiriState.currentTurnIndex];
   if (currentPlayer && currentPlayer.type === 'com' && !currentPlayer.isEliminated) {
@@ -335,23 +452,24 @@ async function runComTurn() {
       eishiriState.isPaused = true;
       playSound('win');
       
-      // ① パネル強調表示（色つけ＆線強調）
-      highlightTile(chosen.index);
+      triggerPopupAndSync({ type: 'EISHIRI_HIGHLIGHT', index: chosen.index });
+      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} 正解！ (+${EISHIRI_CONFIG.CORRECT_BONUS}秒)`, bg: "#0288d1" });
 
-      showBigPopup(`🤖 ${currentPlayer.name} 正解！ (+5秒)`, "#0288d1", "#fff");
-      await animateReadingBanner(chosen.res.matchedReading);
-
-      currentPlayer.timeRemaining += 5;
+      currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
       currentPlayer.score++;
       eishiriState.currentLastChar = chosen.res.nextChar;
       eishiriState.boardTiles[chosen.index] = getUniqueRandomTile();
+      
+      triggerPopupAndSync({ type: 'EISHIRI_READING', reading: chosen.res.matchedReading });
+      await animateReadingBanner(chosen.res.matchedReading);
       nextTurn();
     }
   } else {
     if (validIndices.length === 0 || Math.random() < 0.5) {
-      currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - 10);
-      showBigPopup(`🤖 ${currentPlayer.name} パス！ (-10秒)`, "#ff9800", "#fff");
-      generateBoardTiles(16);
+      currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.PASS_PENALTY);
+      triggerBoardRotateAnimation();
+      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} パス！ (-${EISHIRI_CONFIG.PASS_PENALTY}秒)`, bg: "#ff9800" });
+      generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
       
       if (currentPlayer.timeRemaining <= 0) {
         eliminatePlayer(currentPlayer, "時間切れ");
@@ -360,9 +478,10 @@ async function runComTurn() {
       nextTurn();
     } else {
       playSound('put');
-      currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - 3);
-      showBigPopup(`🤖 ${currentPlayer.name} ミス！ (-3秒)`, "#d32f2f", "#fff");
-      updateTimerUI();
+      currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.MISTAKE_PENALTY);
+      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} ミス！ (-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒)`, bg: "#d32f2f" });
+      syncStateToClients();
+      renderEishiriUI();
 
       if (currentPlayer.timeRemaining <= 0) {
         eliminatePlayer(currentPlayer, "時間切れ");
@@ -386,8 +505,9 @@ function nextTurn() {
     eishiriState.currentTurnIndex = (eishiriState.currentTurnIndex + 1) % eishiriState.players.length;
   } while (eishiriState.players[eishiriState.currentTurnIndex].isEliminated);
 
-  renderEishiriUI();
   eishiriState.isPaused = false;
+  syncStateToClients();
+  renderEishiriUI();
   checkAndRunComTurn();
 }
 
@@ -412,33 +532,63 @@ function getUniqueRandomTile() {
 
 export function passEishiriTurn() {
   if (!eishiriState.isPlaying || eishiriState.isPaused) return;
+  if (!isMyTurn()) return;
 
   const currentPlayer = eishiriState.players[eishiriState.currentTurnIndex];
-  if (currentPlayer && currentPlayer.type === 'com') return;
+  if (!currentPlayer) return;
 
+  if (eishiriState.mode === 'solo') {
+    executePass(currentPlayer);
+  } else {
+    if (isHostPlayer) {
+      executePass(currentPlayer);
+    } else {
+      sendData({ type: 'EISHIRI_ACTION_PASS' });
+    }
+  }
+}
+
+function executePass(currentPlayer) {
   playSound('put');
-  currentPlayer.timeRemaining -= 10;
-  updateTimerUI();
-
-  showBigPopup("パス 🔄 -10秒", "#ff9800", "#fff");
+  currentPlayer.timeRemaining -= EISHIRI_CONFIG.PASS_PENALTY;
+  
+  generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
+  triggerBoardRotateAnimation();
+  triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `パス 🔄 (-${EISHIRI_CONFIG.PASS_PENALTY}秒)`, bg: "#ff9800" });
 
   if (currentPlayer.timeRemaining <= 0) {
-    eliminatePlayer(currentPlayer, "時間切れ");
+    currentPlayer.timeRemaining = 0;
+    if (eishiriState.mode === 'solo') {
+      endSoloGame("タイムアップ！ゲームオーバー…");
+    } else {
+      eliminatePlayer(currentPlayer, "時間切れ");
+    }
     return;
   }
-
-  const boardContainer = document.getElementById('eishiri-board');
-  if (boardContainer) {
-    boardContainer.classList.add('board-rotate-anim');
-    setTimeout(() => boardContainer.classList.remove('board-rotate-anim'), 500);
-  }
-
-  generateBoardTiles(16);
 
   if (eishiriState.mode === 'solo') {
     renderEishiriUI();
   } else {
     nextTurn();
+  }
+}
+
+function triggerBoardRotateAnimation() {
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients({ type: 'EISHIRI_ROTATE_BOARD' });
+  }
+  playBoardRotateAnimLocally();
+}
+
+function playBoardRotateAnimLocally() {
+  const boardEl = document.getElementById('eishiri-board');
+  if (boardEl) {
+    boardEl.classList.remove('board-rotate-anim');
+    void boardEl.offsetWidth;
+    boardEl.classList.add('board-rotate-anim');
+    setTimeout(() => {
+      boardEl.classList.remove('board-rotate-anim');
+    }, 500);
   }
 }
 
@@ -449,20 +599,21 @@ export function checkTileConnection(tile, requiredStartingChar) {
     if (firstChar === targetChar) {
       const lastOriginalChar = reading.slice(-1);
       const isDobon = (lastOriginalChar === 'ん' || lastOriginalChar === 'ン');
+      
+      // ▼ 修正: 終わりの文字もnormalizeCharに通して濁点・半濁点を清音に統一する
+      const normalizedLastChar = normalizeChar(lastOriginalChar);
+
       return {
         isValid: true,
         matchedReading: reading,
         isDobon: isDobon,
-        nextChar: isDobon ? '' : lastOriginalChar
+        nextChar: isDobon ? '' : normalizedLastChar // 清音化された次の文字を渡す
       };
     }
   }
   return { isValid: false };
 }
 
-/**
- * ① 正解パネルを太枠＆色つけで強調表示するヘルパー関数
- */
 function highlightTile(index) {
   const boardContainer = document.getElementById('eishiri-board');
   const targetBtn = boardContainer ? boardContainer.children[index] : null;
@@ -477,10 +628,23 @@ function highlightTile(index) {
 
 export async function selectEishiriTile(index) {
   if (!eishiriState.isPlaying || eishiriState.isPaused) return;
+  if (!isMyTurn()) return;
 
   const currentPlayer = eishiriState.players[eishiriState.currentTurnIndex];
-  if (currentPlayer && (currentPlayer.type === 'com' || currentPlayer.isEliminated)) return;
+  if (!currentPlayer) return;
 
+  if (eishiriState.mode === 'solo') {
+    await executeTileSelection(index, currentPlayer);
+  } else {
+    if (isHostPlayer) {
+      await executeTileSelection(index, currentPlayer);
+    } else {
+      sendData({ type: 'EISHIRI_ACTION_SELECT', payload: { index } });
+    }
+  }
+}
+
+async function executeTileSelection(index, currentPlayer) {
   const tile = eishiriState.boardTiles[index];
   if (!tile) return;
 
@@ -488,62 +652,84 @@ export async function selectEishiriTile(index) {
 
   if (!matchedResult.isValid) {
     playSound('put');
-    currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - 3);
-    updateTimerUI();
-    showBigPopup("-3秒 💦", "#d32f2f", "#fff");
+    currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.MISTAKE_PENALTY);
+    
+    if (eishiriState.mode === 'multi') {
+      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`, bg: "#d32f2f" });
+      syncStateToClients();
+      renderEishiriUI();
+    } else {
+      updateTimerUI();
+      showBigPopup(`-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`, "#d32f2f", "#fff");
+    }
 
     if (currentPlayer.timeRemaining <= 0) {
-      eliminatePlayer(currentPlayer, "時間切れ");
+      if (eishiriState.mode === 'solo') {
+        endSoloGame("タイムアップ！ゲームオーバー…");
+      } else {
+        eliminatePlayer(currentPlayer, "時間切れ");
+      }
     }
     return;
   }
 
   if (matchedResult.isDobon) {
     playSound('gameover');
-    eliminatePlayer(currentPlayer, `「${matchedResult.matchedReading}」でドボン`);
+    if (eishiriState.mode === 'solo') {
+      endSoloGame(`👤 「${matchedResult.matchedReading}」でドボン！ゲームオーバー…`);
+    } else {
+      eliminatePlayer(currentPlayer, `「${matchedResult.matchedReading}」でドボン`);
+    }
     return;
   }
 
   eishiriState.isPaused = true;
   playSound('win');
 
-  // ① 正解パネルの強調（裏返し廃止）
-  highlightTile(index);
+  if (eishiriState.mode === 'multi') {
+    triggerPopupAndSync({ type: 'EISHIRI_HIGHLIGHT', index });
+    triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`, bg: "#4caf50" });
+  } else {
+    highlightTile(index);
+    showBigPopup(`+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`, "#4caf50", "#fff");
+  }
 
-  showBigPopup("+5秒 ✨", "#4caf50", "#fff");
-
-  // ② ゆっくり読み方を表示
-  await animateReadingBanner(matchedResult.matchedReading);
-
-  currentPlayer.timeRemaining += 5;
+  currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
   currentPlayer.score++;
   eishiriState.currentLastChar = matchedResult.nextChar;
   eishiriState.boardTiles[index] = getUniqueRandomTile();
 
   if (eishiriState.mode === 'solo') {
+    await animateReadingBanner(matchedResult.matchedReading);
     renderEishiriUI();
     eishiriState.isPaused = false;
   } else {
+    if (!isHostPlayer) {
+      await animateReadingBanner(matchedResult.matchedReading);
+    } else {
+      syncStateToClients({ type: 'EISHIRI_READING', reading: matchedResult.matchedReading });
+      await animateReadingBanner(matchedResult.matchedReading);
+    }
+    eishiriState.isPaused = false;
     nextTurn();
-  }
-
-  if (sendDataFunc && eishiriState.mode === 'multi') {
-    sendDataFunc({
-      type: 'EISHIRI_STATE_SYNC',
-      payload: {
-        timeRemaining: currentPlayer.timeRemaining,
-        currentLastChar: eishiriState.currentLastChar,
-        boardTiles: eishiriState.boardTiles,
-        score: currentPlayer.score,
-        currentTurnIndex: eishiriState.currentTurnIndex
-      }
-    });
   }
 }
 
-/**
- * ③ 通常時は枠を消し、正解時のみゆっくり（320ms間隔）読み方を表示する関数
- */
+function triggerPopupAndSync(extraCommand) {
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients(extraCommand);
+    renderEishiriUI();
+  }
+  
+  if (extraCommand.type === 'EISHIRI_POPUP') {
+    showBigPopup(extraCommand.text, extraCommand.bg);
+  } else if (extraCommand.type === 'EISHIRI_HIGHLIGHT') {
+    highlightTile(extraCommand.index);
+  } else if (extraCommand.type === 'EISHIRI_READING') {
+    animateReadingBanner(extraCommand.reading);
+  }
+}
+
 function animateReadingBanner(reading) {
   return new Promise((resolve) => {
     const banner = document.getElementById('eishiri-reading-banner');
@@ -552,22 +738,18 @@ function animateReadingBanner(reading) {
       return;
     }
 
-    // 枠線と背景を浮かび上がらせる
+    banner.innerText = '';
     banner.style.border = '2px dashed #f48fb1';
     banner.style.background = '#fff0f5';
     banner.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
 
     let charIndex = 0;
-    banner.innerText = '';
-
-    // ② ゆっくり表示（1文字あたり 320ms）
     const interval = setInterval(() => {
       if (charIndex < reading.length) {
         banner.innerText += reading.charAt(charIndex);
         charIndex++;
       } else {
         clearInterval(interval);
-        // 表示完了後の余韻（1秒間しっかり見せる）
         setTimeout(() => {
           resetReadingBanner();
           resolve();
@@ -577,9 +759,6 @@ function animateReadingBanner(reading) {
   });
 }
 
-/**
- * ③ 読み方バナーの枠線・背景・テキストを消去・非表示にする関数
- */
 function resetReadingBanner() {
   const banner = document.getElementById('eishiri-reading-banner');
   if (banner) {
@@ -590,7 +769,7 @@ function resetReadingBanner() {
   }
 }
 
-function showBigPopup(text, bgColor, textColor) {
+function showBigPopup(text, bgColor, textColor = "#fff") {
   const popup = document.getElementById('eishiri-big-popup');
   if (!popup) return;
   popup.innerText = text;
@@ -647,9 +826,13 @@ function renderEishiriUI() {
   const turnIndicator = document.getElementById('eishiri-turn-indicator');
   if (turnIndicator) {
     if (eishiriState.mode === 'solo') {
-      turnIndicator.innerHTML = `自分のペースで繋げていこう！`;
+      turnIndicator.innerHTML = `自分のペースで繋げていこう！ (生存: <span style="color: #e65100;">${eishiriState.survivalTime}秒</span>)`;
     } else if (currentPlayer) {
-      turnIndicator.innerHTML = `いまの番: <b style="color: ${currentPlayer.color.border}; font-size: 18px;">${currentPlayer.name}</b>`;
+      const myId = getMyPlayerId();
+      const isMyTurnFlag = currentPlayer.id === myId || (isHostPlayer && currentPlayer.id === 'host');
+      turnIndicator.innerHTML = isMyTurnFlag 
+        ? `あなたの番です！ (<b style="color: ${currentPlayer.color.border};">${currentPlayer.name}</b>)` 
+        : `いまの番: <b style="color: ${currentPlayer.color.border}; font-size: 18px;">${currentPlayer.name}</b>`;
     }
   }
 
@@ -672,6 +855,18 @@ function renderEishiriUI() {
   });
 }
 
+export function openEishiriHelp() {
+  eishiriState.isPaused = true;
+  const modal = document.getElementById('eishiri-help-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+export function closeEishiriHelp() {
+  const modal = document.getElementById('eishiri-help-modal');
+  if (modal) modal.style.display = 'none';
+  eishiriState.isPaused = false;
+}
+
 export function stopEishiriGame() {
   eishiriState.isPlaying = false;
   eishiriState.isPaused = false;
@@ -681,26 +876,73 @@ export function stopEishiriGame() {
   if (comThinkingTimeout) clearTimeout(comThinkingTimeout);
 }
 
+// ==========================================
+// P2P 同期およびアクション処理（ホスト・ゲスト間）
+// ==========================================
+export function syncStateToClients(extraCommand = null) {
+  if (!isHostPlayer || eishiriState.mode === 'solo') return;
+  sendData({
+    type: 'EISHIRI_STATE_SYNC',
+    payload: {
+      players: eishiriState.players,
+      currentLastChar: eishiriState.currentLastChar,
+      boardTiles: eishiriState.boardTiles,
+      currentTurnIndex: eishiriState.currentTurnIndex,
+      isPlaying: eishiriState.isPlaying,
+      extraCommand: extraCommand
+    }
+  });
+}
+
 export function processEishiriData(data) {
   if (!data) return;
+
   if (data.type === 'EISHIRI_STATE_SYNC') {
-    const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
-    if (activePlayer) {
-      activePlayer.timeRemaining = data.payload.timeRemaining;
-      activePlayer.score = data.payload.score;
-    }
-    eishiriState.currentLastChar = data.payload.currentLastChar;
-    eishiriState.boardTiles = data.payload.boardTiles;
-    eishiriState.currentTurnIndex = data.payload.currentTurnIndex;
+    const payload = data.payload;
+    eishiriState.players = payload.players;
+    eishiriState.currentLastChar = payload.currentLastChar;
+    eishiriState.boardTiles = payload.boardTiles;
+    eishiriState.currentTurnIndex = payload.currentTurnIndex;
+    eishiriState.isPlaying = payload.isPlaying;
+
     renderEishiriUI();
-  } else if (data.type === 'EISHIRI_REMATCH') {
-    startEishiriGame(isHost, eishiriState.mode);
+
+    if (payload.extraCommand) {
+      const cmd = payload.extraCommand;
+      if (cmd.type === 'EISHIRI_POPUP') {
+        showBigPopup(cmd.text, cmd.bg);
+      } else if (cmd.type === 'EISHIRI_HIGHLIGHT') {
+        highlightTile(cmd.index);
+      } else if (cmd.type === 'EISHIRI_READING') {
+        animateReadingBanner(cmd.reading);
+      } else if (cmd.type === 'EISHIRI_ROTATE_BOARD') {
+        playBoardRotateAnimLocally();
+      } else if (cmd.type === 'EISHIRI_FINISH') {
+        const winner = eishiriState.players.find(p => p.id === cmd.winnerId);
+        finishBattleGame(winner);
+      }
+    }
+  } 
+  else if (data.type === 'EISHIRI_ACTION_SELECT' && isHostPlayer) {
+    const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
+    if (activePlayer && !activePlayer.isEliminated) {
+      executeTileSelection(data.payload.index, activePlayer);
+    }
+  } 
+  else if (data.type === 'EISHIRI_ACTION_PASS' && isHostPlayer) {
+    const activePlayer = eishiriState.players[eishiriState.currentTurnIndex];
+    if (activePlayer && !activePlayer.isEliminated) {
+      executePass(activePlayer);
+    }
+  } 
+  else if (data.type === 'EISHIRI_REMATCH') {
+    startEishiriGame(isHostPlayer, eishiriState.mode);
   }
 }
 
 export function requestRematchEishiri() {
-  if (sendDataFunc) {
-    sendDataFunc({ type: 'EISHIRI_REMATCH' });
+  if (customSendFunc) {
+    customSendFunc({ type: 'EISHIRI_REMATCH' });
   }
-  startEishiriGame(isHost, eishiriState.mode);
+  startEishiriGame(isHostPlayer, eishiriState.mode);
 }

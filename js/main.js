@@ -26,7 +26,7 @@ import { initLobby, addGuestConnection, removeGuestConnection, updateLobbyStateF
 import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connection.js';
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
 import { initMemoryGame, handleStartButton, handleMemorizedButton, startMemoryGame } from './memory_game.js';
-import { initEishiriSystem, startEishiriGame, stopEishiriGame, processEishiriData, requestRematchEishiri, passEishiriTurn } from './eishiri.js';
+import { initEishiriSystem, startEishiriGame, stopEishiriGame, processEishiriData, requestRematchEishiri, passEishiriTurn, getEishiriMode, openEishiriHelp, closeEishiriHelp } from './eishiri.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -905,17 +905,31 @@ function initApp() {
   setClick('btn-rematch-eishiri', () => {
     requestRematchEishiri();
   });
-
+  
   setClick('btn-quit-eishiri', () => {
-    if (confirm("ゲームを終了してメニューに戻りますか？")) {
+    const mode = getEishiriMode();
+    const confirmMsg = mode === 'multi' ? "ゲームを終了してロビーに戻りますか？" : "ゲームを終了してメニューに戻りますか？";
+    
+    if (confirm(confirmMsg)) {
       stopEishiriGame();
-      if (isConnected) {
-        sendData({ type: "QUIT_TO_LOBBY" });
+      if (mode === 'multi') {
+        if (isConnected) {
+          sendData({ type: "QUIT_TO_LOBBY" });
+        }
         showScreen('lobby-screen');
       } else {
         showScreen('menu-screen');
       }
     }
+  });
+
+  // --- 絵しりとりヘルプボタンの登録 ---
+  setClick('btn-help-eishiri', () => {
+    openEishiriHelp();
+  });
+
+  setClick('btn-close-eishiri-help', () => {
+    closeEishiriHelp();
   });
 
   setClick('btn-select-reversi', () => { selectGameFlow('reversi'); });
@@ -1157,6 +1171,8 @@ function initApp() {
       } else if (data.type === "MAWARI_STATE_SYNC") {
         updateMawariGameState(data.payload);
       }
+    } else if (selectedGame === 'eishiri') {
+      processEishiriData(data);
     }
   });
 
