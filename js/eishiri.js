@@ -1,4 +1,4 @@
-// js/eishiri.js - 絵しりとり（リマッチボタン追加・完全同期版）
+// js/eishiri.js - 絵しりとり（リマッチボタン追加・完全同期・長音符スキップ対応版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -59,11 +59,8 @@ export async function loadEishiriDictionary() {
       const line = lines[i].trim();
       if (!line) continue;
       
-      // カンマで分割して、空でない要素をすべて抽出する
       const cols = line.split(',').map(c => c.trim());
       const emoji = cols[0];
-      
-      // 2列目以降（index 1以降）に存在する読み方をすべて配列に格納する
       const readings = cols.slice(1).filter(r => r.length > 0);
       
       if (emoji && readings.length > 0) {
@@ -196,7 +193,10 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
   generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
   const randomTile = eishiriState.boardTiles[Math.floor(Math.random() * eishiriState.boardTiles.length)];
   const initialReading = randomTile.readings[0];
-  eishiriState.currentLastChar = initialReading.charAt(0);
+  
+  // 初期文字選定時も「ー」を考慮した末尾文字にする
+  const cleanInitialReading = initialReading.replace(/ー+$/, "");
+  eishiriState.currentLastChar = cleanInitialReading.charAt(cleanInitialReading.length - 1);
 
   renderEishiriUI();
 
@@ -357,7 +357,6 @@ function showResultOverlay(rank, winner) {
   sub.style.cssText = "font-size: 15px; color: #666; margin-bottom: 20px; font-weight: bold;";
   sub.innerText = winner ? `勝者: ${winner.name}` : '';
 
-  // ボタンエリアの作成（もう一度遊ぶ ＆ ロビーに戻る）
   const btnContainer = document.createElement('div');
   btnContainer.style.cssText = "display: flex; flex-direction: column; gap: 10px;";
 
@@ -597,17 +596,18 @@ export function checkTileConnection(tile, requiredStartingChar) {
   for (let reading of tile.readings) {
     const firstChar = normalizeChar(reading.charAt(0));
     if (firstChar === targetChar) {
-      const lastOriginalChar = reading.slice(-1);
-      const isDobon = (lastOriginalChar === 'ん' || lastOriginalChar === 'ン');
+      // ▼ 修正: 末尾の「ー」をすべて除外してから最後の文字を取得する
+      const cleanReading = reading.replace(/ー+$/, "");
+      const lastOriginalChar = cleanReading.charAt(cleanReading.length - 1);
       
-      // ▼ 修正: 終わりの文字もnormalizeCharに通して濁点・半濁点を清音に統一する
+      const isDobon = (lastOriginalChar === 'ん' || lastOriginalChar === 'ン');
       const normalizedLastChar = normalizeChar(lastOriginalChar);
 
       return {
         isValid: true,
         matchedReading: reading,
         isDobon: isDobon,
-        nextChar: isDobon ? '' : normalizedLastChar // 清音化された次の文字を渡す
+        nextChar: isDobon ? '' : normalizedLastChar
       };
     }
   }
@@ -876,9 +876,6 @@ export function stopEishiriGame() {
   if (comThinkingTimeout) clearTimeout(comThinkingTimeout);
 }
 
-// ==========================================
-// P2P 同期およびアクション処理（ホスト・ゲスト間）
-// ==========================================
 export function syncStateToClients(extraCommand = null) {
   if (!isHostPlayer || eishiriState.mode === 'solo') return;
   sendData({
