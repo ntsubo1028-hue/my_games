@@ -860,3 +860,10 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
+
+/* 絵しりとりパネルの文字色・背景色固定 */
+#eishiri-board .btn-action {
+  color: #333333 !important;            /* 絵文字・文字色を黒系に固定 */
+  background-color: #ffffff !important; /* 背景色を白に固定 */
+  -webkit-text-fill-color: initial;     /* テキスト色変換の干渉防止 */
+}

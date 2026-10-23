@@ -1,4 +1,4 @@
-// js/eishiri.js - 絵しりとり（リマッチボタン追加・完全同期・長音符スキップ対応版）
+// js/eishiri.js - 絵しりとり（文字2重表示バグ修正・初回の「ん」防止＆設定定数化・長音符スキップ対応版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -8,12 +8,12 @@ import { openRankingRegisterModal } from './ranking.js';
 export let EISHIRI_DICTIONARY = [];
 let isDictionaryLoaded = false;
 
-// ⚙️ 持ち時間やゲームバランスの定数設定
+// ⚙️ 【要調整】持ち時間やゲームバランスの定数設定
 export const EISHIRI_CONFIG = {
   INITIAL_TIME: 50,       // 初期持ち時間（秒）
-  CORRECT_BONUS: 5,       // 正解時の加算秒数
+  CORRECT_BONUS: 10,      // 正解時の加算秒数
   MISTAKE_PENALTY: 3,     // ミス（不正解）時の減算秒数
-  PASS_PENALTY: 10,       // パス時の減算秒数
+  PASS_PENALTY: 5,        // パス時の減算秒数
   BOARD_SIZE: 16          // 盤面のタイル枚数
 };
 
@@ -191,12 +191,22 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
   }
 
   generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
-  const randomTile = eishiriState.boardTiles[Math.floor(Math.random() * eishiriState.boardTiles.length)];
-  const initialReading = randomTile.readings[0];
-  
-  // 初期文字選定時も「ー」を考慮した末尾文字にする
-  const cleanInitialReading = initialReading.replace(/ー+$/, "");
-  eishiriState.currentLastChar = cleanInitialReading.charAt(cleanInitialReading.length - 1);
+
+  // 初回文字が「ん」にならないように安全な文字を抽選する
+  let validStartChars = [];
+  eishiriState.boardTiles.forEach(tile => {
+    tile.readings.forEach(r => {
+      const firstChar = normalizeChar(r.charAt(0));
+      if (firstChar !== 'ん' && firstChar !== 'ン') {
+        validStartChars.push(firstChar);
+      }
+    });
+  });
+  if (validStartChars.length > 0) {
+    eishiriState.currentLastChar = validStartChars[Math.floor(Math.random() * validStartChars.length)];
+  } else {
+    eishiriState.currentLastChar = 'あ';
+  }
 
   renderEishiriUI();
 
@@ -459,7 +469,10 @@ async function runComTurn() {
       eishiriState.currentLastChar = chosen.res.nextChar;
       eishiriState.boardTiles[chosen.index] = getUniqueRandomTile();
       
-      triggerPopupAndSync({ type: 'EISHIRI_READING', reading: chosen.res.matchedReading });
+      // syncStateToClientsで同期しつつ、ローカルでは animateReadingBanner を1回だけ実行する
+      if (eishiriState.mode === 'multi' && isHostPlayer) {
+        syncStateToClients({ type: 'EISHIRI_READING', reading: chosen.res.matchedReading });
+      }
       await animateReadingBanner(chosen.res.matchedReading);
       nextTurn();
     }
@@ -596,7 +609,6 @@ export function checkTileConnection(tile, requiredStartingChar) {
   for (let reading of tile.readings) {
     const firstChar = normalizeChar(reading.charAt(0));
     if (firstChar === targetChar) {
-      // ▼ 修正: 末尾の「ー」をすべて除外してから最後の文字を取得する
       const cleanReading = reading.replace(/ー+$/, "");
       const lastOriginalChar = cleanReading.charAt(cleanReading.length - 1);
       
@@ -704,12 +716,10 @@ async function executeTileSelection(index, currentPlayer) {
     renderEishiriUI();
     eishiriState.isPaused = false;
   } else {
-    if (!isHostPlayer) {
-      await animateReadingBanner(matchedResult.matchedReading);
-    } else {
+    if (isHostPlayer) {
       syncStateToClients({ type: 'EISHIRI_READING', reading: matchedResult.matchedReading });
-      await animateReadingBanner(matchedResult.matchedReading);
     }
+    await animateReadingBanner(matchedResult.matchedReading);
     eishiriState.isPaused = false;
     nextTurn();
   }
@@ -725,9 +735,8 @@ function triggerPopupAndSync(extraCommand) {
     showBigPopup(extraCommand.text, extraCommand.bg);
   } else if (extraCommand.type === 'EISHIRI_HIGHLIGHT') {
     highlightTile(extraCommand.index);
-  } else if (extraCommand.type === 'EISHIRI_READING') {
-    animateReadingBanner(extraCommand.reading);
   }
+  // ※ EISHIRI_READING は triggerPopupAndSync 内から除外し、呼び出し元の直接制御に一本化しました
 }
 
 function animateReadingBanner(reading) {
@@ -848,7 +857,7 @@ function renderEishiriUI() {
   eishiriState.boardTiles.forEach((tile, index) => {
     const btn = document.createElement('button');
     btn.className = 'btn-action';
-    btn.style = 'background: #fff; border: 2px solid #ad1457; border-radius: 8px; font-size: 32px; height: 65px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;';
+    btn.style = 'color: #333; background: #fff; border: 2px solid #ad1457; border-radius: 8px; font-size: 32px; height: 65px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;';
     btn.innerText = tile.emoji;
     btn.onclick = () => selectEishiriTile(index);
     boardContainer.appendChild(btn);
