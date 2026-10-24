@@ -1,4 +1,4 @@
-// js/eishiri.js - 絵しりとり（ドボン絵柄・読み方・💀強調演出対応版）
+// js/eishiri.js - 絵しりとり（ランキングインポート修正版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -8,7 +8,7 @@ import { openRankingRegisterModal } from './ranking.js';
 export let EISHIRI_DICTIONARY = [];
 let isDictionaryLoaded = false;
 
-// ⚙️ 【要調整】持ち時間やゲームバランス・COM難易度の定数設定
+// ⚙️ 持ち時間やゲームバランス・COM難易度の定数設定
 export const EISHIRI_CONFIG = {
   INITIAL_TIME: 50,       // 初期持ち時間（秒）
   CORRECT_BONUS: 10,      // 正解時の加算秒数
@@ -274,7 +274,7 @@ function isMyTurn() {
   return activePlayer.id === myId || (isHostPlayer && activePlayer.id === 'host');
 }
 
-function endSoloGame(message) {
+async function endSoloGame(message) {
   eishiriState.isPlaying = false;
   eishiriState.isPaused = false;
   if (eishiriTimer) clearInterval(eishiriTimer);
@@ -293,6 +293,7 @@ function endSoloGame(message) {
   const rematchBtn = document.getElementById('btn-rematch-eishiri');
   if (rematchBtn) rematchBtn.style.display = 'inline-block';
 
+  // 🏆 従来のランキング登録モーダルを呼び出す
   if (typeof openRankingRegisterModal === 'function') {
     openRankingRegisterModal('eishiri', eishiriState.survivalTime);
   }
@@ -840,7 +841,6 @@ async function executeTileSelection(index, currentPlayer) {
     return;
   }
 
-  // 💀 ドボン時（語尾が「ん」）の処理
   if (matchedResult.isDobon) {
     eishiriState.isPaused = true;
     playSound('gameover');
@@ -848,8 +848,8 @@ async function executeTileSelection(index, currentPlayer) {
       syncStateToClients({
         type: 'EISHIRI_ACTION_EFFECT',
         playerName: currentPlayer.name,
-        emoji: tile.emoji, // 選択した絵柄を送信
-        reading: matchedResult.matchedReading, // 読み方を送信
+        emoji: tile.emoji,
+        reading: matchedResult.matchedReading,
         deltaText: "ドボン！",
         actionType: 'dobon'
       });
@@ -946,16 +946,15 @@ function showNoticePopup(text, bgColor = "#ef6c00", textColor = "#fff") {
   }, 2000);
 }
 
-// 🌟 行動選択演出ポップアップ表示関数（正解・間違い・パス・ドボン全演出対応）
 function showActionEffect(player, emoji, reading, deltaText, actionType) {
   const popup = document.getElementById('eishiri-big-popup');
   if (!popup) return;
 
   let bg = '#0288d1';
-  if (actionType === 'correct') bg = '#2e7d32'; // 緑
-  else if (actionType === 'mistake') bg = '#c62828'; // 赤
-  else if (actionType === 'dobon') bg = '#37474f'; // ドボン（ダークグレー）
-  else if (actionType === 'pass') bg = '#ef6c00'; // オレンジ
+  if (actionType === 'correct') bg = '#2e7d32';
+  else if (actionType === 'mistake') bg = '#c62828';
+  else if (actionType === 'dobon') bg = '#37474f';
+  else if (actionType === 'pass') bg = '#ef6c00';
 
   popup.style.background = bg;
   popup.style.color = '#fff';
@@ -976,7 +975,6 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
     </div>
   `;
 
-  // 正解またはドボン時に読み方アニメーション枠を追加
   if (reading && (actionType === 'correct' || actionType === 'dobon')) {
     const textColor = (actionType === 'dobon') ? '#ff8a80' : '#fffde7';
     html += `<div id="popup-reading-anim" style="font-size: 28px; font-weight: bold; margin-top: 10px; letter-spacing: 3px; min-height: 40px; color: ${textColor}; text-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`;
@@ -985,7 +983,6 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
   popup.innerHTML = html;
   popup.classList.add('show');
 
-  // タイピングアニメーション（正解 ＆ ドボン）
   if (reading && (actionType === 'correct' || actionType === 'dobon')) {
     const readingEl = document.getElementById('popup-reading-anim');
     if (readingEl) {
@@ -997,7 +994,7 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
           charIdx++;
         } else {
           if (actionType === 'dobon') {
-            readingEl.innerText += ' 💀'; // ドボン時は後ろにも💀を付与
+            readingEl.innerText += ' 💀';
           }
           clearInterval(typeInterval);
         }
@@ -1005,7 +1002,6 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
     }
   }
 
-  // ポップアップ表示時間設定
   const displayTime = (reading && (actionType === 'correct' || actionType === 'dobon')) ? 2400 : 1300;
   setTimeout(() => {
     popup.classList.remove('show');
@@ -1088,7 +1084,6 @@ function renderEishiriUI() {
   eishiriState.boardTiles.forEach((tile, index) => {
     const btn = document.createElement('button');
     btn.className = 'btn-action';
-    btn.style = 'color: #333; background: #fff; border: 2px solid #ad1457; border-radius: 8px; font-size: 32px; height: 65px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;';
     btn.innerText = tile.emoji;
     btn.onclick = () => selectEishiriTile(index);
     boardContainer.appendChild(btn);

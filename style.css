@@ -21,8 +21,8 @@ html, body {
 }
 
 /* --- タイポグラフィ --- */
-h2 { font-size: clamp(18px, 4vw, 24px); text-align: center; margin: 10px 0; color: #2c3e50; }
-h3 { font-size: clamp(16px, 3vw, 20px); text-align: center; margin: 8px 0; color: #2c3e50; }
+h2 { font-size: clamp(18px, 4vw, 24px); text-align: center; margin: 6px 0; color: #2c3e50; }
+h3 { font-size: clamp(16px, 3vw, 20px); text-align: center; margin: 6px 0; color: #2c3e50; }
 p, span { font-size: clamp(12px, 2.5vw, 16px); }
 
 /* ==================================
@@ -31,14 +31,14 @@ p, span { font-size: clamp(12px, 2.5vw, 16px); }
 .screen { 
   display: none; 
   width: 100%; 
-  max-width: 600px; 
+  max-width: 680px; /* ① 横余白を減らすため最大幅を拡大 */
   height: 100dvh; 
   flex-direction: column; 
   align-items: center; 
   justify-content: space-between;
   background: var(--card-bg);
-  padding: 15px; 
-  border-radius: 16px;
+  padding: 8px 10px; /* ① 左右の余白をスリム化 */
+  border-radius: 12px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   box-sizing: border-box;
   margin: 0 auto;
@@ -50,43 +50,43 @@ p, span { font-size: clamp(12px, 2.5vw, 16px); }
 /* 共通ボタンデザイン */
 button, .btn-action {
   font-size: clamp(14px, 2.5vw, 18px);
-  padding: 10px 16px;
-  min-height: 44px;
+  padding: 8px 12px;
+  min-height: 40px;
   font-weight: bold; 
   cursor: pointer;
   margin: 0; 
-  border-radius: 10px; 
+  border-radius: 8px; 
   border: none;
   background-color: #007bff; 
   color: white; 
   box-shadow: 0 3px 8px rgba(0,0,0,0.1);
   transition: transform 0.1s ease, background-color 0.2s;
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
   box-sizing: border-box;
   display: block;
 }
 button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-.button-group { display: flex; gap: 10px; width: 100%; max-width: 400px; margin: 0 auto; justify-content: center; }
+.button-group { display: flex; gap: 8px; width: 100%; max-width: 450px; margin: 0 auto; justify-content: center; }
 .button-group .btn-action { flex: 1; }
-.button-group-col { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 400px; margin: 0 auto; }
+.button-group-col { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 450px; margin: 0 auto; }
 
 /* 情報ボード */
 .info-board {
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto 5px auto;
-  padding: 8px 15px;
+  max-width: 450px;
+  margin: 0 auto 3px auto;
+  padding: 6px 12px;
   font-weight: bold;
   background: #f0f0f0;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-sizing: border-box;
 }
-.step-container { width: 100%; max-width: 400px; margin: 0 auto 10px auto; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+.step-container { width: 100%; max-width: 450px; margin: 0 auto 8px auto; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
 
 /* ==================================
    ★ 正方形タイルメニュー用スタイル ★
@@ -94,9 +94,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .game-tile-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
   margin: 0 auto;
 }
 .btn-tile {
@@ -110,9 +110,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   color: white;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 10px rgba(0,188,212,0.15);
   transition: transform 0.1s ease, box-shadow 0.2s;
-  padding: 8px;
+  padding: 6px;
   box-sizing: border-box;
   width: 100%;
   max-width: none;
@@ -124,7 +124,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 }
 .tile-icon {
   font-size: clamp(28px, 8vw, 42px);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   line-height: 1;
 }
 .tile-name {
@@ -148,30 +148,30 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 5px 0;
+  margin: 2px 0;
 }
 
 /* ==================================
    メニュー＆通信画面用
 ================================== */
-.hero-header { text-align: center; margin-bottom: 5px; }
-.secret-badge { display: inline-block; background: #fffae6; color: #f57c00; border: 1px solid #ffe082; padding: 4px 12px; border-radius: 20px; font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 10px; }
-.hero-header h1 { font-size: clamp(24px, 5vw, 32px); line-height: 1.2; margin: 0; font-weight: 800; }
-.subtitle { margin: 5px 0 0 0; }
-.menu-container { display: flex; flex-direction: column; width: 100%; max-width: 400px; margin: 0 auto; align-items: center; gap: 10px; }
+.hero-header { text-align: center; margin-bottom: 3px; }
+.secret-badge { display: inline-block; background: #fffae6; color: #f57c00; border: 1px solid #ffe082; padding: 3px 10px; border-radius: 20px; font-size: clamp(10px, 2vw, 12px); font-weight: bold; margin-bottom: 6px; }
+.hero-header h1 { font-size: clamp(22px, 4.5vw, 30px); line-height: 1.2; margin: 0; font-weight: 800; }
+.subtitle { margin: 3px 0 0 0; }
+.menu-container { display: flex; flex-direction: column; width: 100%; max-width: 450px; margin: 0 auto; align-items: center; gap: 8px; }
 .host-btn { background: linear-gradient(135deg, #e53935 0%, #c62828 100%); }
 .guest-btn { background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%); }
 .secondary-btn { background-color: #78909c !important; }
 
 .screen.scrollable-screen { overflow-y: auto; justify-content: flex-start; }
-.qr-box { border: 3px solid; padding: 10px; border-radius: 8px; text-align: center; background: #fff; width: 100%; max-width: 320px; box-sizing: border-box; margin: 0 auto; }
+.qr-box { border: 3px solid; padding: 8px; border-radius: 8px; text-align: center; background: #fff; width: 100%; max-width: 320px; box-sizing: border-box; margin: 0 auto; }
 .red-box { border-color: #f44336; } .blue-box { border-color: #2196f3; }
 .yellow-box { border-color: #ffeb3b; } .green-box { border-color: #4caf50; }
-.qr-title { font-weight: bold; margin-bottom: 6px; font-size: 14px; }
-.qr-img { width: 100% !important; height: auto !important; max-width: 260px; aspect-ratio: 1 / 1; border: 2px solid #f0f0f0; background: white; margin: 0 auto; display: block; border-radius: 8px; image-rendering: pixelated; }
-#reader { width: 100%; max-width: 320px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
+.qr-title { font-weight: bold; margin-bottom: 4px; font-size: 13px; }
+.qr-img { width: 100% !important; height: auto !important; max-width: 240px; aspect-ratio: 1 / 1; border: 2px solid #f0f0f0; background: white; margin: 0 auto; display: block; border-radius: 8px; image-rendering: pixelated; }
+#reader { width: 100%; max-width: 320px; margin: 6px auto; border-radius: 10px; overflow: hidden; }
 #reader video { object-fit: cover !important; width: 100%; }
-.version-info { text-align: center; font-size: 11px; color: #888; margin-top: 5px; letter-spacing: 1px; }
+.version-info { text-align: center; font-size: 11px; color: #888; margin-top: 3px; letter-spacing: 1px; }
 
 /* ==================================
    ★ メインメニュー画面 ★
@@ -183,7 +183,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   height: 100%;
   max-height: 100vh;
   box-sizing: border-box;
-  padding: 10px 15px;
+  padding: 8px 10px;
   overflow: hidden; 
 }
 
@@ -196,9 +196,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   flex: 1 1 0;
   min-height: 0;
   width: 100%;
-  max-width: 320px;
-  max-height: 25vh; 
-  margin: 3px auto;
+  max-width: 300px;
+  max-height: 22vh; 
+  margin: 2px auto;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -220,11 +220,11 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
    ゲーム盤面 (オセロ)
 ================================== */
 #board {
-  width: 100%; height: auto; max-width: 400px; max-height: 100%;
+  width: 100%; height: auto; max-width: min(100vw - 20px, 100dvh - 180px); max-height: 100%;
   aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(8, 1fr); 
   gap: 2px; background-color: #111; border: 3px solid #111; border-radius: 6px;
 }
-.cell { width: 100%; height: 100%; background-color: var(--board-color); perspective: 800px; padding: 2px; box-sizing: border-box; cursor: pointer; }
+.cell { width: 100%; height: 100%; background-color: var(--board-color); perspective: 800px; padding: 1px; box-sizing: border-box; cursor: pointer; }
 .disc { width: 100%; height: 100%; border-radius: 50%; position: relative; transform-style: preserve-3d; transition: transform 0.5s, opacity 0.3s; }
 .face { position: absolute; width: 100%; height: 100%; border-radius: 50%; backface-visibility: hidden; }
 .face-black { background-color: #111; box-shadow: inset -2px -2px 4px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.5); transform: rotateY(0deg); }
@@ -239,14 +239,14 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 #dots-board-container {
   width: 100%; 
   height: auto; 
-  max-width: 360px; 
+  max-width: min(100vw - 20px, 100dvh - 180px); 
   max-height: 100%; 
   aspect-ratio: 1 / 1; 
   display: grid;
-  grid-template-columns: 10px 1fr 10px 1fr 10px 1fr 10px;
-  grid-template-rows: 10px 1fr 10px 1fr 10px 1fr 10px;
+  grid-template-columns: 8px 1fr 8px 1fr 8px 1fr 8px;
+  grid-template-rows: 8px 1fr 8px 1fr 8px 1fr 8px;
   background-color: #fff; 
-  padding: 10px; 
+  padding: 6px; 
   border-radius: 10px; 
   box-sizing: border-box;
   justify-content: center;
@@ -254,10 +254,10 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   margin: 0 auto;
 }
 .dot { background-color: #455a64; border-radius: 50%; width: 100%; height: 100%; }
-.line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 3px; }
+.line-h, .line-v { background-color: #eceff1; cursor: pointer; transition: background-color 0.2s; border-radius: 2px; }
 .line-h.active-host, .line-v.active-host { background-color: #d32f2f; }
 .line-h.active-guest, .line-v.active-guest { background-color: #1976d2; }
-.box { width: 100%; height: 100%; transition: background-color 0.3s; border-radius: 3px; }
+.box { width: 100%; height: 100%; transition: background-color 0.3s; border-radius: 2px; }
 .box.host { background-color: rgba(211, 47, 47, 0.2); }
 .box.guest { background-color: rgba(25, 118, 210, 0.2); }
 
@@ -267,63 +267,119 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 #concentration-board, #memory-board { 
   width: 100%; 
   height: auto; 
-  max-width: 360px; 
+  /* ② 画面サイズに合わせて限界まで大きくするレスポンシブ化 */
+  max-width: min(100vw - 20px, 100dvh - 180px); 
   max-height: 100%; 
+  aspect-ratio: 1 / 1;
   display: grid; 
   grid-template-columns: repeat(4, 1fr); 
-  gap: 8px; 
+  gap: 4px; /* パネル間隔を詰めて絵を大きく */
+  margin: 0 auto;
 }
 
 /* カード共通スタイル */
 .concentration-card { 
   width: 100%; 
   height: 100%; 
-  font-size: clamp(20px, 6vw, 32px); 
+  /* ② 絵や文字のフォントサイズを最大化（パネル内余白を最小化） */
+  font-size: clamp(28px, 11vw, 64px); 
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  border-radius: 8px; 
+  border-radius: 6px; 
   cursor: pointer; 
   user-select: none; 
   box-sizing: border-box;
+  padding: 0px; /* パネル内余白を完全にゼロにして絵を最大化 */
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; 
 }
 
-/* 1. カード裏面 (伏せられている状態：ストライプ柄＆立体グラデーション) */
+/* 1. カード裏面 (伏せられている状態) */
 .concentration-card:not(.flipped):not(.matched) {
   background: 
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 8px, transparent 0, transparent 16px),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 6px, transparent 0, transparent 12px),
     linear-gradient(135deg, #3f51b5 0%, #1a237e 100%);
   border: 2px solid #7986cb;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  color: #ffeb3b; /* ❓マークなどの文字色 */
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #ffeb3b;
 }
 
 .concentration-card:not(.flipped):not(.matched):hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
 }
 
 .concentration-card:not(.flipped):not(.matched):active {
   transform: translateY(1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* 2. カード表面 (めくって見えている状態：白いカード＆くっきりした枠線) */
+/* 2. カード表面 (めくって見えている状態) */
 .concentration-card.flipped { 
   background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%); 
   color: #333; 
-  border: 2.5px solid #3f51b5; 
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), inset 0 0 5px rgba(0, 0, 0, 0.05);
+  border: 2px solid #3f51b5; 
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* 3. マッチ済みカード (揃った状態) */
+/* 3. マッチ済みカード */
 .concentration-card.matched { 
   background: #e8f5e9; 
   color: #2e7d32; 
   border: 2px solid #81c784; 
   opacity: 0.75; 
   box-shadow: none;
+}
+
+/* ==================================
+   ★ 絵しりとり画面専用の最大化・余白最小化調整 ★
+================================== */
+#eishiri-game-screen .game-board-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+}
+
+#eishiri-board {
+  width: 100%;
+  height: auto;
+  /* ② 画面の縦横の制約に合わせて限界まで大きくする正方形 */
+  max-width: min(100vw - 16px, 100dvh - 180px);
+  max-height: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 4px; /* パネル間の隙間を最低限に */
+  margin: 0 auto;
+}
+
+/* 絵しりとりパネル（ボタン）内の余白を極限まで削り、絵を最大化 */
+#eishiri-board .btn-action {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  min-height: unset !important;
+  padding: 0 !important; /* パネル内余白ゼロ化 */
+  margin: 0 !important;
+  /* ② 絵文字の大きさを画面サイズに応じて限界まで拡大 */
+  font-size: clamp(32px, 12vw, 72px) !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #333333 !important;
+  background-color: #ffffff !important;
+  border: 2px solid #b0bec5 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1) !important;
+}
+
+#eishiri-board .btn-action:active {
+  transform: scale(0.95);
+  background-color: #eceff1 !important;
 }
 
 /* ==================================
@@ -335,7 +391,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 
 .block_drop-wrapper { 
   display: flex; 
-  gap: 12px; 
+  gap: 10px; 
   align-items: flex-start; 
   justify-content: center;
   height: 100%; 
@@ -355,7 +411,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .block_drop-side-panel { 
   display: flex; 
   flex-direction: column; 
-  gap: 10px; 
+  gap: 8px; 
 }
 
 .block_drop-sub-box { 
@@ -366,7 +422,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 
 #block_drop-hold, #block_drop-next { 
   height: auto; 
-  width: 60px; 
+  width: 50px; 
   aspect-ratio: 1 / 1; 
   background: #111; 
   border: 2px solid #333; 
@@ -376,8 +432,23 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    ゲーム盤面 (マインスイーパー)
 ================================== */
-#mine-board { width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); gap: 3px; background: #bbb; padding: 5px; border-radius: 8px; box-sizing: border-box; }
-.mine-cell { width: 100%; height: 100%; background-color: #e0e0e0; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: clamp(12px, 3vw, 18px); user-select: none; cursor: pointer; box-shadow: inset -2px -2px 0px rgba(0,0,0,0.2), inset 2px 2px 0px rgba(255,255,255,0.7); }
+#mine-board { 
+  width: 100%; 
+  height: auto; 
+  max-width: min(100vw - 20px, 100dvh - 180px); 
+  max-height: 100%; 
+  aspect-ratio: 1 / 1; 
+  display: grid; 
+  grid-template-columns: repeat(8, 1fr); 
+  grid-template-rows: repeat(8, 1fr); 
+  gap: 2px; 
+  background: #bbb; 
+  padding: 4px; 
+  border-radius: 8px; 
+  box-sizing: border-box; 
+  margin: 0 auto;
+}
+.mine-cell { width: 100%; height: 100%; background-color: #e0e0e0; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: clamp(14px, 4vw, 22px); user-select: none; cursor: pointer; box-shadow: inset -1px -1px 0px rgba(0,0,0,0.2), inset 1px 1px 0px rgba(255,255,255,0.7); }
 .mine-cell.opened { background-color: #ffffff; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2); }
 .mine-cell.bomb { background-color: #ffcdd2; }
 .mine-num-1 { color: #1976d2; } .mine-num-2 { color: #388e3c; } .mine-num-3 { color: #d32f2f; } .mine-num-4 { color: #7b1fa2; }
@@ -385,20 +456,20 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 /* ==================================
    ゲーム盤面 (エアホッケー)
 ================================== */
-#airhockey-board { width: 100%; height: auto; max-width: 400px; max-height: 100%; aspect-ratio: 3 / 5; background: #111; border: 4px solid #333; border-radius: 8px; box-sizing: border-box; object-fit: contain; display: block; margin: 0 auto; }
+#airhockey-board { width: 100%; height: auto; max-width: min(100vw - 20px, 100dvh - 180px); max-height: 100%; aspect-ratio: 3 / 5; background: #111; border: 4px solid #333; border-radius: 8px; box-sizing: border-box; object-fit: contain; display: block; margin: 0 auto; }
 
 /* ==================================
    ゲーム盤面 (将棋)
 ================================== */
 #shogi-board {
-  width: 100%; height: auto; max-width: 400px; max-height: 100%;
+  width: 100%; height: auto; max-width: min(100vw - 20px, 100dvh - 180px); max-height: 100%;
   aspect-ratio: 9 / 9; display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
   background-color: #deb887; border: 3px solid #5c4033; border-radius: 4px; box-sizing: border-box;
-  gap: 1px; padding: 2px;
+  gap: 1px; padding: 2px; margin: 0 auto;
 }
 .shogi-cell {
   background-color: #f4a460; display: flex; align-items: center; justify-content: center;
-  font-size: clamp(12px, 3vw, 18px); font-weight: bold; cursor: pointer; user-select: none;
+  font-size: clamp(12px, 3.5vw, 20px); font-weight: bold; cursor: pointer; user-select: none;
   position: relative; box-sizing: border-box;
   font-family: "Hiragino Mincho ProN", "MS Mincho", "Yu Mincho", "Times New Roman", serif;
 }
@@ -419,9 +490,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   flex-direction: row;
   justify-content: center;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  max-width: 500px;
+  max-width: 550px;
   margin: 0 auto;
 }
 
@@ -435,15 +506,15 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   background: #fdf5e6;
   border: 2px solid #d7ccc8;
   border-radius: 4px;
-  padding: 10px 5px;
-  font-size: 14px;
+  padding: 8px 4px;
+  font-size: 13px;
   font-weight: bold;
   color: #333;
   writing-mode: vertical-rl;
   text-orientation: upright;
   display: flex;
   align-items: center;
-  width: 35px;
+  width: 30px;
   box-sizing: border-box;
 }
 
@@ -485,31 +556,31 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 #mawari-game-screen {
   background-color: #f0e6d2 !important;
   justify-content: center !important;
-  gap: 12px !important;
-  padding: 15px !important;
+  gap: 8px !important;
+  padding: 10px !important;
   overflow: hidden !important;
   box-sizing: border-box;
 }
 
 .mawari-panel {
-  background: #fff; padding: 12px 15px; border-radius: 8px;
+  background: #fff; padding: 10px 12px; border-radius: 8px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15); margin: 0 auto; text-align: center;
-  width: 100%; max-width: 480px; box-sizing: border-box;
+  width: 100%; max-width: 500px; box-sizing: border-box;
   flex-shrink: 0;
 }
-.mawari-player-select { margin: 8px 0; font-size: 14px; }
+.mawari-player-select { margin: 6px 0; font-size: 13px; }
 .mawari-btn {
-  background: #8b5a2b; color: white; border: none; padding: 8px 16px;
+  background: #8b5a2b; color: white; border: none; padding: 6px 14px;
   font-size: clamp(14px, 3.5vw, 16px); font-weight: bold; border-radius: 4px;
-  cursor: pointer; margin-top: 8px; box-shadow: 0 3px 0 #5c3a1b; transition: transform 0.1s;
+  cursor: pointer; margin-top: 6px; box-shadow: 0 3px 0 #5c3a1b; transition: transform 0.1s;
 }
 .mawari-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #5c3a1b; }
 .mawari-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
 #mawari-board {
   display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
-  width: min(100%, 100dvh - 260px);
-  max-width: 480px;
+  width: min(100%, 100dvh - 220px);
+  max-width: 500px;
   aspect-ratio: 1 / 1;
   height: auto;
   gap: 2px;
@@ -524,7 +595,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   padding: 6px; text-align: center; overflow: hidden;
 }
 #mawari-turn-badge {
-  width: 100%; padding: 4px 0; font-size: clamp(12px, 3.2vw, 18px);
+  width: 100%; padding: 3px 0; font-size: clamp(12px, 3.2vw, 16px);
   font-weight: bold; color: white; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: background-color 0.3s;
 }
 .mawari-cell {
@@ -561,9 +632,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   50% { transform: scale(2.5) rotate(540deg) translateY(-30px); opacity: 0.8; }
   100% { transform: scale(0) rotate(1080deg) translateY(100px); opacity: 0; }
 }
-#mawari-koma-area { display: flex; gap: clamp(4px, 1.5vw, 12px); margin: 4px 0; }
+#mawari-koma-area { display: flex; gap: clamp(4px, 1.5vw, 12px); margin: 3px 0; }
 .mawari-koma {
-  width: clamp(24px, 6.5vw, 34px); height: clamp(28px, 7.5vw, 38px);
+  width: clamp(24px, 6.5vw, 32px); height: clamp(28px, 7.5vw, 36px);
   background: #f5d77f; border: 2px solid #8b5a2b; border-radius: 4px;
   display: flex; justify-content: center; align-items: center;
   font-weight: bold; font-size: clamp(11px, 3vw, 15px); color: #333; transition: transform 0.3s;
@@ -580,15 +651,15 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   100% { transform: rotate(360deg) scale(1); }
 }
 #mawari-log-text {
-  font-size: clamp(10px, 2.8vw, 13px); font-weight: bold; color: #444; min-height: 32px;
+  font-size: clamp(10px, 2.8vw, 13px); font-weight: bold; color: #444; min-height: 28px;
   display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1.2;
 }
 #mawari-player-list {
-  margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; max-width: 480px; box-sizing: border-box;
+  margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; max-width: 500px; box-sizing: border-box;
   flex-shrink: 0;
 }
 .mawari-player-card {
-  background: white; padding: 6px 10px; border-radius: 4px; font-size: clamp(11px, 2.8vw, 13px);
+  background: white; padding: 4px 8px; border-radius: 4px; font-size: clamp(11px, 2.8vw, 13px);
   border-left: 5px solid #ccc; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.08);
 }
 .mawari-player-card.active { font-weight: bold; transform: scale(1.03); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
@@ -616,8 +687,8 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
    レスポンシブ対応
 ================================== */
 @media (max-height: 600px) {
-  #menu-screen h2 { font-size: 1.2rem; margin: 4px 0; }
-  .button-group-col .btn-action { padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  #menu-screen h2 { font-size: 1.1rem; margin: 3px 0; }
+  .button-group-col .btn-action { padding: 6px 10px; margin-bottom: 4px; font-size: 13px; }
 }
 
 /* ==================================
@@ -718,7 +789,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   color: #fff;
   width: 100%;
   max-width: 480px;
-  max-height: 85vh; /* 画面高さの85%以内に収める */
+  max-height: 85vh;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -765,7 +836,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 
 #help-body {
   padding: 15px;
-  overflow-y: auto; /* 本文が長い場合はここだけでスクロール */
+  overflow-y: auto;
   flex: 1;
   box-sizing: border-box;
   font-size: 14px;
@@ -859,11 +930,4 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 @keyframes confettiFall {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-}
-
-/* 絵しりとりパネルの文字色・背景色固定 */
-#eishiri-board .btn-action {
-  color: #333333 !important;            /* 絵文字・文字色を黒系に固定 */
-  background-color: #ffffff !important; /* 背景色を白に固定 */
-  -webkit-text-fill-color: initial;     /* テキスト色変換の干渉防止 */
 }
