@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.2.5';
+    const VERSION = '2.2.6';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -559,9 +559,9 @@
   <div id="eishiri-game-screen" class="screen">
     <h2>🎨 絵しりとり</h2>
     
-    <!-- 遊び方ヘルプボタン (タイトルのすぐ下) -->
+    <!-- 遊び方ヘルプボタン (他のゲームと同様に openHelp 関数で別ファイルを呼び出す) -->
     <div style="text-align: center; margin-bottom: 8px;">
-      <button id="btn-help-eishiri" class="btn-action secondary-btn" style="padding: 6px 16px; font-size: 14px; width: auto; display: inline-block;">❓ 遊び方ヘルプ</button>
+      <button type="button" onclick="openHelp('help-eishiri.html')" class="btn-action secondary-btn" style="padding: 6px 16px; font-size: 14px; width: auto; display: inline-block;">❓ 遊び方ヘルプ</button>
     </div>
 
     <!-- 参加プレイヤー一覧エリア -->
@@ -583,70 +583,10 @@
     <div id="eishiri-reading-banner" style="text-align: center; height: 45px; line-height: 45px; margin: 10px 0; font-size: 26px; font-weight: bold; color: #ad1457; border-radius: 8px;"></div>
 
     <div class="button-group-col" style="margin-top: 5px;">
-      <button id="btn-pass-eishiri" class="btn-action" style="background-color: #ff9800; color: #fff; margin-bottom: 6px;">🔄 パス (-10秒して盤面リフレッシュ)</button>
+      <button id="btn-pass-eishiri" class="btn-action" style="background-color: #ff9800; color: #fff; margin-bottom: 6px;">🔄 パス (ペナルティあり)</button>
       <button class="btn-action btn-open-stamp" style="display: none; background-color: #00bcd4;">💬 スタンプ・チャット</button>
       <button id="btn-rematch-eishiri" class="btn-action" style="display: none; background-color: #fbc02d; color: #000; margin-bottom: 6px;">🔄 もう一度遊ぶ</button>
       <button id="btn-quit-eishiri" class="btn-action secondary-btn">メニューに戻る</button>
-    </div>
-  </div>
-
-  <!-- 📖 絵しりとりヘルプモーダル（style.cssの共通クラスを完全使用） -->
-  <div id="eishiri-help-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      
-      <!-- ヘッダーバー -->
-      <div class="modal-header">
-        <span class="modal-title">📖 遊び方・接続ヘルプ</span>
-        <button id="btn-close-eishiri-help" class="modal-close-btn">✕ 閉じる</button>
-      </div>
-
-      <!-- 本文エリア -->
-      <div id="help-body">
-        
-        <h2 style="text-align: center; color: #22d3ee; font-size: 22px; margin-top: 0; margin-bottom: 20px; font-weight: 800;">
-          絵しりとりの遊び方
-        </h2>
-
-        <div style="border-top: 1px dashed #334155; margin-bottom: 20px;"></div>
-
-        <!-- 目的 -->
-        <div style="margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <div style="width: 4px; height: 18px; background: #38bdf8; border-radius: 2px;"></div>
-            <h3 style="margin: 0; color: #f8fafc; font-size: 16px;">🎮 ゲームの目的</h3>
-          </div>
-          <p style="margin: 0; padding-left: 12px; color: #cbd5e1; font-size: 13px; line-height: 1.6;">
-            表示されている「次の文字」から始まる絵をパネルから選んでしりとりを繋げていくゲームです！制限時間内にたくさん繋げてハイスコアを目指しましょう！
-          </p>
-        </div>
-
-        <!-- 基本ルール -->
-        <div style="margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <div style="width: 4px; height: 18px; background: #4ade80; border-radius: 2px;"></div>
-            <h3 style="margin: 0; color: #f8fafc; font-size: 16px;">🎯 基本ルール</h3>
-          </div>
-          <ol style="margin: 0; padding-left: 28px; color: #cbd5e1; font-size: 13px; line-height: 1.8;">
-            <li><b style="color: #f8fafc;">絵を選ぶ:</b> 「次の文字」から始まる読み方の絵パネルをタップして回答します。</li>
-            <li><b style="color: #f8fafc;">正解ボーナス:</b> 見事繋がると持ち時間が <b style="color: #4ade80;">+5秒</b> 増え、スコア＋1！しりとりが次の文字へ進みます。</li>
-            <li><b style="color: #f8fafc;">お手つきペナルティ:</b> 文字が繋がらない絵を選ぶと <b style="color: #f87171;">-3秒</b> 減算されます（自分のターンのまま再挑戦可能）。</li>
-            <li><b style="color: #f8fafc;">パス機能:</b> 繋がる絵がない時はパスボタンで <b style="color: #fbbf24;">-10秒</b> と引き換えに盤面の絵をすべてシャッフルできます。</li>
-            <li><b style="color: #f8fafc;">一発アウト（ドボン）:</b> 最後の文字が「ん」で終わる絵を選ぶと <b style="color: #f87171;">即ゲームオーバー（脱落）</b> になります！</li>
-          </ol>
-        </div>
-
-        <!-- 対戦・サバイバル -->
-        <div style="margin-bottom: 10px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <div style="width: 4px; height: 18px; background: #c084fc; border-radius: 2px;"></div>
-            <h3 style="margin: 0; color: #f8fafc; font-size: 16px;">⚔️ 対戦・サバイバル</h3>
-          </div>
-          <p style="margin: 0; padding-left: 12px; color: #cbd5e1; font-size: 13px; line-height: 1.6;">
-            対戦モードではプレイヤーごとの個別持ち時間による順番制バトルとなります。時間切れやドボンで落ちていき、最後まで生き残った一人（1位）が勝者です！
-          </p>
-        </div>
-
-      </div>
     </div>
   </div>
 

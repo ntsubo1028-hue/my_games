@@ -31,13 +31,13 @@ p, span { font-size: clamp(12px, 2.5vw, 16px); }
 .screen { 
   display: none; 
   width: 100%; 
-  max-width: 680px; /* ① 横余白を減らすため最大幅を拡大 */
+  max-width: 680px; 
   height: 100dvh; 
   flex-direction: column; 
   align-items: center; 
   justify-content: space-between;
   background: var(--card-bg);
-  padding: 8px 10px; /* ① 左右の余白をスリム化 */
+  padding: 8px 10px; 
   border-radius: 12px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   box-sizing: border-box;
@@ -267,13 +267,12 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 #concentration-board, #memory-board { 
   width: 100%; 
   height: auto; 
-  /* ② 画面サイズに合わせて限界まで大きくするレスポンシブ化 */
   max-width: min(100vw - 20px, 100dvh - 180px); 
   max-height: 100%; 
   aspect-ratio: 1 / 1;
   display: grid; 
   grid-template-columns: repeat(4, 1fr); 
-  gap: 4px; /* パネル間隔を詰めて絵を大きく */
+  gap: 4px; 
   margin: 0 auto;
 }
 
@@ -281,7 +280,6 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 .concentration-card { 
   width: 100%; 
   height: 100%; 
-  /* ② 絵や文字のフォントサイズを最大化（パネル内余白を最小化） */
   font-size: clamp(28px, 11vw, 64px); 
   display: flex; 
   align-items: center; 
@@ -290,7 +288,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   cursor: pointer; 
   user-select: none; 
   box-sizing: border-box;
-  padding: 0px; /* パネル内余白を完全にゼロにして絵を最大化 */
+  padding: 0px; 
   transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; 
 }
 
@@ -331,8 +329,20 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 }
 
 /* ==================================
-   ★ 絵しりとり画面専用の最大化・余白最小化調整 ★
+   ★ 絵しりとり画面専用のレイアウト＆最大化調整 ★
 ================================== */
+#eishiri-game-screen {
+  justify-content: flex-start !important; /* 上から順に配置して情報が隠れないようにする */
+  gap: 4px !important;
+  padding: 6px 10px !important;
+  box-sizing: border-box;
+}
+
+#eishiri-game-screen .info-board,
+#eishiri-game-screen .button-group {
+  flex-shrink: 0;
+}
+
 #eishiri-game-screen .game-board-container {
   width: 100%;
   display: flex;
@@ -340,19 +350,20 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   align-items: center;
   flex: 1;
   min-height: 0;
+  margin: 2px 0;
 }
 
 #eishiri-board {
   width: 100%;
   height: auto;
-  /* ② 画面の縦横の制約に合わせて限界まで大きくする正方形 */
-  max-width: min(100vw - 16px, 100dvh - 180px);
+  /* 上部ステータスやボタン分の高さ（約220px）を考慮して自動縮小・拡大 */
+  max-width: min(100vw - 16px, 100dvh - 220px);
   max-height: 100%;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: 4px; /* パネル間の隙間を最低限に */
+  gap: 4px;
   margin: 0 auto;
 }
 
@@ -362,10 +373,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   height: 100% !important;
   max-width: none !important;
   min-height: unset !important;
-  padding: 0 !important; /* パネル内余白ゼロ化 */
+  padding: 0 !important;
   margin: 0 !important;
-  /* ② 絵文字の大きさを画面サイズに応じて限界まで拡大 */
-  font-size: clamp(32px, 12vw, 72px) !important;
+  font-size: clamp(30px, 11vw, 68px) !important;
   line-height: 1 !important;
   display: flex !important;
   align-items: center !important;
