@@ -1,4 +1,4 @@
-// js/eishiri.js - 絵しりとり（文字2重表示バグ修正・初回の「ん」防止＆設定定数化・長音符スキップ対応版）
+// js/eishiri.js - 絵しりとり（ドボン絵柄・読み方・💀強調演出対応版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -8,13 +8,16 @@ import { openRankingRegisterModal } from './ranking.js';
 export let EISHIRI_DICTIONARY = [];
 let isDictionaryLoaded = false;
 
-// ⚙️ 【要調整】持ち時間やゲームバランスの定数設定
+// ⚙️ 【要調整】持ち時間やゲームバランス・COM難易度の定数設定
 export const EISHIRI_CONFIG = {
   INITIAL_TIME: 50,       // 初期持ち時間（秒）
   CORRECT_BONUS: 10,      // 正解時の加算秒数
   MISTAKE_PENALTY: 3,     // ミス（不正解）時の減算秒数
   PASS_PENALTY: 5,        // パス時の減算秒数
-  BOARD_SIZE: 16          // 盤面のタイル枚数
+  BOARD_SIZE: 16,         // 盤面のタイル枚数
+  COM_ACCURACY_MIN: 0.50, // COM基本正答率（下限 50%）
+  COM_ACCURACY_MAX: 0.70, // COM基本正答率（上限 70%）
+  COM_THINK_BASE_RATE: 5  // COM思考時間・補正計算の基準レート（5秒）
 };
 
 const PLAYER_COLORS = [
@@ -153,11 +156,16 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
             else playerId = `com-${slot.slotId}`;
           }
           
+          const baseAcc = (slot.type === 'com') 
+            ? EISHIRI_CONFIG.COM_ACCURACY_MIN + Math.random() * (EISHIRI_CONFIG.COM_ACCURACY_MAX - EISHIRI_CONFIG.COM_ACCURACY_MIN)
+            : 1.0;
+
           eishiriState.players.push({
             id: playerId,
             slotId: slot.slotId,
             name: slot.name || `${slot.slotId + 1}P`,
             type: slot.type,
+            baseAccuracy: baseAcc,
             timeRemaining: EISHIRI_CONFIG.INITIAL_TIME,
             score: 0,
             isEliminated: false,
@@ -192,7 +200,6 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
 
   generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
 
-  // 初回文字が「ん」にならないように安全な文字を抽選する
   let validStartChars = [];
   eishiriState.boardTiles.forEach(tile => {
     tile.readings.forEach(r => {
@@ -207,6 +214,8 @@ export async function startEishiriGame(isHostFlag, mode = 'solo') {
   } else {
     eishiriState.currentLastChar = 'あ';
   }
+
+  checkAndResolveDeadlock(true);
 
   renderEishiriUI();
 
@@ -294,18 +303,16 @@ function eliminatePlayer(player, reason) {
   player.isEliminated = true;
   eishiriState.eliminatedOrder.push(player);
 
-  triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `💀 ${player.name} 脱落！ (${reason})`, bg: "#d32f2f" });
-
   const activePlayers = eishiriState.players.filter(p => !p.isEliminated);
 
   if (activePlayers.length <= 1) {
     setTimeout(() => {
       finishBattleGame(activePlayers[0]);
-    }, 1200);
+    }, 2400);
   } else {
     setTimeout(() => {
       nextTurn();
-    }, 1200);
+    }, 2400);
   }
 }
 
@@ -419,24 +426,73 @@ function spawnConfetti(container) {
   }
 }
 
+function checkAndResolveDeadlock(isInitial = false) {
+  let hasValidMove = false;
+  for (let tile of eishiriState.boardTiles) {
+    const res = checkTileConnection(tile, eishiriState.currentLastChar);
+    if (res.isValid) {
+      hasValidMove = true;
+      break;
+    }
+  }
+
+  if (!hasValidMove) {
+    generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
+    triggerBoardRotateAnimation();
+
+    let safetyCheck = false;
+    for (let tile of eishiriState.boardTiles) {
+      if (checkTileConnection(tile, eishiriState.currentLastChar).isValid) {
+        safetyCheck = true;
+        break;
+      }
+    }
+    if (!safetyCheck) {
+      generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
+    }
+
+    const noticeText = `⚠️ 回答がないためパネルを入れ替えました！`;
+    if (eishiriState.mode === 'multi' && isHostPlayer && !isInitial) {
+      syncStateToClients({
+        type: 'EISHIRI_NOTICE_POPUP',
+        text: noticeText,
+        bg: "#ef6c00"
+      });
+    }
+    showNoticePopup(noticeText, "#ef6c00", "#fff");
+  }
+}
+
 function checkAndRunComTurn() {
   if (!isHostPlayer || !eishiriState.isPlaying || eishiriState.isPaused) return;
 
   const currentPlayer = eishiriState.players[eishiriState.currentTurnIndex];
   if (currentPlayer && currentPlayer.type === 'com' && !currentPlayer.isEliminated) {
-    const thinkTime = Math.floor(Math.random() * 1300) + 1200;
+    let correctCount = 0;
+    eishiriState.boardTiles.forEach((tile) => {
+      const res = checkTileConnection(tile, eishiriState.currentLastChar);
+      if (res.isValid) correctCount++;
+    });
+
+    const totalCount = eishiriState.boardTiles.length || EISHIRI_CONFIG.BOARD_SIZE;
+    const rate = EISHIRI_CONFIG.COM_THINK_BASE_RATE;
+
+    const thinkSeconds = Math.max(0.8, rate - ((correctCount / totalCount) * rate));
+    const thinkTimeMs = Math.round(thinkSeconds * 1000);
 
     if (comThinkingTimeout) clearTimeout(comThinkingTimeout);
     comThinkingTimeout = setTimeout(() => {
       if (!eishiriState.isPlaying) return;
-      runComTurn();
-    }, thinkTime);
+      runComTurn(correctCount, totalCount);
+    }, thinkTimeMs);
   }
 }
 
-async function runComTurn() {
+async function runComTurn(correctCount, totalCount) {
   const currentPlayer = eishiriState.players[eishiriState.currentTurnIndex];
   if (!currentPlayer || currentPlayer.isEliminated) return;
+
+  checkAndResolveDeadlock();
 
   let validIndices = [];
   eishiriState.boardTiles.forEach((tile, index) => {
@@ -444,56 +500,121 @@ async function runComTurn() {
     if (res.isValid) validIndices.push({ index, res });
   });
 
+  const baseAcc = currentPlayer.baseAccuracy || EISHIRI_CONFIG.COM_ACCURACY_MIN;
+  const adjustedAccuracy = Math.min(1.0, baseAcc + ((correctCount / totalCount) * 0.50));
+
+  const willAnswerCorrectly = (validIndices.length > 0) && (Math.random() < adjustedAccuracy);
+
   const safeValidIndices = validIndices.filter(v => {
     if (v.res.isDobon) return Math.random() < 0.20;
     return true;
   });
 
-  const willMakeMistake = Math.random() > 0.70;
-
-  if (safeValidIndices.length > 0 && !willMakeMistake) {
+  if (willAnswerCorrectly && safeValidIndices.length > 0) {
     const chosen = safeValidIndices[Math.floor(Math.random() * safeValidIndices.length)];
+    const tile = eishiriState.boardTiles[chosen.index];
     
     if (chosen.res.isDobon) {
       playSound('gameover');
+      if (eishiriState.mode === 'multi' && isHostPlayer) {
+        syncStateToClients({
+          type: 'EISHIRI_ACTION_EFFECT',
+          playerName: currentPlayer.name,
+          emoji: tile.emoji,
+          reading: chosen.res.matchedReading,
+          deltaText: "ドボン！",
+          actionType: 'dobon'
+        });
+      }
+      showActionEffect(currentPlayer, tile.emoji, chosen.res.matchedReading, "ドボン！", "dobon");
       eliminatePlayer(currentPlayer, `「${chosen.res.matchedReading}」でドボン`);
     } else {
       eishiriState.isPaused = true;
       playSound('win');
       
-      triggerPopupAndSync({ type: 'EISHIRI_HIGHLIGHT', index: chosen.index });
-      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} 正解！ (+${EISHIRI_CONFIG.CORRECT_BONUS}秒)`, bg: "#0288d1" });
-
+      highlightTile(chosen.index);
       currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
       currentPlayer.score++;
       eishiriState.currentLastChar = chosen.res.nextChar;
       eishiriState.boardTiles[chosen.index] = getUniqueRandomTile();
       
-      // syncStateToClientsで同期しつつ、ローカルでは animateReadingBanner を1回だけ実行する
+      const deltaText = `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`;
       if (eishiriState.mode === 'multi' && isHostPlayer) {
-        syncStateToClients({ type: 'EISHIRI_READING', reading: chosen.res.matchedReading });
+        syncStateToClients({
+          type: 'EISHIRI_ACTION_EFFECT',
+          playerName: currentPlayer.name,
+          emoji: tile.emoji,
+          reading: chosen.res.matchedReading,
+          deltaText: deltaText,
+          actionType: 'correct'
+        });
       }
-      await animateReadingBanner(chosen.res.matchedReading);
+      
+      showActionEffect(currentPlayer, tile.emoji, chosen.res.matchedReading, deltaText, "correct");
+      await new Promise(r => setTimeout(r, 2200));
+
       nextTurn();
     }
   } else {
     if (validIndices.length === 0 || Math.random() < 0.5) {
+      eishiriState.isPaused = true;
       currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.PASS_PENALTY);
       triggerBoardRotateAnimation();
-      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} パス！ (-${EISHIRI_CONFIG.PASS_PENALTY}秒)`, bg: "#ff9800" });
+      
+      const deltaText = `-${EISHIRI_CONFIG.PASS_PENALTY}秒 🔄`;
+      if (eishiriState.mode === 'multi' && isHostPlayer) {
+        syncStateToClients({
+          type: 'EISHIRI_ACTION_EFFECT',
+          playerName: currentPlayer.name,
+          emoji: "🔄",
+          reading: null,
+          deltaText: deltaText,
+          actionType: 'pass'
+        });
+      }
+      showActionEffect(currentPlayer, "🔄", null, deltaText, "pass");
       generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
       
+      await new Promise(r => setTimeout(r, 1400));
+
       if (currentPlayer.timeRemaining <= 0) {
         eliminatePlayer(currentPlayer, "時間切れ");
         return;
       }
       nextTurn();
     } else {
+      eishiriState.isPaused = true;
       playSound('put');
+      
+      const wrongIndices = [];
+      eishiriState.boardTiles.forEach((tile, idx) => {
+        if (!checkTileConnection(tile, eishiriState.currentLastChar).isValid) {
+          wrongIndices.push(idx);
+        }
+      });
+      const chosenWrongEmoji = (wrongIndices.length > 0) 
+        ? eishiriState.boardTiles[wrongIndices[Math.floor(Math.random() * wrongIndices.length)]].emoji
+        : "💦";
+
       currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.MISTAKE_PENALTY);
-      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `🤖 ${currentPlayer.name} ミス！ (-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒)`, bg: "#d32f2f" });
+      
+      const deltaText = `-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`;
+      if (eishiriState.mode === 'multi' && isHostPlayer) {
+        syncStateToClients({
+          type: 'EISHIRI_ACTION_EFFECT',
+          playerName: currentPlayer.name,
+          emoji: chosenWrongEmoji,
+          reading: null,
+          deltaText: deltaText,
+          actionType: 'mistake'
+        });
+      }
+      showActionEffect(currentPlayer, chosenWrongEmoji, null, deltaText, "mistake");
+      
       syncStateToClients();
       renderEishiriUI();
+
+      await new Promise(r => setTimeout(r, 1400));
 
       if (currentPlayer.timeRemaining <= 0) {
         eliminatePlayer(currentPlayer, "時間切れ");
@@ -518,6 +639,9 @@ function nextTurn() {
   } while (eishiriState.players[eishiriState.currentTurnIndex].isEliminated);
 
   eishiriState.isPaused = false;
+
+  checkAndResolveDeadlock();
+
   syncStateToClients();
   renderEishiriUI();
   checkAndRunComTurn();
@@ -561,12 +685,25 @@ export function passEishiriTurn() {
 }
 
 function executePass(currentPlayer) {
+  eishiriState.isPaused = true;
   playSound('put');
   currentPlayer.timeRemaining -= EISHIRI_CONFIG.PASS_PENALTY;
   
   generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
   triggerBoardRotateAnimation();
-  triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `パス 🔄 (-${EISHIRI_CONFIG.PASS_PENALTY}秒)`, bg: "#ff9800" });
+  
+  const deltaText = `-${EISHIRI_CONFIG.PASS_PENALTY}秒 🔄`;
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients({
+      type: 'EISHIRI_ACTION_EFFECT',
+      playerName: currentPlayer.name,
+      emoji: "🔄",
+      reading: null,
+      deltaText: deltaText,
+      actionType: 'pass'
+    });
+  }
+  showActionEffect(currentPlayer, "🔄", null, deltaText, "pass");
 
   if (currentPlayer.timeRemaining <= 0) {
     currentPlayer.timeRemaining = 0;
@@ -579,9 +716,14 @@ function executePass(currentPlayer) {
   }
 
   if (eishiriState.mode === 'solo') {
-    renderEishiriUI();
+    setTimeout(() => {
+      renderEishiriUI();
+      eishiriState.isPaused = false;
+    }, 1400);
   } else {
-    nextTurn();
+    setTimeout(() => {
+      nextTurn();
+    }, 1400);
   }
 }
 
@@ -663,17 +805,27 @@ async function executeTileSelection(index, currentPlayer) {
   const matchedResult = checkTileConnection(tile, eishiriState.currentLastChar);
 
   if (!matchedResult.isValid) {
+    eishiriState.isPaused = true;
     playSound('put');
     currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.MISTAKE_PENALTY);
     
-    if (eishiriState.mode === 'multi') {
-      triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`, bg: "#d32f2f" });
+    const deltaText = `-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`;
+    if (eishiriState.mode === 'multi' && isHostPlayer) {
+      syncStateToClients({
+        type: 'EISHIRI_ACTION_EFFECT',
+        playerName: currentPlayer.name,
+        emoji: tile.emoji,
+        reading: null,
+        deltaText: deltaText,
+        actionType: 'mistake'
+      });
       syncStateToClients();
       renderEishiriUI();
-    } else {
-      updateTimerUI();
-      showBigPopup(`-${EISHIRI_CONFIG.MISTAKE_PENALTY}秒 💦`, "#d32f2f", "#fff");
     }
+    showActionEffect(currentPlayer, tile.emoji, null, deltaText, "mistake");
+    updateTimerUI();
+
+    await new Promise(r => setTimeout(r, 1400));
 
     if (currentPlayer.timeRemaining <= 0) {
       if (eishiriState.mode === 'solo') {
@@ -681,12 +833,29 @@ async function executeTileSelection(index, currentPlayer) {
       } else {
         eliminatePlayer(currentPlayer, "時間切れ");
       }
+      return;
     }
+
+    eishiriState.isPaused = false;
     return;
   }
 
+  // 💀 ドボン時（語尾が「ん」）の処理
   if (matchedResult.isDobon) {
+    eishiriState.isPaused = true;
     playSound('gameover');
+    if (eishiriState.mode === 'multi' && isHostPlayer) {
+      syncStateToClients({
+        type: 'EISHIRI_ACTION_EFFECT',
+        playerName: currentPlayer.name,
+        emoji: tile.emoji, // 選択した絵柄を送信
+        reading: matchedResult.matchedReading, // 読み方を送信
+        deltaText: "ドボン！",
+        actionType: 'dobon'
+      });
+    }
+    showActionEffect(currentPlayer, tile.emoji, matchedResult.matchedReading, "ドボン！", "dobon");
+
     if (eishiriState.mode === 'solo') {
       endSoloGame(`👤 「${matchedResult.matchedReading}」でドボン！ゲームオーバー…`);
     } else {
@@ -698,74 +867,149 @@ async function executeTileSelection(index, currentPlayer) {
   eishiriState.isPaused = true;
   playSound('win');
 
-  if (eishiriState.mode === 'multi') {
-    triggerPopupAndSync({ type: 'EISHIRI_HIGHLIGHT', index });
-    triggerPopupAndSync({ type: 'EISHIRI_POPUP', text: `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`, bg: "#4caf50" });
-  } else {
-    highlightTile(index);
-    showBigPopup(`+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`, "#4caf50", "#fff");
-  }
-
+  highlightTile(index);
   currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
   currentPlayer.score++;
   eishiriState.currentLastChar = matchedResult.nextChar;
   eishiriState.boardTiles[index] = getUniqueRandomTile();
 
+  const deltaText = `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`;
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients({
+      type: 'EISHIRI_ACTION_EFFECT',
+      playerName: currentPlayer.name,
+      emoji: tile.emoji,
+      reading: matchedResult.matchedReading,
+      deltaText: deltaText,
+      actionType: 'correct'
+    });
+  }
+
+  showActionEffect(currentPlayer, tile.emoji, matchedResult.matchedReading, deltaText, "correct");
+  await new Promise(r => setTimeout(r, 2200));
+
   if (eishiriState.mode === 'solo') {
-    await animateReadingBanner(matchedResult.matchedReading);
     renderEishiriUI();
     eishiriState.isPaused = false;
   } else {
-    if (isHostPlayer) {
-      syncStateToClients({ type: 'EISHIRI_READING', reading: matchedResult.matchedReading });
-    }
-    await animateReadingBanner(matchedResult.matchedReading);
     eishiriState.isPaused = false;
     nextTurn();
   }
 }
 
-function triggerPopupAndSync(extraCommand) {
-  if (eishiriState.mode === 'multi' && isHostPlayer) {
-    syncStateToClients(extraCommand);
-    renderEishiriUI();
+function showNoticePopup(text, bgColor = "#ef6c00", textColor = "#fff") {
+  let popup = document.getElementById('eishiri-notice-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'eishiri-notice-popup';
+    popup.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+    `;
+    const gameScreen = document.getElementById('eishiri-game-screen');
+    if (gameScreen) gameScreen.appendChild(popup);
+    else document.body.appendChild(popup);
   }
+
+  popup.style.background = bgColor;
+  popup.style.color = textColor;
+  popup.style.padding = '24px 40px';
+  popup.style.borderRadius = '20px';
+  popup.style.boxShadow = '0 15px 40px rgba(0,0,0,0.5)';
+  popup.style.textAlign = 'center';
+  popup.style.fontSize = '24px';
+  popup.style.fontWeight = '900';
+  popup.style.letterSpacing = '1px';
+  popup.style.border = '4px solid #fff';
+
+  popup.innerHTML = `<div>${text}</div>`;
   
-  if (extraCommand.type === 'EISHIRI_POPUP') {
-    showBigPopup(extraCommand.text, extraCommand.bg);
-  } else if (extraCommand.type === 'EISHIRI_HIGHLIGHT') {
-    highlightTile(extraCommand.index);
-  }
-  // ※ EISHIRI_READING は triggerPopupAndSync 内から除外し、呼び出し元の直接制御に一本化しました
+  popup.style.display = 'block';
+  void popup.offsetWidth;
+  popup.style.transform = 'translate(-50%, -50%) scale(1)';
+  popup.style.opacity = '1';
+
+  playSound('put');
+
+  setTimeout(() => {
+    popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    popup.style.opacity = '0';
+    setTimeout(() => {
+      popup.style.display = 'none';
+    }, 250);
+  }, 2000);
 }
 
-function animateReadingBanner(reading) {
-  return new Promise((resolve) => {
-    const banner = document.getElementById('eishiri-reading-banner');
-    if (!banner) {
-      setTimeout(resolve, 1200);
-      return;
+// 🌟 行動選択演出ポップアップ表示関数（正解・間違い・パス・ドボン全演出対応）
+function showActionEffect(player, emoji, reading, deltaText, actionType) {
+  const popup = document.getElementById('eishiri-big-popup');
+  if (!popup) return;
+
+  let bg = '#0288d1';
+  if (actionType === 'correct') bg = '#2e7d32'; // 緑
+  else if (actionType === 'mistake') bg = '#c62828'; // 赤
+  else if (actionType === 'dobon') bg = '#37474f'; // ドボン（ダークグレー）
+  else if (actionType === 'pass') bg = '#ef6c00'; // オレンジ
+
+  popup.style.background = bg;
+  popup.style.color = '#fff';
+  popup.style.padding = '22px 35px';
+  popup.style.borderRadius = '20px';
+  popup.style.boxShadow = '0 12px 35px rgba(0,0,0,0.4)';
+  popup.style.textAlign = 'center';
+  popup.style.minWidth = '300px';
+  popup.style.zIndex = '9998';
+
+  let playerName = (typeof player === 'string') ? player : (player ? player.name : '');
+
+  let html = `
+    <div style="font-size: 15px; opacity: 0.95; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px;">🎮 ${playerName} の選択</div>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin: 10px 0;">
+      <span style="font-size: 64px; line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));">${emoji}</span>
+      <span style="font-size: 24px; font-weight: 900; background: rgba(0,0,0,0.25); padding: 6px 14px; border-radius: 10px; letter-spacing: 1px;">${deltaText}</span>
+    </div>
+  `;
+
+  // 正解またはドボン時に読み方アニメーション枠を追加
+  if (reading && (actionType === 'correct' || actionType === 'dobon')) {
+    const textColor = (actionType === 'dobon') ? '#ff8a80' : '#fffde7';
+    html += `<div id="popup-reading-anim" style="font-size: 28px; font-weight: bold; margin-top: 10px; letter-spacing: 3px; min-height: 40px; color: ${textColor}; text-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`;
+  }
+
+  popup.innerHTML = html;
+  popup.classList.add('show');
+
+  // タイピングアニメーション（正解 ＆ ドボン）
+  if (reading && (actionType === 'correct' || actionType === 'dobon')) {
+    const readingEl = document.getElementById('popup-reading-anim');
+    if (readingEl) {
+      let charIdx = 0;
+      readingEl.innerText = (actionType === 'dobon') ? '💀 ' : '';
+      const typeInterval = setInterval(() => {
+        if (charIdx < reading.length) {
+          readingEl.innerText += reading.charAt(charIdx);
+          charIdx++;
+        } else {
+          if (actionType === 'dobon') {
+            readingEl.innerText += ' 💀'; // ドボン時は後ろにも💀を付与
+          }
+          clearInterval(typeInterval);
+        }
+      }, 160);
     }
+  }
 
-    banner.innerText = '';
-    banner.style.border = '2px dashed #f48fb1';
-    banner.style.background = '#fff0f5';
-    banner.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-
-    let charIndex = 0;
-    const interval = setInterval(() => {
-      if (charIndex < reading.length) {
-        banner.innerText += reading.charAt(charIndex);
-        charIndex++;
-      } else {
-        clearInterval(interval);
-        setTimeout(() => {
-          resetReadingBanner();
-          resolve();
-        }, 1000);
-      }
-    }, 320);
-  });
+  // ポップアップ表示時間設定
+  const displayTime = (reading && (actionType === 'correct' || actionType === 'dobon')) ? 2400 : 1300;
+  setTimeout(() => {
+    popup.classList.remove('show');
+  }, displayTime);
 }
 
 function resetReadingBanner() {
@@ -776,19 +1020,6 @@ function resetReadingBanner() {
     banner.style.background = 'transparent';
     banner.style.boxShadow = 'none';
   }
-}
-
-function showBigPopup(text, bgColor, textColor = "#fff") {
-  const popup = document.getElementById('eishiri-big-popup');
-  if (!popup) return;
-  popup.innerText = text;
-  popup.style.background = bgColor;
-  popup.style.color = textColor;
-  popup.classList.add('show');
-
-  setTimeout(() => {
-    popup.classList.remove('show');
-  }, 900);
 }
 
 function updateTimerUI() {
@@ -915,12 +1146,10 @@ export function processEishiriData(data) {
 
     if (payload.extraCommand) {
       const cmd = payload.extraCommand;
-      if (cmd.type === 'EISHIRI_POPUP') {
-        showBigPopup(cmd.text, cmd.bg);
-      } else if (cmd.type === 'EISHIRI_HIGHLIGHT') {
-        highlightTile(cmd.index);
-      } else if (cmd.type === 'EISHIRI_READING') {
-        animateReadingBanner(cmd.reading);
+      if (cmd.type === 'EISHIRI_ACTION_EFFECT') {
+        showActionEffect(cmd.playerName, cmd.emoji, cmd.reading, cmd.deltaText, cmd.actionType);
+      } else if (cmd.type === 'EISHIRI_NOTICE_POPUP') {
+        showNoticePopup(cmd.text, cmd.bg);
       } else if (cmd.type === 'EISHIRI_ROTATE_BOARD') {
         playBoardRotateAnimLocally();
       } else if (cmd.type === 'EISHIRI_FINISH') {
