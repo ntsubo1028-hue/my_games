@@ -1,4 +1,4 @@
-// js/eishiri.js - 絵しりとり（ランキングインポート修正版）
+// js/eishiri.js - 絵しりとり（正解時誤答色リセット・CSSクラス制御完全対応版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -293,7 +293,6 @@ async function endSoloGame(message) {
   const rematchBtn = document.getElementById('btn-rematch-eishiri');
   if (rematchBtn) rematchBtn.style.display = 'inline-block';
 
-  // 🏆 従来のランキング登録モーダルを呼び出す
   if (typeof openRankingRegisterModal === 'function') {
     openRankingRegisterModal('eishiri', eishiriState.survivalTime);
   }
@@ -303,6 +302,21 @@ function eliminatePlayer(player, reason) {
   if (player.isEliminated) return;
   player.isEliminated = true;
   eishiriState.eliminatedOrder.push(player);
+
+  playSound('gameover');
+
+  const deltaText = `${reason}！脱落…`;
+  if (eishiriState.mode === 'multi' && isHostPlayer) {
+    syncStateToClients({
+      type: 'EISHIRI_ACTION_EFFECT',
+      playerName: player.name,
+      emoji: "💀",
+      reading: null,
+      deltaText: deltaText,
+      actionType: 'dobon'
+    });
+  }
+  showActionEffect(player, "💀", null, deltaText, "dobon");
 
   const activePlayers = eishiriState.players.filter(p => !p.isEliminated);
 
@@ -428,22 +442,23 @@ function spawnConfetti(container) {
 }
 
 function checkAndResolveDeadlock(isInitial = false) {
-  let hasValidMove = false;
+  let hasSafeMove = false;
   for (let tile of eishiriState.boardTiles) {
     const res = checkTileConnection(tile, eishiriState.currentLastChar);
-    if (res.isValid) {
-      hasValidMove = true;
+    if (res.isValid && !res.isDobon) {
+      hasSafeMove = true;
       break;
     }
   }
 
-  if (!hasValidMove) {
+  if (!hasSafeMove) {
     generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
     triggerBoardRotateAnimation();
 
     let safetyCheck = false;
     for (let tile of eishiriState.boardTiles) {
-      if (checkTileConnection(tile, eishiriState.currentLastChar).isValid) {
+      const res = checkTileConnection(tile, eishiriState.currentLastChar);
+      if (res.isValid && !res.isDobon) {
         safetyCheck = true;
         break;
       }
@@ -452,7 +467,7 @@ function checkAndResolveDeadlock(isInitial = false) {
       generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
     }
 
-    const noticeText = `⚠️ 回答がないためパネルを入れ替えました！`;
+    const noticeText = `⚠️ 安全な絵がないためパネルを入れ替えました！`;
     if (eishiriState.mode === 'multi' && isHostPlayer && !isInitial) {
       syncStateToClients({
         type: 'EISHIRI_NOTICE_POPUP',
@@ -537,8 +552,12 @@ async function runComTurn(correctCount, totalCount) {
       currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
       currentPlayer.score++;
       eishiriState.currentLastChar = chosen.res.nextChar;
-      eishiriState.boardTiles[chosen.index] = getUniqueRandomTile();
       
+      // ✨ 正解のため全タイルの誤答フラグを解除し、正解位置に新パネルをセットしてUI再描画
+      resetAllMistakenTiles();
+      eishiriState.boardTiles[chosen.index] = getUniqueRandomTile();
+      renderEishiriUI();
+
       const deltaText = `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`;
       if (eishiriState.mode === 'multi' && isHostPlayer) {
         syncStateToClients({
@@ -575,6 +594,7 @@ async function runComTurn(correctCount, totalCount) {
       }
       showActionEffect(currentPlayer, "🔄", null, deltaText, "pass");
       generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
+      renderEishiriUI();
       
       await new Promise(r => setTimeout(r, 1400));
 
@@ -593,9 +613,13 @@ async function runComTurn(correctCount, totalCount) {
           wrongIndices.push(idx);
         }
       });
-      const chosenWrongEmoji = (wrongIndices.length > 0) 
-        ? eishiriState.boardTiles[wrongIndices[Math.floor(Math.random() * wrongIndices.length)]].emoji
-        : "💦";
+      
+      let chosenWrongIndex = -1;
+      let chosenWrongEmoji = "💦";
+      if (wrongIndices.length > 0) {
+        chosenWrongIndex = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
+        chosenWrongEmoji = eishiriState.boardTiles[chosenWrongIndex].emoji;
+      }
 
       currentPlayer.timeRemaining = Math.max(0, currentPlayer.timeRemaining - EISHIRI_CONFIG.MISTAKE_PENALTY);
       
@@ -607,13 +631,15 @@ async function runComTurn(correctCount, totalCount) {
           emoji: chosenWrongEmoji,
           reading: null,
           deltaText: deltaText,
-          actionType: 'mistake'
+          actionType: 'mistake',
+          tileIndex: chosenWrongIndex
         });
+        syncStateToClients();
       }
       showActionEffect(currentPlayer, chosenWrongEmoji, null, deltaText, "mistake");
-      
-      syncStateToClients();
-      renderEishiriUI();
+      if (chosenWrongIndex !== -1) {
+        markMistakeTile(chosenWrongIndex);
+      }
 
       await new Promise(r => setTimeout(r, 1400));
 
@@ -655,7 +681,7 @@ function generateBoardTiles(count) {
     if (available.length === 0) available.push(...EISHIRI_DICTIONARY);
     const randomIndex = Math.floor(Math.random() * available.length);
     const chosen = available.splice(randomIndex, 1)[0];
-    eishiriState.boardTiles.push({ ...chosen });
+    eishiriState.boardTiles.push({ ...chosen, isMistaken: false });
   }
 }
 
@@ -664,7 +690,14 @@ function getUniqueRandomTile() {
   const candidates = EISHIRI_DICTIONARY.filter(d => !currentEmojis.includes(d.emoji));
   const pool = candidates.length > 0 ? candidates : EISHIRI_DICTIONARY;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
-  return { ...chosen };
+  return { ...chosen, isMistaken: false };
+}
+
+// 🧹 全タイルの誤答フラグをリセットする処理
+function resetAllMistakenTiles() {
+  eishiriState.boardTiles.forEach(tile => {
+    tile.isMistaken = false;
+  });
 }
 
 export function passEishiriTurn() {
@@ -692,6 +725,7 @@ function executePass(currentPlayer) {
   
   generateBoardTiles(EISHIRI_CONFIG.BOARD_SIZE);
   triggerBoardRotateAnimation();
+  renderEishiriUI();
   
   const deltaText = `-${EISHIRI_CONFIG.PASS_PENALTY}秒 🔄`;
   if (eishiriState.mode === 'multi' && isHostPlayer) {
@@ -781,6 +815,14 @@ function highlightTile(index) {
   }
 }
 
+// ❌ 間違えたパネルの誤答フラグ設定と描画更新
+function markMistakeTile(index) {
+  if (eishiriState.boardTiles[index]) {
+    eishiriState.boardTiles[index].isMistaken = true;
+  }
+  renderEishiriUI();
+}
+
 export async function selectEishiriTile(index) {
   if (!eishiriState.isPlaying || eishiriState.isPaused) return;
   if (!isMyTurn()) return;
@@ -818,12 +860,13 @@ async function executeTileSelection(index, currentPlayer) {
         emoji: tile.emoji,
         reading: null,
         deltaText: deltaText,
-        actionType: 'mistake'
+        actionType: 'mistake',
+        tileIndex: index
       });
       syncStateToClients();
-      renderEishiriUI();
     }
     showActionEffect(currentPlayer, tile.emoji, null, deltaText, "mistake");
+    markMistakeTile(index);
     updateTimerUI();
 
     await new Promise(r => setTimeout(r, 1400));
@@ -871,7 +914,11 @@ async function executeTileSelection(index, currentPlayer) {
   currentPlayer.timeRemaining += EISHIRI_CONFIG.CORRECT_BONUS;
   currentPlayer.score++;
   eishiriState.currentLastChar = matchedResult.nextChar;
+
+  // ✨ 正解のため全タイルの誤答フラグをクリアし、正解位置に新パネルをセットして描画を更新
+  resetAllMistakenTiles();
   eishiriState.boardTiles[index] = getUniqueRandomTile();
+  renderEishiriUI();
 
   const deltaText = `+${EISHIRI_CONFIG.CORRECT_BONUS}秒 ✨`;
   if (eishiriState.mode === 'multi' && isHostPlayer) {
@@ -889,7 +936,6 @@ async function executeTileSelection(index, currentPlayer) {
   await new Promise(r => setTimeout(r, 2200));
 
   if (eishiriState.mode === 'solo') {
-    renderEishiriUI();
     eishiriState.isPaused = false;
   } else {
     eishiriState.isPaused = false;
@@ -967,6 +1013,26 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
 
   let playerName = (typeof player === 'string') ? player : (player ? player.name : '');
 
+  let otherReadingsHtml = '';
+  if (emoji && emoji !== '🔄' && emoji !== '💀') {
+    const dictItem = EISHIRI_DICTIONARY.find(d => d.emoji === emoji);
+    if (dictItem && dictItem.readings && dictItem.readings.length > 0) {
+      let others = dictItem.readings;
+      if (reading) {
+        others = others.filter(r => r !== reading);
+      }
+      if (others.length > 0) {
+        const listItemsHtml = others.map(r => `<div style="line-height: 1.4;">・${r}</div>`).join('');
+        otherReadingsHtml = `
+          <div style="font-size: 13px; opacity: 0.9; margin-top: 10px; color: #ffecb3; font-weight: normal; letter-spacing: 0.5px; text-align: left; display: inline-block;">
+            <div style="font-weight: bold; margin-bottom: 2px;">【他の読み方】</div>
+            ${listItemsHtml}
+          </div>
+        `;
+      }
+    }
+  }
+
   let html = `
     <div style="font-size: 15px; opacity: 0.95; margin-bottom: 6px; font-weight: bold; letter-spacing: 1px;">🎮 ${playerName} の選択</div>
     <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin: 10px 0;">
@@ -979,6 +1045,8 @@ function showActionEffect(player, emoji, reading, deltaText, actionType) {
     const textColor = (actionType === 'dobon') ? '#ff8a80' : '#fffde7';
     html += `<div id="popup-reading-anim" style="font-size: 28px; font-weight: bold; margin-top: 10px; letter-spacing: 3px; min-height: 40px; color: ${textColor}; text-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`;
   }
+
+  html += otherReadingsHtml;
 
   popup.innerHTML = html;
   popup.classList.add('show');
@@ -1028,28 +1096,35 @@ function updateTimerUI() {
     const card = document.createElement('div');
     
     const borderColor = p.isEliminated ? '#9e9e9e' : (isCurrent ? '#d81b60' : p.color.border);
-    const borderWidth = isCurrent ? '3px' : '1px';
-    const transformScale = isCurrent ? 'scale(1.05)' : 'scale(1)';
+    const borderWidth = isCurrent ? '2px' : '1px';
+    const transformScale = isCurrent ? 'scale(1.02)' : 'scale(1)';
     const opacityStyle = p.isEliminated ? '0.4' : '1';
 
     card.style.cssText = `
       background: ${p.isEliminated ? '#e0e0e0' : p.color.bg};
       border: ${borderWidth} solid ${borderColor};
       color: ${p.isEliminated ? '#757575' : p.color.text};
-      padding: 6px 12px;
+      padding: 6px 4px;
       border-radius: 8px;
-      font-size: 14px;
       font-weight: bold;
       transition: all 0.2s ease;
       transform: ${transformScale};
       opacity: ${opacityStyle};
-      min-width: 90px;
       text-align: center;
+      flex: 1 1 0%;
+      min-width: 0;
+      box-sizing: border-box;
+      box-shadow: ${isCurrent ? '0 2px 6px rgba(216, 27, 96, 0.3)' : 'none'};
     `;
 
+    const timeText = p.isEliminated ? '💀脱落' : `⏱️${p.timeRemaining}s`;
     card.innerHTML = `
-      <div>${p.name} ${isCurrent ? '👈' : ''} ${p.isEliminated ? '💀' : ''}</div>
-      <div style="font-size: 16px; margin-top: 2px;">${p.isEliminated ? '脱落' : `⏱️ ${p.timeRemaining}秒`}</div>
+      <div style="font-size: clamp(13px, 3.6vw, 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2;">
+        ${p.name}${isCurrent ? '👉' : ''}
+      </div>
+      <div style="font-size: clamp(12px, 3.2vw, 15px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; margin-top: 3px;">
+        ${timeText}
+      </div>
     `;
     container.appendChild(card);
   });
@@ -1085,6 +1160,14 @@ function renderEishiriUI() {
     const btn = document.createElement('button');
     btn.className = 'btn-action';
     btn.innerText = tile.emoji;
+    
+    // ✨ isMistaken フラグに応じて is-mistaken クラスを付け外し
+    if (tile.isMistaken) {
+      btn.classList.add('is-mistaken');
+    } else {
+      btn.classList.remove('is-mistaken');
+    }
+
     btn.onclick = () => selectEishiriTile(index);
     boardContainer.appendChild(btn);
   });
@@ -1143,6 +1226,9 @@ export function processEishiriData(data) {
       const cmd = payload.extraCommand;
       if (cmd.type === 'EISHIRI_ACTION_EFFECT') {
         showActionEffect(cmd.playerName, cmd.emoji, cmd.reading, cmd.deltaText, cmd.actionType);
+        if (cmd.actionType === 'mistake' && typeof cmd.tileIndex === 'number' && cmd.tileIndex >= 0) {
+          markMistakeTile(cmd.tileIndex);
+        }
       } else if (cmd.type === 'EISHIRI_NOTICE_POPUP') {
         showNoticePopup(cmd.text, cmd.bg);
       } else if (cmd.type === 'EISHIRI_ROTATE_BOARD') {

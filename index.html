@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.2.6';
+    const VERSION = '2.2.7';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -564,8 +564,8 @@
       <button type="button" onclick="openHelp('help-eishiri.html')" class="btn-action secondary-btn" style="padding: 6px 16px; font-size: 14px; width: auto; display: inline-block;">❓ 遊び方ヘルプ</button>
     </div>
 
-    <!-- 参加プレイヤー一覧エリア -->
-    <div id="eishiri-players-container" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap;"></div>
+    <!-- 参加プレイヤー一覧エリア（※ここを横幅いっぱいに均等配置するよう修正） -->
+    <div id="eishiri-players-container" style="display: flex; gap: 6px; justify-content: space-between; width: 100%; max-width: 450px; margin: 0 auto 8px auto; box-sizing: border-box;"></div>
 
     <div id="eishiri-status-board" class="info-board" style="background: #fce4ec; color: #880e4f; margin-bottom: 8px; text-align: center;">
       <span id="eishiri-current-char-display">次の文字: <b>あ</b></span>

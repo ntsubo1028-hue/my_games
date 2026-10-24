@@ -332,9 +332,9 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
    ★ 絵しりとり画面専用のレイアウト＆最大化調整 ★
 ================================== */
 #eishiri-game-screen {
-  justify-content: flex-start !important; /* 上から順に配置して情報が隠れないようにする */
-  gap: 4px !important;
-  padding: 6px 10px !important;
+  justify-content: flex-start !important; 
+  gap: 2px !important;
+  padding: 4px 8px !important;
   box-sizing: border-box;
 }
 
@@ -356,8 +356,8 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
 #eishiri-board {
   width: 100%;
   height: auto;
-  /* 上部ステータスやボタン分の高さ（約220px）を考慮して自動縮小・拡大 */
-  max-width: min(100vw - 16px, 100dvh - 220px);
+  /* 下部のパスボタン等に干渉しないよう、高めの余裕を確保 (100dvh - 280px) */
+  max-width: min(100vw - 16px, 100dvh - 280px);
   max-height: 100%;
   aspect-ratio: 1 / 1;
   display: grid;
@@ -375,7 +375,7 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   min-height: unset !important;
   padding: 0 !important;
   margin: 0 !important;
-  font-size: clamp(30px, 11vw, 68px) !important;
+  font-size: clamp(28px, 10vw, 64px) !important;
   line-height: 1 !important;
   display: flex !important;
   align-items: center !important;
@@ -392,6 +392,22 @@ button:active, .btn-action:active { transform: translateY(2px); box-shadow: 0 1p
   background-color: #eceff1 !important;
 }
 
+#eishiri-players-container {
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto 8px auto;
+  box-sizing: border-box;
+}
+
+/* 間違えたパネル用のスタイル（CSS側で上書きを許可） */
+#eishiri-board .btn-action.is-mistaken {
+  background-color: #ffcdd2 !important;
+  border-color: #e53935 !important;
+  opacity: 0.85 !important;
+}
 /* ==================================
    ゲーム盤面 (テトリス)
 ================================== */
