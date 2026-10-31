@@ -6,7 +6,7 @@
 
   <!-- ★ バージョン管理 ★ -->
   <script>
-    const VERSION = '2.2.7';
+    const VERSION = '2.3.0';
     window.APP_VERSION = VERSION;
     // CSSの動的挿入
     const cssLink = document.createElement('link');
@@ -74,7 +74,12 @@
           <span class="tile-icon">🎨</span>
           <span class="tile-name">絵しりとり<br><small>(一人用サバイバル)</small></span>
         </button>
+        <button id="btn-play-solo-secret" class="btn-tile" style="background-color: #3f51b5;">
+          <span class="tile-icon">🔢</span>
+          <span class="tile-name">シークレットナンバー<br><small>(一人用)</small></span>
+        </button>
       </div>
+      
       <!-- ★ 全ゲームのランキング閲覧メニューを追加 ★ -->
       <div style="margin-top: 10px;">
         <button id="btn-open-ranking-modal" class="btn-action" style="background-color: #ff9800; font-weight: bold;">🏆 オンラインランキングを見る</button>
@@ -120,6 +125,11 @@
       <button id="btn-select-eishiri" class="btn-tile" style="background-color: #e91e63;">
         <span class="tile-icon">🎨</span>
         <span class="tile-name">絵しりとり<br><small>(2〜4人)</small></span>
+      </button>
+      <!-- ① 対戦ゲーム選択画面への登録ボタン追加 -->
+      <button id="btn-select-secret" class="btn-tile" style="background-color: #3f51b5;">
+        <span class="tile-icon">🔢</span>
+        <span class="tile-name">シークレットナンバー<br><small>(2〜4人)</small></span>
       </button>
     </div>
     <div class="button-group-col" style="margin-top: auto; padding-bottom: 5px;">
@@ -554,17 +564,15 @@
   </div>
 
   <!-- ==================================
-       ゲーム本体画面 (絵しりとり) ★ 追加
+       ゲーム本体画面 (絵しりとり)
   ================================== -->
   <div id="eishiri-game-screen" class="screen">
     <h2>🎨 絵しりとり</h2>
     
-    <!-- 遊び方ヘルプボタン (他のゲームと同様に openHelp 関数で別ファイルを呼び出す) -->
     <div style="text-align: center; margin-bottom: 8px;">
       <button type="button" onclick="openHelp('help-eishiri.html')" class="btn-action secondary-btn" style="padding: 6px 16px; font-size: 14px; width: auto; display: inline-block;">❓ 遊び方ヘルプ</button>
     </div>
 
-    <!-- 参加プレイヤー一覧エリア（※ここを横幅いっぱいに均等配置するよう修正） -->
     <div id="eishiri-players-container" style="display: flex; gap: 6px; justify-content: space-between; width: 100%; max-width: 450px; margin: 0 auto 8px auto; box-sizing: border-box;"></div>
 
     <div id="eishiri-status-board" class="info-board" style="background: #fce4ec; color: #880e4f; margin-bottom: 8px; text-align: center;">
@@ -579,7 +587,6 @@
       <div id="eishiri-board" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 360px;"></div>
     </div>
 
-    <!-- 読み方表示用バナー -->
     <div id="eishiri-reading-banner" style="text-align: center; height: 45px; line-height: 45px; margin: 10px 0; font-size: 26px; font-weight: bold; color: #ad1457; border-radius: 8px;"></div>
 
     <div class="button-group-col" style="margin-top: 5px;">
@@ -595,12 +602,10 @@
   ================================== -->
   <div id="help-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
-      <!-- 📌 スクロールに関わらず常に右肩に固定されるヘッダー＆閉じるボタン -->
       <div class="modal-header">
         <span class="modal-title">📖 遊び方・接続ヘルプ</span>
         <button type="button" class="modal-close-btn" onclick="closeHelp()">✕ 閉じる</button>
       </div>
-      <!-- 📜 本文エリア（ここだけが独立してスクロールするため、上部が見切れません） -->
       <div id="help-body">読み込み中...</div>
     </div>
   </div>

@@ -27,6 +27,7 @@ import { createOrUpdateDynamicGasRoom, joinDynamicGasRoom } from './gas_connecti
 import { initRankingSystem, openRankingRegisterModal, openRankingViewModal } from './ranking.js';
 import { initMemoryGame, handleStartButton, handleMemorizedButton, startMemoryGame } from './memory_game.js';
 import { initEishiriSystem, startEishiriGame, stopEishiriGame, processEishiriData, requestRematchEishiri, passEishiriTurn, getEishiriMode, openEishiriHelp, closeEishiriHelp } from './eishiri.js';
+import { initSecretNumberSystem, startSecretNumberGame, getSecretNumberMode, processSecretData } from './secret_number.js';
 
 // ==========================================
 // 2. 変数・定数定義部
@@ -65,7 +66,6 @@ function setClick(id, handler) {
   if (el) el.onclick = handler;
 }
 
-// 画面中央に大きくアニメーション付きで通知を表示する関数[cite: 13]
 function showGameStartPopup(message, onComplete) {
   let overlay = document.getElementById('common-notice-overlay');
   if (!overlay) {
@@ -160,7 +160,6 @@ function initStampSystem() {
           `).join('')}
         </div>
         
-        <!-- 簡易チャット入力欄 -->
         <div style="margin: 15px 0 10px 0; display: flex; gap: 6px;">
           <input type="text" id="input-chat-text" placeholder="短文を入力して送信..." maxlength="30" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box;">
           <button id="btn-send-chat" class="btn-action" style="background-color: #ff9800; width: auto; padding: 8px 14px; margin: 0; min-height: unset;">送信</button>
@@ -217,7 +216,6 @@ function initStampSystem() {
     };
   }
 
-  // チャット送信処理
   if (btnSendChat && inputChatText) {
     const executeSendChat = () => {
       const text = inputChatText.value.trim();
@@ -258,7 +256,6 @@ function initStampSystem() {
   });
 }
 
-// 送信者の connId からスロットID（0〜3）を特定するヘルパー
 function getSlotIdForSender(senderConnId) {
   if (currentGameState && currentGameState.slots) {
     if (senderConnId) {
@@ -273,19 +270,13 @@ function getSlotIdForSender(senderConnId) {
   return isHost ? 0 : 1;
 }
 
-// 四隅のスタイルを割り当てるヘルパー
 function getCornerStyle(slotId) {
   switch (slotId) {
-    case 0: // ホスト: 左上
-      return 'top: 20px; left: 20px;';
-    case 1: // ゲスト1: 右上
-      return 'top: 20px; right: 20px;';
-    case 2: // ゲスト2: 左下
-      return 'bottom: 20px; left: 20px;';
-    case 3: // ゲスト3: 右下
-      return 'bottom: 20px; right: 20px;';
-    default:
-      return 'top: 20px; left: 20px;';
+    case 0: return 'top: 20px; left: 20px;';
+    case 1: return 'top: 20px; right: 20px;';
+    case 2: return 'bottom: 20px; left: 20px;';
+    case 3: return 'bottom: 20px; right: 20px;';
+    default: return 'top: 20px; left: 20px;';
   }
 }
 
@@ -296,7 +287,6 @@ function showStampPopup(isMe, stampId, senderName, senderConnId) {
   const displayName = senderName || (isMe ? getMyName() : '対戦相手');
   const slotId = getSlotIdForSender(senderConnId);
 
-  // 同じ位置に既存のポップアップがあれば削除する（重なり防止）
   const popupId = `player-popup-${slotId}`;
   const existing = document.getElementById(popupId);
   if (existing) existing.remove();
@@ -324,7 +314,6 @@ function showChatPopup(isMe, text, senderName, senderConnId) {
   const displayName = senderName || (isMe ? getMyName() : '対戦相手');
   const slotId = getSlotIdForSender(senderConnId);
 
-  // 同じ位置に既存のポップアップがあれば削除する（重なり防止）
   const popupId = `player-popup-${slotId}`;
   const existing = document.getElementById(popupId);
   if (existing) existing.remove();
@@ -376,7 +365,8 @@ function showGameScreenForHost(game) {
   else if (game === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(true, sendData); startAirHockey(); }
   else if (game === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(true); syncShogiStateToGuest(); }
   else if (game === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(true); }
-  else if (game === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(true, sendData); startEishiriGame(true, 'multi'); } // ★ ここを追加
+  else if (game === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(true, sendData); startEishiriGame(true, 'multi'); }
+  else if (game === 'secret') { showScreen('secret-game-screen'); initSecretNumberSystem(true, sendData); startSecretNumberGame(true, 'multi'); } // ★ ホスト側分岐追加
 }
 
 function startGuestScanFlow() {
@@ -484,7 +474,6 @@ function startGuestScanFlow() {
     }, 2000);
   });
 
-  // ゲストが「接続コードを入力して参加する」を選んだとき
   setClick('btn-guest-input-gas', () => {
     isHost = false;
     setElementDisplay('step-guest-choose-input', 'none');
@@ -499,7 +488,6 @@ function startGuestScanFlow() {
     setStatusText("ホストの情報をどうやって入力するか選んでください");
   });
 
-  // 「この番号で部屋に入る」ボタンが押されたとき
   setClick('btn-submit-gas-room', async () => {
     isHost = false; 
     const inputEl = document.getElementById('input-gas-room-number');
@@ -590,7 +578,6 @@ const handleQuitGame = () => {
 // 4. 実行時初期化・イベント登録部
 // ==========================================
 function initApp() {
-  // --- 名前変更フォームのイベント設定 ---
   const btnChangeName = document.getElementById('btn-change-name');
   const inputPlayerName = document.getElementById('input-player-name');
 
@@ -611,14 +598,12 @@ function initApp() {
     });
   }
 
-  // --- スタンプシステムの初期化呼び出し ---
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initStampSystem);
   } else {
     initStampSystem();
   }
 
-  // --- メニュー・ロビー・各種ボタンのイベント登録 ---
   setClick('btn-lobby-add-guest', () => {
     const targetSlots = [];
     let nextGuestId = 'guest-1';
@@ -653,7 +638,6 @@ function initApp() {
     setElementDisplay('step-host-choose-output', 'block'); 
   });
 
-  // --- ① ホスト側：4桁の接続コードで自動接続（GAS） ---
   setClick('btn-host-output-gas', async () => {
     isHost = true; 
     const targetSlots = [];
@@ -681,7 +665,7 @@ function initApp() {
         (connectedId) => {
           isHost = true; 
           isConnected = true;
-          setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
+          setStampButtonVisible(true);
           alert(`${connectedId} と接続しました！`);
           showScreen('lobby-screen');
           addGuestConnection(connectedId, `ゲスト`);
@@ -698,7 +682,6 @@ function initApp() {
     }
   });
 
-  // --- ② ホスト側：従来のQRコードを表示する（P2P手動） ---
   setClick('btn-host-output-qr', async () => {
     isHost = true;
     setElementDisplay('step-host-choose-output', 'none');
@@ -707,7 +690,7 @@ function initApp() {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
         isHost = true;
         isConnected = true; 
-        setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
+        setStampButtonVisible(true);
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
         addGuestConnection(connectedId, `ゲスト`);
@@ -724,7 +707,6 @@ function initApp() {
     }
   });
 
-  // --- ③ ホスト側：従来のテキストをコピーする（P2P手動） ---
   setClick('btn-host-output-text', async () => {
     isHost = true;
     setElementDisplay('step-host-choose-output', 'none');
@@ -733,7 +715,7 @@ function initApp() {
       const localDesc = await setupHostConnection(pendingGuestId, (connectedId) => {
         isHost = true;
         isConnected = true; 
-        setStampButtonVisible(true); // ★ 追加：ロビーでもボタンを表示
+        setStampButtonVisible(true);
         alert(`ゲストと接続しました！`);
         showScreen('lobby-screen');
         addGuestConnection(connectedId, `ゲスト`);
@@ -868,7 +850,6 @@ function initApp() {
     initMemoryGame(); 
   });
 
-  // レベル選択ボタン（setClickを使って確実に登録）
   setClick('btn-mem-level-1', () => startMemoryGame(1));
   setClick('btn-mem-level-2', () => startMemoryGame(2));
   setClick('btn-mem-level-3', () => startMemoryGame(3));
@@ -878,7 +859,6 @@ function initApp() {
   setClick('btn-memory-start', handleStartButton);
   setClick('btn-memory-memorized', handleMemorizedButton);
   setClick('btn-memory-retry', () => {
-    // 現在のレベルを維持してリトライする場合、memory_game.js側に関数を生やすか、またはレベル選択に戻すなど
     initMemoryGame();
   });
 
@@ -889,19 +869,18 @@ function initApp() {
   });
 
   // --- 絵しりとり関連のボタン登録 ---
-  setClick('btn-select-eishiri', () => { selectGameFlow('eishiri'); }); // ホスト選択画面の絵しりとりタイル
+  setClick('btn-select-eishiri', () => { selectGameFlow('eishiri'); });
   
   setClick('btn-play-solo-eishiri', () => { 
     setStampButtonVisible(false); 
     initEishiriSystem(true, sendData);
     startEishiriGame(true, 'solo'); 
-  }); // 一人用サバイバルボタン
+  });
 
   setClick('btn-pass-eishiri', () => {
     passEishiriTurn();
-  }); // ゲーム中のパスボタン
+  });
 
-  // --- 絵しりとり：リマッチ・終了ボタンの登録 ---
   setClick('btn-rematch-eishiri', () => {
     requestRematchEishiri();
   });
@@ -923,7 +902,6 @@ function initApp() {
     }
   });
 
-  // --- 絵しりとりヘルプボタンの登録 ---
   setClick('btn-help-eishiri', () => {
     openEishiriHelp();
   });
@@ -931,6 +909,16 @@ function initApp() {
   setClick('btn-close-eishiri-help', () => {
     closeEishiriHelp();
   });
+
+  // --- シークレットナンバー関連のボタン登録 ---
+  setClick('btn-play-solo-secret', () => { 
+    setStampButtonVisible(false); 
+    initSecretNumberSystem(true, sendData);
+    startSecretNumberGame(true, 'solo'); 
+  });
+
+  // ① 対戦ゲーム選択画面用ボタン追加
+  setClick('btn-select-secret', () => { selectGameFlow('secret'); });
 
   setClick('btn-select-reversi', () => { selectGameFlow('reversi'); });
   setClick('btn-select-dots', () => { selectGameFlow('dots'); });
@@ -1124,7 +1112,8 @@ function initApp() {
         else if (selectedGame === 'airhockey') { showScreen('airhockey-game-screen'); initAirHockeySystem(false, sendData); startAirHockey(); }
         else if (selectedGame === 'shogi') { showScreen('shogi-game-screen'); initShogiGame(false); }
         else if (selectedGame === 'mawari') { showScreen('mawari-game-screen'); initMawariShogi(false); }
-        else if (selectedGame === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(false, sendData); startEishiriGame(false, 'multi'); } // ★ ここを追加
+        else if (selectedGame === 'eishiri') { showScreen('eishiri-game-screen'); initEishiriSystem(false, sendData); startEishiriGame(false, 'multi'); }
+        else if (selectedGame === 'secret') { showScreen('secret-game-screen'); initSecretNumberSystem(false, sendData); startSecretNumberGame(false, 'multi'); } // ★ ゲスト側ゲーム開始追加
       });
       return;
     }
@@ -1173,10 +1162,11 @@ function initApp() {
       }
     } else if (selectedGame === 'eishiri') {
       processEishiriData(data);
+    } else if (selectedGame === 'secret') {
+      processSecretData(data); // ★ シークレットナンバー通信処理呼び出し
     }
   });
 
-  // --- ウィンドウイベント・バージョン情報の適用 ---
   window.addEventListener('beforeunload', (e) => {
     if (isConnected) {
       e.preventDefault();
@@ -1203,16 +1193,13 @@ function initApp() {
     appVerEl.innerText = `Ver ${window.APP_VERSION}`;
   }
 
-  // --- ランキングシステムの初期化 ---
   initRankingSystem();
 
-// --- オンラインランキングを見るボタンのイベント設定 ---
   setClick('btn-open-ranking-modal', () => {
-    openRankingViewModal('block_drop', true); // ★ メニューからなので最新をAPIから取得する
+    openRankingViewModal('block_drop', true);
   });
 }
 
-// すでにDOMの読み込みが完了していれば即座に実行、まだならイベントを待つ
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
