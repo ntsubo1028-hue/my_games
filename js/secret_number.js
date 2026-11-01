@@ -1,4 +1,4 @@
-// js/secret_number.js - 3枚の数字推測パズル（ヒント完全重複防止・表示行数拡大・常時戻るボタン対応版）
+// js/secret_number.js - 3枚の数字推測パズル（UI更新・ロジック専用版）
 
 import { sendData } from './connection.js';
 import { playSound } from './sounds.js';
@@ -6,30 +6,30 @@ import { currentGameState } from './lobby.js';
 import { openRankingRegisterModal } from './ranking.js';
 
 export const SECRET_CONFIG = {
-  CARD_COUNT: 3,        // 場のカード枚数
-  MIN_NUMBER: 1,        // 数字の最小値
-  MAX_NUMBER: 9         // 数字の最大値
+  CARD_COUNT: 3,
+  MIN_NUMBER: 1,
+  MAX_NUMBER: 9
 };
 
 let secretState = {
-  mode: 'solo',         // 'solo' または 'multi'
+  mode: 'solo',
   isPlaying: false,
   isPaused: false,
-  secretCards: [],      // 正解の数字配列（例: [3, 7, 2]）
-  hintCount: 0,         // 使用したヒントの回数
-  hintsByCategory: {    // カテゴリー別にヒントを整理・保持
+  secretCards: [],
+  hintCount: 0,
+  hintsByCategory: {
     oddeven: [],
     compare: [],
     sum: [],
     range: []
   },
-  allHintsLog: [],      // 履歴用
-  players: [],          // プレイヤー／COMリスト
-  currentTurnIndex: 0,  // 現在のターンインデックス
-  eliminatedPlayers: [],// 脱落したプレイヤーID
-  guesses: ["", "", ""], // 各カード下の選択値
-  lastPopupMsg: "",     // 直近のヒントメッセージ
-  gameOverInfo: null    // 終了時の勝敗情報
+  allHintsLog: [],
+  players: [],
+  currentTurnIndex: 0,
+  eliminatedPlayers: [],
+  guesses: ["", "", ""],
+  lastPopupMsg: "",
+  gameOverInfo: null
 };
 
 let hostFlag = false;
@@ -39,6 +39,15 @@ let isActionProcessing = false;
 export function initSecretNumberSystem(isHost, sendFunc) {
   hostFlag = isHost;
   customSendFunc = sendFunc;
+  
+  // セレクトボックスの変更イベントを紐付け
+  document.querySelectorAll('.secret-guess-select').forEach(select => {
+    select.onchange = (e) => {
+      const idx = parseInt(e.target.getAttribute('data-index'));
+      secretState.guesses[idx] = e.target.value;
+      renderHintsListByCategory();
+    };
+  });
 }
 
 export function getSecretNumberMode() {
@@ -63,9 +72,7 @@ export async function startSecretNumberGame(isHost, mode = 'solo') {
   isActionProcessing = false;
 
   hideSecretResultOverlay();
-
-  const existingScreen = document.getElementById('secret-game-screen');
-  if (existingScreen) existingScreen.remove();
+  resetActionButtonsToDefault();
 
   if (isHost || mode === 'solo') {
     secretState.secretCards = generateSecretCards(SECRET_CONFIG.CARD_COUNT);
@@ -106,9 +113,17 @@ export async function startSecretNumberGame(isHost, mode = 'solo') {
     }
   }
 
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  let screenEl = createSecretGameScreenElement();
-  screenEl.classList.add('active');
+  // 他のゲームと同様に .screen クラスを切り替え
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+    if (s.id === 'secret-game-screen') s.style.display = 'none';
+  });
+
+  const screenEl = document.getElementById('secret-game-screen');
+  if (screenEl) {
+    screenEl.style.display = 'flex';
+    screenEl.classList.add('active');
+  }
 
   renderSecretUI();
   playSound('put');
@@ -156,84 +171,6 @@ function generateSecretCards(count) {
     [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
   }
   return numbers.slice(0, count);
-}
-
-// ==========================================
-// 🎨 メイン画面の生成（ヒント領域の行数拡大＆常時戻るボタン）
-// ==========================================
-function createSecretGameScreenElement() {
-  const div = document.createElement('div');
-  div.id = 'secret-game-screen';
-  div.className = 'screen scrollable-screen';
-  div.style.cssText = "display: flex; flex-direction: column; justify-content: space-between; padding: 6px 8px; box-sizing: border-box; height: 100dvh; overflow-y: auto;";
-  div.innerHTML = `
-    <div class="hero-header" style="padding: 2px 0; flex-shrink: 0;">
-      <div class="secret-badge" style="margin-bottom: 2px; padding: 2px 8px; font-size: 10px;">🧠 ロジック推理ゲーム</div>
-      <h2 style="margin: 2px 0; font-size: clamp(16px, 3.5vw, 20px);">シークレット・ナンバー</h2>
-      <p id="secret-turn-indicator" class="subtitle" style="margin: 1px 0; font-size: 11px;">ヒントを暴いて3桁の数字を当てろ！</p>
-    </div>
-
-    <!-- 参加者・ターンの表示ボード -->
-    <div id="secret-players-board" class="info-board" style="background: #e3f2fd; color: #0d47a1; margin-bottom: 3px; flex-direction: column; gap: 2px; align-items: flex-start; padding: 3px 6px; font-size: 11px; flex-shrink: 0;">
-      <div style="font-weight: bold;">参加プレイヤー:</div>
-      <div id="secret-players-list" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
-    </div>
-
-    <!-- 直近のヒント表示エリア -->
-    <div style="background: #fffde7; border: 1.5px solid #fbc02d; padding: 3px 6px; border-radius: 6px; margin-bottom: 3px; text-align: center; flex-shrink: 0;">
-      <div style="font-size: 9px; font-weight: bold; color: #f57f17; margin-bottom: 1px;">💡 最新のヒント</div>
-      <div id="secret-latest-hint-text" style="font-size: clamp(11px, 2.8vw, 13px); font-weight: bold; color: #333;">ゲーム開始！アクションを選ぼう</div>
-    </div>
-
-    <div class="info-board" style="justify-content: center; gap: 6px; margin-bottom: 3px; padding: 2px; flex-shrink: 0; font-size: 11px;">
-      <span>💡 ヒント使用回数: <b id="secret-hint-count" style="color: #d81b60; font-size: 13px;">0</b>回</span>
-    </div>
-
-    <!-- カテゴリー別ヒント一覧エリア（行数・高さを少し広めに拡大） -->
-    <div style="background: #f5f5f5; border: 1px solid #ccc; padding: 6px 8px; border-radius: 6px; max-width: 480px; width: 100%; margin: 0 auto 3px auto; text-align: left; max-height: 160px; overflow-y: auto; flex-shrink: 1;">
-      <div style="font-weight: bold; font-size: 10px; color: #333; margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 1px;">📋 カテゴリ別ヒント一覧（選択値で色が変わります）</div>
-      
-      <div style="margin-bottom: 4px;">
-        <div style="font-size: 9px; font-weight: bold; color: #0288d1; margin-bottom: 1px;">🔍 奇数・偶数</div>
-        <div id="hints-category-oddeven" style="display: flex; flex-direction: column; gap: 2px; font-size: 10px;"></div>
-      </div>
-      <div style="margin-bottom: 4px;">
-        <div style="font-size: 9px; font-weight: bold; color: #7b1fa2; margin-bottom: 1px;">⚖️ 大小比較</div>
-        <div id="hints-category-compare" style="display: flex; flex-direction: column; gap: 2px; font-size: 10px;"></div>
-      </div>
-      <div style="margin-bottom: 4px;">
-        <div style="font-size: 9px; font-weight: bold; color: #e65100; margin-bottom: 1px;">➕ 合計値</div>
-        <div id="hints-category-sum" style="display: flex; flex-direction: column; gap: 2px; font-size: 10px;"></div>
-      </div>
-      <div style="margin-bottom: 2px;">
-        <div style="font-size: 9px; font-weight: bold; color: #2e7d32; margin-bottom: 1px;">🎯 範囲</div>
-        <div id="hints-category-range" style="display: flex; flex-direction: column; gap: 2px; font-size: 10px;"></div>
-      </div>
-    </div>
-
-    <!-- 各カード下のセレクトボックス ＆ 回答ボタン -->
-    <div class="game-board-container" style="margin-bottom: 3px; flex-shrink: 0;">
-      <div id="secret-inputs-container" style="display: flex; gap: 8px; justify-content: center; align-items: center; width: 100%;"></div>
-    </div>
-
-    <!-- 調査アクション（ヒント）ボタン群 -->
-    <div id="secret-action-buttons-container" class="step-container" style="text-align: center; padding: 4px; margin-bottom: 3px; max-width: 480px; width: 100%; flex-shrink: 0;">
-      <div style="font-weight: bold; margin-bottom: 2px; font-size: 10px; color: #555;">【 調査アクションを選ぶ（1回につきヒント+1） 】</div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; max-width: 450px; margin: 0 auto;">
-        <button class="btn-action" onclick="window.secretActionOddEven()" style="background: #0288d1; padding: 4px; font-size: 11px; min-height: 30px;">🔍 奇数・偶数</button>
-        <button class="btn-action" onclick="window.secretActionCompare()" style="background: #7b1fa2; padding: 4px; font-size: 11px; min-height: 30px;">⚖️ 大小比較</button>
-        <button class="btn-action" onclick="window.secretActionSum()" style="background: #e65100; padding: 4px; font-size: 11px; min-height: 30px;">➕ 合計値</button>
-        <button class="btn-action" onclick="window.secretActionRange()" style="background: #2e7d32; padding: 4px; font-size: 11px; min-height: 30px;">🎯 範囲</button>
-      </div>
-    </div>
-
-    <!-- 途中終了も可能な「ロビーに戻る」ボタンを常時配置 -->
-    <div class="button-group" style="margin-top: 1px; margin-bottom: 2px; flex-shrink: 0;">
-      <button class="btn-action secondary-btn" onclick="window.returnFromSecretGame()" style="padding: 5px; font-size: 11px; min-height: 30px;" id="secret-back-btn">🏠 ロビーに戻る</button>
-    </div>
-  `;
-  document.body.appendChild(div);
-  return div;
 }
 
 // ==========================================
@@ -308,7 +245,8 @@ function getAvailableActionTypes() {
   const maxComparePairs = cards.length * (cards.length - 1);
   if (secretState.hintsByCategory.compare.length < maxComparePairs) types.push('compare');
 
-  types.push('sum');
+  const maxSums = (cards.length * (cards.length - 1)) / 2;
+  if (secretState.hintsByCategory.sum.length < maxSums) types.push('sum');
 
   const checkedRangeIndices = secretState.hintsByCategory.range.map(h => h.index);
   if (checkedRangeIndices.length < cards.length) types.push('range');
@@ -404,7 +342,7 @@ function handleComAnswer(comP, guessArr, isCorrect) {
 }
 
 // ==========================================
-// 🔍 調査アクション実行（完全な重複防止チェック付き）
+// 🔍 調査アクション実行
 // ==========================================
 export function executeSecretAction(type) {
   if (!secretState.isPlaying || secretState.isPaused || isActionProcessing) return;
@@ -443,7 +381,6 @@ function canExecuteActionType(type) {
     return secretState.hintsByCategory.compare.length < maxPairs;
   }
   if (type === 'sum') {
-    // 合計値はすべての組み合わせ（n * (n-1) / 2）を上限とする
     const maxSums = (cards.length * (cards.length - 1)) / 2;
     return secretState.hintsByCategory.sum.length < maxSums;
   }
@@ -628,7 +565,7 @@ window.submitSecretAnswerFromMain = function() {
 };
 
 // ==========================================
-// 🏆 勝敗決定後の中央ポップアップ表示 ＆ 3秒後の再戦ボタン置換
+// 🏆 勝敗決定後の処理
 // ==========================================
 function endSecretGame(isWin, winnerName) {
   secretState.isPlaying = false;
@@ -650,7 +587,8 @@ function triggerGameOverUI(resultType, titleText, descText) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'secret-result-overlay';
-    document.getElementById('secret-game-screen').appendChild(overlay);
+    const screenEl = document.getElementById('secret-game-screen');
+    if (screenEl) screenEl.appendChild(overlay);
   }
   overlay.style.cssText = `
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -699,6 +637,20 @@ function replaceActionButtonsWithRematch() {
   `;
 }
 
+function resetActionButtonsToDefault() {
+  const actionContainer = document.getElementById('secret-action-buttons-container');
+  if (!actionContainer) return;
+  actionContainer.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 2px; font-size: 10px; color: #555;">【 調査アクションを選ぶ（1回につきヒント+1） 】</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; max-width: 450px; margin: 0 auto;">
+      <button class="btn-action" onclick="window.secretActionOddEven()" style="background: #0288d1; padding: 4px; font-size: 11px; min-height: 30px;">🔍 奇数・偶数</button>
+      <button class="btn-action" onclick="window.secretActionCompare()" style="background: #7b1fa2; padding: 4px; font-size: 11px; min-height: 30px;">⚖️ 大小比較</button>
+      <button class="btn-action" onclick="window.secretActionSum()" style="background: #e65100; padding: 4px; font-size: 11px; min-height: 30px;">➕ 合計値</button>
+      <button class="btn-action" onclick="window.secretActionRange()" style="background: #2e7d32; padding: 4px; font-size: 11px; min-height: 30px;">🎯 範囲</button>
+    </div>
+  `;
+}
+
 window.executeSecretRematch = function() {
   if (secretState.mode === 'multi' && customSendFunc) {
     customSendFunc({ type: 'SECRET_REMATCH' });
@@ -711,7 +663,7 @@ window.returnFromSecretGame = function() {
   
   const gameScreen = document.getElementById('secret-game-screen');
   if (gameScreen) {
-    gameScreen.remove();
+    gameScreen.style.display = 'none';
   }
 
   if (secretState.mode === 'multi') {
@@ -724,7 +676,7 @@ window.returnFromSecretGame = function() {
 };
 
 // ==========================================
-// 🎨 メイン画面UI描画
+// 🎨 UI描画・更新処理
 // ==========================================
 function renderSecretUI() {
   const hintCountEl = document.getElementById('secret-hint-count');
@@ -765,51 +717,12 @@ function renderSecretUI() {
     }).join('');
   }
 
-  const inputsContainer = document.getElementById('secret-inputs-container');
-  if (inputsContainer) {
-    inputsContainer.innerHTML = '';
-    for (let i = 0; i < SECRET_CONFIG.CARD_COUNT; i++) {
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = "display: flex; flex-direction: column; align-items: center; gap: 2px;";
-      
-      const select = document.createElement('select');
-      select.style.cssText = "width: 48px; height: 42px; font-size: 18px; font-weight: bold; text-align-last: center; border-radius: 6px; border: 2px solid #3f51b5; background: #fff; color: #333; cursor: pointer;";
-      
-      const defaultOpt = document.createElement('option');
-      defaultOpt.value = "";
-      defaultOpt.innerText = "-";
-      select.appendChild(defaultOpt);
-
-      for (let n = SECRET_CONFIG.MIN_NUMBER; n <= SECRET_CONFIG.MAX_NUMBER; n++) {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.innerText = n;
-        if (String(secretState.guesses[i]) === String(n)) {
-          opt.selected = true;
-        }
-        select.appendChild(opt);
-      }
-
-      select.onchange = (e) => {
-        secretState.guesses[i] = e.target.value;
-        renderHintsListByCategory();
-      };
-
-      const label = document.createElement('span');
-      label.style.cssText = "font-size: 10px; font-weight: bold; color: #333;";
-      label.innerText = `${i + 1}番目`;
-
-      wrapper.appendChild(label);
-      wrapper.appendChild(select);
-      inputsContainer.appendChild(wrapper);
+  // セレクトボックスの選択状態を同期
+  for (let i = 0; i < SECRET_CONFIG.CARD_COUNT; i++) {
+    const selectEl = document.getElementById(`secret-guess-${i}`);
+    if (selectEl) {
+      selectEl.value = secretState.guesses[i] || "";
     }
-
-    const submitBtnWrapper = document.createElement('div');
-    submitBtnWrapper.style.cssText = "display: flex; align-items: center; margin-left: 6px; margin-top: 10px;";
-    submitBtnWrapper.innerHTML = `
-      <button class="btn-action" onclick="window.submitSecretAnswerFromMain()" style="background: #4caf50; font-size: 12px; font-weight: bold; padding: 10px 12px; margin: 0; min-height: unset; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">💡 回答する！</button>
-    `;
-    inputsContainer.appendChild(submitBtnWrapper);
   }
 
   renderHintsListByCategory();
